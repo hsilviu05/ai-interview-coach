@@ -1,0 +1,6 @@
+@AIInterviewCoach.API_HostAddress = http://localhost:5291
+
+GET {{AIInterviewCoach.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
