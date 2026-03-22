@@ -1,4 +1,5 @@
 using AIInterviewCoach.API.Extensions;
+using AIInterviewCoach.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,12 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await DBSedder.SeedAsync(dbContext);
 }
 
 app.UseHttpsRedirection();
