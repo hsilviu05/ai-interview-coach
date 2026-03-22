@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="AIInterviewCoach.API/AIInterviewCoach.API.csproj" />
+  <Project Path="AIInterviewCoach.Application/AIInterviewCoach.Application.csproj" />
+  <Project Path="AIInterviewCoach.Domain/AIInterviewCoach.Domain.csproj" />
+  <Project Path="AIInterviewCoach.Infrastructure/AIInterviewCoach.Infrastructure.csproj" />
+  <Project Path="AIInterviewCoach.Tests/AIInterviewCoach.Tests.csproj" />
+</Solution>

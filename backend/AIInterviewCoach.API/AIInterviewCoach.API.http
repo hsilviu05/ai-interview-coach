@@ -1,0 +1,82 @@
+@baseUrl = http://localhost:5291/api
+
+### Register a new user
+# @name registerCandidate
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Silviu Hermeneanu",
+  "email": "silviu@test.com",
+  "password": "Password123!",
+  "role": "Candidate"
+}
+
+### Register a new user
+# @name registerInterviewer
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Interviewer",
+  "email": "interviewer@test.com",
+  "password": "Password123!",
+  "role": "Interviewer"
+}
+
+### Login
+# @name loginInterviewer
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "interviewer@test.com",
+  "password": "Password123!"
+}
+
+### Token variable from login response
+@token = {{loginInterviewer.response.body.token}}
+
+### Get current user (requires auth)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{token}}
+
+### Create problem (Interviewer only)
+# @name createProblem
+POST {{baseUrl}}/problems
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Two Sum",
+  "description": "Find two numbers that add up to target",
+  "difficulty": "Easy",
+  "topic": "Arrays",
+  "constraintsText": "2 <= nums.length <= 10000",
+  "exampleInput": "[2,7,11,15], 9",
+  "exampleOutput": "[0,1]",
+  "isPublic": true
+}
+
+###
+@problemId = {{createProblem.response.body.id}}
+
+### Get all problems
+GET {{baseUrl}}/problems
+Authorization: Bearer {{token}}
+
+### Add test case
+POST {{baseUrl}}/problems/{{problemId}}/testcases
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "input": "[2,7,11,15], 9",
+  "expectedOutput": "[0,1]",
+  "isHidden": false,
+  "orderIndex": 1
+}
+
+### Get test cases
+GET {{baseUrl}}/problems/{{problemId}}/testcases
+Authorization: Bearer {{token}}
