@@ -7,6 +7,9 @@ namespace AIInterviewCoach.Application.Interfaces.Services
     {
         DbSet<User> Users { get; }
         DbSet<CandidateStatistic> CandidateStatistics { get; }
+        DbSet<Problem> Problems { get; }
+        DbSet<TestCase> TestCases { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

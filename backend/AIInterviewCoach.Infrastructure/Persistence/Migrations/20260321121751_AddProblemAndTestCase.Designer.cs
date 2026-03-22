@@ -3,6 +3,7 @@ using System;
 using AIInterviewCoach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260321121751_AddProblemAndTestCase")]
+    partial class AddProblemAndTestCase
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -87,7 +90,7 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<bool>("IsPublic")
+                    b.Property<bool>("IsPrivate")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Title")
@@ -133,9 +136,14 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ProblemId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("TestCaseId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ProblemId");
+
+                    b.HasIndex("TestCaseId");
 
                     b.ToTable("TestCases");
                 });
@@ -207,10 +215,19 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("AIInterviewCoach.Domain.Entities.TestCase", null)
+                        .WithMany("TestCases")
+                        .HasForeignKey("TestCaseId");
+
                     b.Navigation("Problem");
                 });
 
             modelBuilder.Entity("AIInterviewCoach.Domain.Entities.Problem", b =>
+                {
+                    b.Navigation("TestCases");
+                });
+
+            modelBuilder.Entity("AIInterviewCoach.Domain.Entities.TestCase", b =>
                 {
                     b.Navigation("TestCases");
                 });
