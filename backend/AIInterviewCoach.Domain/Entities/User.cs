@@ -16,7 +16,7 @@ namespace AIInterviewCoach.Domain.Entities
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
 
-        public CandidateStatistic? candidateStatistics { get; set; }
+        public CandidateStatistic? CandidateStatistics { get; set; }
         public ICollection<Problem> Problems { get; set; } = new List<Problem>();
     }
 }

@@ -3,6 +3,7 @@ using System;
 using AIInterviewCoach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260325225822_UpdateInterviewEntities")]
+    partial class UpdateInterviewEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -62,16 +65,14 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("AccessToken")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
+                        .HasColumnType("text");
 
                     b.Property<int>("DurationMinutes")
                         .HasColumnType("integer");
@@ -84,13 +85,11 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("PositionName")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -142,8 +141,9 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("SubmittedAt")
                         .HasColumnType("timestamp with time zone");
@@ -152,8 +152,6 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("CandidateId");
 
                     b.HasIndex("InterviewId");
 
@@ -214,59 +212,6 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                     b.HasIndex("CreatedByUserId");
 
                     b.ToTable("Problems");
-                });
-
-            modelBuilder.Entity("AIInterviewCoach.Domain.Entities.Submission", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CandidateId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int?>("ExecutionTimeMs")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid?>("InterviewSessionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Language")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<int?>("MemoryKb")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("PassedTests")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("ProblemId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("SourceCode")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("SubmittedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("TotalTests")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CandidateId");
-
-                    b.HasIndex("InterviewSessionId");
-
-                    b.HasIndex("ProblemId");
-
-                    b.ToTable("Submissions");
                 });
 
             modelBuilder.Entity("AIInterviewCoach.Domain.Entities.TestCase", b =>
@@ -339,7 +284,7 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("AIInterviewCoach.Domain.Entities.CandidateStatistic", b =>
                 {
                     b.HasOne("AIInterviewCoach.Domain.Entities.User", "Candidate")
-                        .WithOne("CandidateStatistics")
+                        .WithOne("candidateStatistics")
                         .HasForeignKey("AIInterviewCoach.Domain.Entities.CandidateStatistic", "CandidateId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -358,7 +303,7 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                     b.HasOne("AIInterviewCoach.Domain.Entities.Problem", "Problem")
                         .WithMany()
                         .HasForeignKey("ProblemId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Interview");
@@ -368,21 +313,11 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("AIInterviewCoach.Domain.Entities.InterviewSession", b =>
                 {
-                    b.HasOne("AIInterviewCoach.Domain.Entities.User", "Candidate")
-                        .WithMany()
-                        .HasForeignKey("CandidateId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("AIInterviewCoach.Domain.Entities.Interview", "Interview")
+                    b.HasOne("AIInterviewCoach.Domain.Entities.Interview", null)
                         .WithMany("Sessions")
                         .HasForeignKey("InterviewId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Candidate");
-
-                    b.Navigation("Interview");
                 });
 
             modelBuilder.Entity("AIInterviewCoach.Domain.Entities.Problem", b =>
@@ -394,32 +329,6 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("CreatedBy");
-                });
-
-            modelBuilder.Entity("AIInterviewCoach.Domain.Entities.Submission", b =>
-                {
-                    b.HasOne("AIInterviewCoach.Domain.Entities.User", "Candidate")
-                        .WithMany()
-                        .HasForeignKey("CandidateId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("AIInterviewCoach.Domain.Entities.InterviewSession", "InterviewSession")
-                        .WithMany("Submissions")
-                        .HasForeignKey("InterviewSessionId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("AIInterviewCoach.Domain.Entities.Problem", "Problem")
-                        .WithMany()
-                        .HasForeignKey("ProblemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Candidate");
-
-                    b.Navigation("InterviewSession");
-
-                    b.Navigation("Problem");
                 });
 
             modelBuilder.Entity("AIInterviewCoach.Domain.Entities.TestCase", b =>
@@ -440,11 +349,6 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                     b.Navigation("Sessions");
                 });
 
-            modelBuilder.Entity("AIInterviewCoach.Domain.Entities.InterviewSession", b =>
-                {
-                    b.Navigation("Submissions");
-                });
-
             modelBuilder.Entity("AIInterviewCoach.Domain.Entities.Problem", b =>
                 {
                     b.Navigation("TestCases");
@@ -452,9 +356,9 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("AIInterviewCoach.Domain.Entities.User", b =>
                 {
-                    b.Navigation("CandidateStatistics");
-
                     b.Navigation("Problems");
+
+                    b.Navigation("candidateStatistics");
                 });
 #pragma warning restore 612, 618
         }
