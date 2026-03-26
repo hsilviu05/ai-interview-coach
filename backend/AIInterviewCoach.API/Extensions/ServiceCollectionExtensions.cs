@@ -16,6 +16,7 @@ namespace AIInterviewCoach.API.Extensions
         {
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProblemService, ProblemService>();
+            services.AddScoped<IInterviewService, InterviewService>();
             services.AddScoped<IPasswordHasherService, PasswordHasherService>();
             services.AddScoped<IJwtTokenService, JwtTokenService>();
 

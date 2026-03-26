@@ -80,3 +80,39 @@ Content-Type: application/json
 ### Get test cases
 GET {{baseUrl}}/problems/{{problemId}}/testcases
 Authorization: Bearer {{token}}
+
+### Create interview
+# @name createInterview
+POST {{baseUrl}}/interviews
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Junior Backend Interview",
+  "positionName": "Junior Backend Developer",
+  "description": "Basic backend interview",
+  "durationMinutes": 60
+}
+
+###
+@interviewId = {{createInterview.response.body.id}}
+@interviewToken = {{createInterview.response.body.accessToken}}
+
+### Add problem to interview
+POST {{baseUrl}}/interviews/{{interviewId}}/problems
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "problemId": "{{problemId}}",
+  "orderIndex": 1,
+  "points": 100
+}
+
+### Get interview by id
+GET {{baseUrl}}/interviews/{{interviewId}}
+Authorization: Bearer {{token}}
+
+### Get interview by token
+GET {{baseUrl}}/interviews/token/{{interviewToken}}
+Authorization: Bearer {{token}}

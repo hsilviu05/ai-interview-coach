@@ -9,6 +9,10 @@ namespace AIInterviewCoach.Application.Interfaces.Services
         DbSet<CandidateStatistic> CandidateStatistics { get; }
         DbSet<Problem> Problems { get; }
         DbSet<TestCase> TestCases { get; }
+        DbSet<Interview> Interviews { get; }
+        DbSet<InterviewProblem> InterviewProblems { get; }
+        DbSet<InterviewSession> InterviewSessions { get; }
+        DbSet<Submission> Submissions { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
