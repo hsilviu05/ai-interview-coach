@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class UpdateInterviewSubmissionRelations : Migration
+    public partial class AddSubmissionFlowStringStatuses : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -15,10 +15,11 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                 name: "FK_InterviewProblems_Problems_ProblemId",
                 table: "InterviewProblems");
 
-            migrationBuilder.AlterColumn<int>(
+            migrationBuilder.AlterColumn<string>(
                 name: "Status",
                 table: "InterviewSessions",
-                type: "integer",
+                type: "character varying(30)",
+                maxLength: 30,
                 nullable: false,
                 oldClrType: typeof(string),
                 oldType: "text");
@@ -74,7 +75,9 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                     TotalTests = table.Column<int>(type: "integer", nullable: false),
                     ExecutionTimeMs = table.Column<int>(type: "integer", nullable: true),
                     MemoryKb = table.Column<int>(type: "integer", nullable: true),
-                    SubmittedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    SubmittedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    ExecutionOutput = table.Column<string>(type: "text", nullable: true),
+                    AiFeedback = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -159,8 +162,9 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                 table: "InterviewSessions",
                 type: "text",
                 nullable: false,
-                oldClrType: typeof(int),
-                oldType: "integer");
+                oldClrType: typeof(string),
+                oldType: "character varying(30)",
+                oldMaxLength: 30);
 
             migrationBuilder.AlterColumn<string>(
                 name: "Title",

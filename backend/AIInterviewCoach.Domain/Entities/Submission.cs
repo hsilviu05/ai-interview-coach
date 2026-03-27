@@ -19,6 +19,8 @@ namespace AIInterviewCoach.Domain.Entities
         public int? ExecutionTimeMs { get; set; }
         public int? MemoryKb { get; set; }
         public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
+        public string? ExecutionOutput { get; set; }
+        public string? AiFeedback { get; set; }
     }
 
 }

@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260326100323_UpdateInterviewSubmissionRelations")]
-    partial class UpdateInterviewSubmissionRelations
+    [Migration("20260327160658_AddSubmissionFlowStringStatuses")]
+    partial class AddSubmissionFlowStringStatuses
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -145,8 +145,10 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
 
                     b.Property<DateTime?>("SubmittedAt")
                         .HasColumnType("timestamp with time zone");
@@ -225,8 +227,14 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AiFeedback")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("CandidateId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ExecutionOutput")
+                        .HasColumnType("text");
 
                     b.Property<int?>("ExecutionTimeMs")
                         .HasColumnType("integer");
