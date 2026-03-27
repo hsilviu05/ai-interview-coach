@@ -98,6 +98,18 @@ Content-Type: application/json
 @interviewId = {{createInterview.response.body.id}}
 @interviewToken = {{createInterview.response.body.accessToken}}
 
+### Login candidate
+# @name loginCandidate
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "silviu@test.com",
+  "password": "Password123!"
+}
+###
+@candidateToken = {{loginCandidate.response.body.token}}
+
 ### Add problem to interview
 POST {{baseUrl}}/interviews/{{interviewId}}/problems
 Authorization: Bearer {{token}}
@@ -116,3 +128,31 @@ Authorization: Bearer {{token}}
 ### Get interview by token
 GET {{baseUrl}}/interviews/token/{{interviewToken}}
 Authorization: Bearer {{token}}
+
+### Start interview session
+# @name startInterview
+POST {{baseUrl}}/interviews/token/{{interviewToken}}/start
+Authorization: Bearer {{candidateToken}}
+
+###
+@interviewSessionId = {{startInterview.response.body.id}}
+
+### Create submission
+POST {{baseUrl}}/submissions
+Authorization: Bearer {{candidateToken}}
+Content-Type: application/json
+
+{
+  "problemId": "{{problemId}}",
+  "interviewSessionId": "{{interviewSessionId}}",
+  "language": "csharp",
+  "sourceCode": "public class Solution { }"
+}
+
+### Get my submissions
+GET {{baseUrl}}/submissions/me
+Authorization: Bearer {{candidateToken}}
+
+### Get submissions by session
+GET {{baseUrl}}/submissions/session/{{interviewSessionId}}
+Authorization: Bearer {{candidateToken}}

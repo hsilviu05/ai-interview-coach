@@ -132,6 +132,11 @@ namespace AIInterviewCoach.Infrastructure.Persistence
             {
                 entity.HasKey(x => x.Id);
 
+                entity.Property(x => x.Status)
+                    .HasConversion<string>()
+                    .HasMaxLength(30)
+                    .IsRequired();
+
                 entity.HasOne(x => x.Interview)
                     .WithMany(x => x.Sessions)
                     .HasForeignKey(x => x.InterviewId)

@@ -17,9 +17,9 @@ namespace AIInterviewCoach.API.Extensions
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProblemService, ProblemService>();
             services.AddScoped<IInterviewService, InterviewService>();
+            services.AddScoped<ISubmissionService, SubmissionService>();
             services.AddScoped<IPasswordHasherService, PasswordHasherService>();
             services.AddScoped<IJwtTokenService, JwtTokenService>();
-
 
             return services;
         }
@@ -35,7 +35,7 @@ namespace AIInterviewCoach.API.Extensions
 
             services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
 
-            
+
             return services;
         }
 
