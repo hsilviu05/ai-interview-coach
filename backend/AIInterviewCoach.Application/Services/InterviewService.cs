@@ -1,5 +1,6 @@
 using AIInterviewCoach.Application.DTOs.Interviews;
 using AIInterviewCoach.Application.Interfaces.Services;
+using AIInterviewCoach.Application.DTOs.Submissions;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -185,6 +186,104 @@ namespace AIInterviewCoach.Application.Services
                 SubmittedAt = session.SubmittedAt,
                 Status = session.Status.ToString(),
                 TotalScore = session.TotalScore
+            };
+        }
+
+        public async Task<InterviewSessionResponseDto> CompleteSessionAsync(Guid sessionId, Guid candidateId)
+        {
+            var session = await _dbContext.InterviewSessions
+                .Include(s => s.Interview)
+                    .ThenInclude(i => i.InterviewProblems)
+                .Include(s => s.Submissions)
+                .FirstOrDefaultAsync(s => s.Id == sessionId && s.CandidateId == candidateId);
+
+            if (session is null)
+                throw new KeyNotFoundException("Interview session not found.");
+
+            if (session.Status == InterviewSessionStatus.Completed)
+                return MapSessionToDto(session);
+
+            if (session.Status != InterviewSessionStatus.InProgress)
+                throw new InvalidOperationException("Only in-progress interview sessions can be completed.");
+
+            var totalScore = 0;
+
+            foreach (var interviewProblem in session.Interview.InterviewProblems)
+            {
+                var hasAcceptedSubmission = session.Submissions
+                    .Any(s => s.ProblemId == interviewProblem.ProblemId &&
+                              s.Status == SubmissionStatus.Accepted);
+
+                if (hasAcceptedSubmission)
+                {
+                    totalScore += interviewProblem.Points;
+                }
+            }
+
+            session.TotalScore = totalScore;
+            session.Status = InterviewSessionStatus.Completed;
+            session.SubmittedAt = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
+
+            return MapSessionToDto(session);
+        }
+
+        public async Task<IEnumerable<InterviewSessionResponseDto>> GetInterviewSessionsAsync(Guid interviewId, Guid interviewerId)
+        {
+            var interview = await _dbContext.Interviews
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == interviewId);
+
+            if (interview is null)
+                throw new KeyNotFoundException("Interview not found.");
+
+            if (interview.InterviewerId != interviewerId)
+                throw new UnauthorizedAccessException("You can only access your own interviews.");
+
+            var sessions = await _dbContext.InterviewSessions
+                .AsNoTracking()
+                .Where(s => s.InterviewId == interviewId)
+                .OrderByDescending(s => s.StartedAt)
+                .ToListAsync();
+
+            return sessions.Select(MapSessionToDto).ToList();
+        }
+        public async Task<InterviewSessionDetailsDto> GetInterviewSessionDetailsAsync(Guid sessionId, Guid interviewerId)
+        {
+            var session = await _dbContext.InterviewSessions
+                .AsNoTracking()
+                .Include(s => s.Interview)
+                .Include(s => s.Submissions)
+                .FirstOrDefaultAsync(s => s.Id == sessionId);
+
+            if (session is null)
+                throw new KeyNotFoundException("Interview session not found.");
+
+            if (session.Interview.InterviewerId != interviewerId)
+                throw new UnauthorizedAccessException("You can only access sessions from your own interviews.");
+
+            return new InterviewSessionDetailsDto
+            {
+                Session = MapSessionToDto(session),
+                Submissions = session.Submissions
+                    .OrderByDescending(s => s.SubmittedAt)
+                    .Select(s => new SubmissionResponseDto
+                    {
+                        Id = s.Id,
+                        CandidateId = s.CandidateId,
+                        ProblemId = s.ProblemId,
+                        InterviewSessionId = s.InterviewSessionId,
+                        Language = s.Language,
+                        SourceCode = s.SourceCode,
+                        Status = s.Status.ToString(),
+                        PassedTests = s.PassedTests,
+                        TotalTests = s.TotalTests,
+                        ExecutionTimeMs = s.ExecutionTimeMs,
+                        MemoryKb = s.MemoryKb,
+                        SubmittedAt = s.SubmittedAt
+                    })
+                    .ToList()
             };
         }
     }

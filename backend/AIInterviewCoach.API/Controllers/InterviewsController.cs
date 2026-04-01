@@ -80,6 +80,16 @@ namespace AIInterviewCoach.API.Controllers
             return Ok(session);
         }
 
+        [HttpPost("sessions/{sessionId:guid}/complete")]
+        [Authorize(Roles = "Candidate,Admin")]
+        public async Task<IActionResult> CompleteInterviewSession(Guid sessionId)
+        {
+            var candidateId = GetCurrentUserId();
+            var result = await _interviewService.CompleteSessionAsync(sessionId, candidateId);
+
+            return Ok(result);
+        }
+
         private Guid GetCurrentUserId()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)
@@ -89,6 +99,26 @@ namespace AIInterviewCoach.API.Controllers
                 throw new UnauthorizedAccessException("Invalid user token.");
 
             return userId;
+        }
+
+        [HttpGet("{interviewId:guid}/sessions")]
+        [Authorize(Roles = "Interviewer,Admin")]
+        public async Task<IActionResult> GetInterviewSessions(Guid interviewId)
+        {
+            var interviewerId = GetCurrentUserId();
+            var result = await _interviewService.GetInterviewSessionsAsync(interviewId, interviewerId);
+
+            return Ok(result);
+        }
+
+        [HttpGet("sessions/{sessionId:guid}")]
+        [Authorize(Roles = "Interviewer,Admin")]
+        public async Task<IActionResult> GetInterviewSessionDetails(Guid sessionId)
+        {
+            var interviewerId = GetCurrentUserId();
+            var result = await _interviewService.GetInterviewSessionDetailsAsync(sessionId, interviewerId);
+
+            return Ok(result);
         }
     }
 }

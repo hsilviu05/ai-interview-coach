@@ -156,3 +156,7 @@ Authorization: Bearer {{candidateToken}}
 ### Get submissions by session
 GET {{baseUrl}}/submissions/session/{{interviewSessionId}}
 Authorization: Bearer {{candidateToken}}
+
+### Complete interview session
+POST {{baseUrl}}/interviews/sessions/{{interviewSessionId}}/complete
+Authorization: Bearer {{candidateToken}}
