@@ -9,5 +9,9 @@ namespace AIInterviewCoach.Application.Interfaces.Services
         Task<InterviewResponseDto?> GetByIdAsync(Guid id);
         Task<InterviewResponseDto?> GetByTokenAsync(string token);
         Task<InterviewSessionResponseDto> StartSessionAsync(string token, Guid candidateId);
+        Task<InterviewSessionResponseDto> CompleteSessionAsync(Guid sessionId, Guid candidateId);
+        Task<IEnumerable<InterviewSessionResponseDto>> GetInterviewSessionsAsync(Guid interviewId, Guid interviewerId);
+        Task<InterviewSessionDetailsDto> GetInterviewSessionDetailsAsync(Guid sessionId, Guid interviewerId);
+
     }
 }
