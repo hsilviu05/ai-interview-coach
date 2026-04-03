@@ -1,1 +1,117 @@
-<h1>Register Page</h1>
+<div class="page">
+  <div class="background-grid"></div>
+
+  <div class="auth-shell">
+    <div class="brand-panel">
+      <div class="brand-badge">AI Interview Coach</div>
+      <h1>Create your account and start using the platform immediately.</h1>
+      <p>
+        Register as a candidate to practice interviews, or as an interviewer to create
+        interview sessions, assign problems, and review submissions.
+      </p>
+
+      <div class="brand-points">
+        <div class="point">
+          <span class="point-dot"></span>
+          <span>Candidate and interviewer roles</span>
+        </div>
+        <div class="point">
+          <span class="point-dot"></span>
+          <span>Structured technical interview workflow</span>
+        </div>
+        <div class="point">
+          <span class="point-dot"></span>
+          <span>Fast onboarding for testing and demos</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="logo-mark">AIC</div>
+        <div>
+          <h2>Create account</h2>
+          <p>Register to access the platform</p>
+        </div>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="submit()" class="form">
+        <div class="field">
+          <label for="fullName">Full name</label>
+          <div class="input-wrapper">
+            <input
+              id="fullName"
+              type="text"
+              formControlName="fullName"
+              placeholder="Your full name" />
+          </div>
+          <small
+            class="validation"
+            *ngIf="form.controls.fullName.touched && form.controls.fullName.invalid">
+            Full name must contain at least 2 characters.
+          </small>
+        </div>
+
+        <div class="field">
+          <label for="email">Email</label>
+          <div class="input-wrapper">
+            <input
+              id="email"
+              type="email"
+              formControlName="email"
+              placeholder="you@example.com" />
+          </div>
+          <small
+            class="validation"
+            *ngIf="form.controls.email.touched && form.controls.email.invalid">
+            Please enter a valid email.
+          </small>
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="input-wrapper">
+            <input
+              id="password"
+              type="password"
+              formControlName="password"
+              placeholder="Create a password" />
+          </div>
+          <small
+            class="validation"
+            *ngIf="form.controls.password.touched && form.controls.password.invalid">
+            Password must contain at least 6 characters.
+          </small>
+        </div>
+
+        <div class="field">
+          <label for="role">Role</label>
+          <div class="input-wrapper">
+            <select id="role" formControlName="role">
+              <option value="Candidate">Candidate</option>
+              <option value="Interviewer">Interviewer</option>
+            </select>
+          </div>
+        </div>
+
+        <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+        <p class="success" *ngIf="successMessage">{{ successMessage }}</p>
+
+        <button type="submit" [disabled]="loading" class="primary-btn">
+          {{ loading ? 'Creating account...' : 'Register' }}
+        </button>
+      </form>
+
+      <div class="divider">
+        <span></span>
+        <p>Create your workspace</p>
+        <span></span>
+      </div>
+
+      <p class="footer-text">
+        Already have an account?
+        <a routerLink="/login">Login</a>
+      </p>
+    </div>
+  </div>
+</div>
