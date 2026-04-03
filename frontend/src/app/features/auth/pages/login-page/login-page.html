@@ -1,1 +1,90 @@
-<h1>Login Page</h1>
+<div class="page">
+  <div class="background-grid"></div>
+
+  <div class="auth-shell">
+    <div class="brand-panel">
+      <div class="brand-badge">AI Interview Coach</div>
+      <h1>Practice interviews with structure, feedback, and measurable progress.</h1>
+      <p>
+        A focused platform for candidates and interviewers to manage technical interview
+        sessions, submissions, and evaluation workflows.
+      </p>
+
+      <div class="brand-points">
+        <div class="point">
+          <span class="point-dot"></span>
+          <span>Structured interview sessions</span>
+        </div>
+        <div class="point">
+          <span class="point-dot"></span>
+          <span>Submission tracking and scoring</span>
+        </div>
+        <div class="point">
+          <span class="point-dot"></span>
+          <span>Clear recruiter review flow</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="logo-mark">AIC</div>
+        <div>
+          <h2>Welcome back</h2>
+          <p>Sign in to continue to your workspace</p>
+        </div>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="submit()" class="form">
+        <div class="field">
+          <label for="email">Email</label>
+          <div class="input-wrapper">
+            <input
+              id="email"
+              type="email"
+              formControlName="email"
+              placeholder="you@example.com" />
+          </div>
+          <small
+            class="validation"
+            *ngIf="form.controls.email.touched && form.controls.email.invalid">
+            Please enter a valid email.
+          </small>
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="input-wrapper">
+            <input
+              id="password"
+              type="password"
+              formControlName="password"
+              placeholder="Enter your password" />
+          </div>
+          <small
+            class="validation"
+            *ngIf="form.controls.password.touched && form.controls.password.invalid">
+            Password is required.
+          </small>
+        </div>
+
+        <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+        <button type="submit" [disabled]="loading" class="primary-btn">
+          {{ loading ? 'Signing in...' : 'Login' }}
+        </button>
+      </form>
+
+      <div class="divider">
+        <span></span>
+        <p>Access your account</p>
+        <span></span>
+      </div>
+
+      <p class="footer-text">
+        Don’t have an account?
+        <a routerLink="/register">Register</a>
+      </p>
+    </div>
+  </div>
+</div>
