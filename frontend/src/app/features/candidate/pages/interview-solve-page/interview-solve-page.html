@@ -1,1 +1,104 @@
-<h1>Candidate Solve Interview</h1>
+<div class="page">
+  <div class="background-grid"></div>
+
+  <div class="solve-shell" *ngIf="!loading(); else loadingBlock">
+    <div class="sidebar" *ngIf="interview() as interview">
+      <div class="sidebar-card">
+        <div class="badge">Candidate Session</div>
+        <h1>{{ interview.title }}</h1>
+        <p>{{ interview.positionName }}</p>
+        <div class="meta">
+          <span>{{ interview.durationMinutes }} min</span>
+          <span>{{ interview.problems.length }} problems</span>
+          <span *ngIf="session() as session">{{ session.status }}</span>
+        </div>
+      </div>
+
+      <div class="problem-list-card">
+        <h2>Problems</h2>
+
+        <button
+          type="button"
+          class="problem-item"
+          *ngFor="let problem of interview.problems"
+          [class.active]="selectedProblemId() === problem.problemId"
+          (click)="selectProblem(problem)">
+          <div>
+            <strong>{{ problem.orderIndex }}. {{ problem.title }}</strong>
+            <p>{{ problem.points }} pts</p>
+          </div>
+
+          <span
+            class="status-chip"
+            *ngIf="getLatestSubmissionForProblem(problem.problemId) as submission">
+            {{ submission.status }}
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div class="workspace">
+      <div class="workspace-card" *ngIf="selectedProblem() as problem">
+        <div class="workspace-header">
+          <div>
+            <h2>{{ problem.title }}</h2>
+            <p>{{ problem.points }} points</p>
+          </div>
+
+          <button
+            type="button"
+            class="complete-btn"
+            (click)="completeInterview()"
+            [disabled]="completing()">
+            {{ completing() ? 'Completing...' : 'Complete Interview' }}
+          </button>
+        </div>
+
+        <form [formGroup]="form" class="editor-form" (ngSubmit)="submitSolution()">
+          <div class="field">
+            <label for="language">Language</label>
+            <select id="language" formControlName="language">
+              <option value="csharp">C#</option>
+              <option value="java">Java</option>
+              <option value="cpp">C++</option>
+              <option value="python">Python</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="sourceCode">Source Code</label>
+            <textarea
+              id="sourceCode"
+              rows="18"
+              formControlName="sourceCode"
+              placeholder="Write your solution here"></textarea>
+            <small
+              class="validation"
+              *ngIf="form.controls.sourceCode.touched && form.controls.sourceCode.invalid">
+              Source code is required.
+            </small>
+          </div>
+
+          <p class="error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+          <p class="success" *ngIf="successMessage()">{{ successMessage() }}</p>
+
+          <button type="submit" class="submit-btn" [disabled]="submitting()">
+            {{ submitting() ? 'Submitting...' : 'Submit Solution' }}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <ng-template #loadingBlock>
+    <div class="loading-state">
+      <div class="loading-card">
+        <h2>Preparing interview...</h2>
+        <p *ngIf="startingSession(); else interviewLoading">Starting candidate session.</p>
+        <ng-template #interviewLoading>
+          <p>Loading interview details.</p>
+        </ng-template>
+      </div>
+    </div>
+  </ng-template>
+</div>

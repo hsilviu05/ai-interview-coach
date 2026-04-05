@@ -1,9 +1,24 @@
-import { Component } from '@angular/core';
-
+import { CommonModule } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from '../../../../core/services/auth.service';
 @Component({
   selector: 'app-dashboard-page',
-  imports: [],
+  standalone: true,
+  imports: [CommonModule],
   templateUrl: './dashboard-page.html',
   styleUrl: './dashboard-page.scss',
 })
-export class DashboardPage {}
+export class DashboardPage {
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+
+  goToCreateInterview(): void {
+    this.router.navigateByUrl('/interviewer/create-interview');
+  }
+
+  logout(): void {
+    this.authService.logout();
+    this.router.navigateByUrl('/login');
+  }
+}

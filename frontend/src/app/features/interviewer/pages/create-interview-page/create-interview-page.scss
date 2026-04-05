@@ -1,0 +1,233 @@
+:host {
+  display: block;
+}
+
+.page {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.24), transparent 28%),
+    radial-gradient(circle at 85% 78%, rgba(16, 185, 129, 0.16), transparent 24%),
+    linear-gradient(135deg, #081225 0%, #0b1733 45%, #07142e 100%);
+  color: #e2e8f0;
+}
+
+.background-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(circle at center, black 45%, transparent 95%);
+  pointer-events: none;
+}
+
+.create-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 48px 24px;
+  display: grid;
+  grid-template-columns: 0.95fr 1.05fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.intro-panel {
+  padding-top: 14px;
+}
+
+.badge {
+  display: inline-flex;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.16);
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  color: #bfdbfe;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.intro-panel h1 {
+  margin: 0 0 16px;
+  font-size: clamp(32px, 4.8vw, 52px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: #f8fafc;
+}
+
+.intro-panel p {
+  margin: 0 0 26px;
+  font-size: 16px;
+  line-height: 1.7;
+  color: #94a3b8;
+  max-width: 520px;
+}
+
+.card {
+  padding: 30px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    0 30px 80px rgba(2, 8, 23, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.card-header {
+  margin-bottom: 24px;
+}
+
+.card-header h2 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.card-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.form {
+  display: grid;
+  gap: 18px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+input,
+textarea {
+  width: 100%;
+  max-width: 100%;
+  display: block;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #dbe4f0;
+  background: rgba(248, 250, 252, 0.96);
+  font-size: 14px;
+  color: #0f172a;
+  outline: none;
+  resize: vertical;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+input:focus,
+textarea:focus {
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 4px rgba(37, 99, 235, 0.12),
+    0 10px 25px rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
+}
+
+.primary-btn,
+.secondary-btn {
+  border: none;
+  border-radius: 16px;
+  padding: 14px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.primary-btn {
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8 55%, #0f766e);
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.22);
+}
+
+.secondary-btn {
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.primary-btn:hover,
+.secondary-btn:hover {
+  transform: translateY(-1px);
+}
+
+.primary-btn:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
+}
+
+.validation,
+.error {
+  font-size: 13px;
+}
+
+.validation,
+.error {
+  color: #b91c1c;
+}
+
+.result-card {
+  margin-top: 24px;
+  padding: 20px;
+  border-radius: 20px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.result-card h3 {
+  margin: 0 0 12px;
+  color: #1d4ed8;
+}
+
+.result-card p {
+  margin: 0 0 8px;
+  color: #1e293b;
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  .create-shell {
+    grid-template-columns: 1fr;
+    padding: 32px 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .intro-panel h1 {
+    font-size: 34px;
+  }
+}
+
+.success-hint {
+  margin-top: 16px;
+  font-size: 13px;
+  color: #047857;
+}

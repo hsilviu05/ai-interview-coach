@@ -1,1 +1,99 @@
-<h1>Create Interview</h1>
+<div class="page">
+  <div class="background-grid"></div>
+
+  <div class="create-shell">
+    <div class="intro-panel">
+      <div class="badge">Create Interview</div>
+      <h1>Set up a new interview and generate an access token for candidates.</h1>
+      <p>
+        Define the interview metadata first. After creation, attach one or more problems
+        so the interview becomes usable in the candidate flow.
+      </p>
+
+      <button type="button" class="secondary-btn" (click)="goBack()">
+        Back to Dashboard
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Interview Details</h2>
+        <p>Fill in the core information for the interview.</p>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="submit()" class="form">
+        <div class="field">
+          <label for="title">Title</label>
+          <input
+            id="title"
+            type="text"
+            formControlName="title"
+            placeholder="Junior Backend Interview" />
+          <small class="validation" *ngIf="form.controls.title.touched && form.controls.title.invalid">
+            Title is required and must be under 200 characters.
+          </small>
+        </div>
+
+        <div class="field">
+          <label for="positionName">Position Name</label>
+          <input
+            id="positionName"
+            type="text"
+            formControlName="positionName"
+            placeholder="Junior Backend Developer" />
+          <small class="validation" *ngIf="form.controls.positionName.touched && form.controls.positionName.invalid">
+            Position name is required and must be under 200 characters.
+          </small>
+        </div>
+
+        <div class="field">
+          <label for="description">Description</label>
+          <textarea
+            id="description"
+            rows="5"
+            formControlName="description"
+            placeholder="Basic backend interview focused on algorithms and problem solving."></textarea>
+          <small class="validation" *ngIf="form.controls.description.touched && form.controls.description.invalid">
+            Description is required and must be under 2000 characters.
+          </small>
+        </div>
+
+        <div class="field">
+          <label for="durationMinutes">Duration (minutes)</label>
+          <input
+            id="durationMinutes"
+            type="number"
+            formControlName="durationMinutes"
+            placeholder="60" />
+          <small class="validation" *ngIf="form.controls.durationMinutes.touched && form.controls.durationMinutes.invalid">
+            Duration must be between 1 and 300 minutes.
+          </small>
+        </div>
+
+        <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+        <button type="submit" class="primary-btn" [disabled]="loading">
+          {{ loading ? 'Creating Interview...' : 'Create Interview' }}
+        </button>
+      </form>
+
+      <div class="result-card" *ngIf="createdInterview">
+        <h3>Interview Created</h3>
+        <p><strong>Title:</strong> {{ createdInterview.title }}</p>
+        <p><strong>Interview ID:</strong> {{ createdInterview.id }}</p>
+        <p><strong>Access Token:</strong> {{ createdInterview.accessToken }}</p>
+        <p><strong>Duration:</strong> {{ createdInterview.durationMinutes }} minutes</p>
+      </div>
+
+      <app-add-problem-form
+        *ngIf="createdInterview"
+        [interviewId]="createdInterview.id"
+        (problemAdded)="onProblemAdded()">
+      </app-add-problem-form>
+
+      <p class="success-hint" *ngIf="lastProblemAddedAt">
+        Last problem added at {{ lastProblemAddedAt }}.
+      </p>
+    </div>
+  </div>
+</div>

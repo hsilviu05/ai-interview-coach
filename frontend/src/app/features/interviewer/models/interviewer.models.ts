@@ -1,0 +1,45 @@
+export interface CreateInterviewRequest {
+  title: string;
+  positionName: string;
+  description: string;
+  durationMinutes: number;
+}
+
+export interface InterviewProblemDto {
+  problemId: string;
+  title: string;
+  orderIndex: number;
+  points: number;
+}
+
+export interface InterviewResponse {
+  id: string;
+  title: string;
+  positionName: string;
+  description: string;
+  durationMinutes: number;
+  accessToken: string;
+  isActive: boolean;
+  interviewerId: string;
+  createdAt: string;
+  problems: InterviewProblemDto[];
+}
+
+export interface ProblemListItem {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: string;
+  topic: string;
+  constraintsText: string;
+  exampleInput: string;
+  exampleOutput: string;
+  createdByUserId: string;
+  createdAt: string;
+}
+
+export interface AddProblemToInterviewRequest {
+  problemId: string;
+  orderIndex: number;
+  points: number;
+}

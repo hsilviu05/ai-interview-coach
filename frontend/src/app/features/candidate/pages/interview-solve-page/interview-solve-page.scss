@@ -1,0 +1,246 @@
+:host {
+  display: block;
+}
+
+.page {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #081225 0%, #0b1733 55%, #07142e 100%);
+  color: #e2e8f0;
+}
+
+.background-grid {
+  display: none;
+}
+
+.solve-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 28px 20px;
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 24px;
+}
+
+.sidebar {
+  display: grid;
+  gap: 18px;
+  align-self: start;
+}
+
+.sidebar-card,
+.problem-list-card,
+.workspace-card,
+.loading-card {
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  border-radius: 24px;
+  padding: 22px;
+  box-shadow: 0 20px 50px rgba(2, 8, 23, 0.24);
+}
+
+.badge {
+  display: inline-flex;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.sidebar-card h1,
+.workspace-header h2 {
+  margin: 0 0 10px;
+  color: #0f172a;
+}
+
+.sidebar-card p,
+.problem-item p,
+.loading-card p,
+.workspace-header p {
+  margin: 0;
+  color: #64748b;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.meta span {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.problem-list-card h2 {
+  margin: 0 0 14px;
+}
+
+.problem-item {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.problem-item.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.status-chip {
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workspace {
+  min-width: 0;
+}
+
+.workspace-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.editor-form {
+  display: grid;
+  gap: 18px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+select,
+textarea {
+  width: 100%;
+  max-width: 100%;
+  display: block;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #dbe4f0;
+  background: #ffffff;
+  font-size: 14px;
+  color: #0f172a;
+  outline: none;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 360px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  line-height: 1.55;
+}
+
+select:focus,
+textarea:focus {
+  border-color: #2563eb;
+  box-shadow:
+    0 0 0 4px rgba(37, 99, 235, 0.12),
+    0 10px 25px rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
+}
+
+.submit-btn,
+.complete-btn {
+  border: none;
+  border-radius: 16px;
+  padding: 14px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8 55%, #0f766e);
+  cursor: pointer;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.submit-btn:hover,
+.complete-btn:hover {
+  transform: translateY(-1px);
+}
+
+.submit-btn:disabled,
+.complete-btn:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
+}
+
+.validation,
+.error,
+.success {
+  font-size: 13px;
+}
+
+.validation,
+.error {
+  color: #b91c1c;
+}
+
+.success {
+  color: #047857;
+}
+
+.loading-state {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.loading-card {
+  max-width: 460px;
+  width: 100%;
+  text-align: center;
+}
+
+@media (max-width: 1024px) {
+  .solve-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
