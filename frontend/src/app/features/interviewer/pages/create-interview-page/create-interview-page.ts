@@ -5,11 +5,12 @@ import { Router } from '@angular/router';
 import { AddProblemForm } from '../add-problem-form/add-problem-form';
 import { InterviewerApi } from '../../services/interviewer-api.service';
 import { InterviewResponse } from '../../models/interviewer.models';
+import { Navbar } from '../../../../shared/components/navbar/navbar';
 
 @Component({
   selector: 'app-create-interview-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, AddProblemForm],
+  imports: [CommonModule, ReactiveFormsModule, AddProblemForm, Navbar],
   templateUrl: './create-interview-page.html',
   styleUrl: './create-interview-page.scss',
 })

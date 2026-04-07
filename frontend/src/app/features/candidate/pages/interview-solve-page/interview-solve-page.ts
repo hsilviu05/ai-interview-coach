@@ -10,11 +10,12 @@ import { SubmissionResponse } from '../../models/candidate-submission.models';
 import {
   SubmissionApi,
 } from '../../services/submission-api.service';
+import { Navbar } from '../../../../shared/components/navbar/navbar';
 
 @Component({
   selector: 'app-interview-solve-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, Navbar],
   templateUrl: './interview-solve-page.html',
   styleUrl: './interview-solve-page.scss',
 })

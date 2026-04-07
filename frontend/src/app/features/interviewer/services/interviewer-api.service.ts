@@ -8,6 +8,10 @@ import {
   InterviewResponse,
   ProblemListItem,
 } from '../models/interviewer.models';
+import {
+  InterviewSessionDetails,
+  InterviewSessionSummary,
+} from '../models/interviewer-session.models';
 
 @Injectable({ providedIn: 'root' })
 export class InterviewerApi {
@@ -30,6 +34,18 @@ export class InterviewerApi {
     return this.http.post<{ message: string }>(
       `${this.baseUrl}/${interviewId}/problems`,
       payload
+    );
+  }
+
+  getInterviewSessions(interviewId: string): Observable<InterviewSessionSummary[]> {
+    return this.http.get<InterviewSessionSummary[]>(
+      `${this.baseUrl}/${interviewId}/sessions`
+    );
+  }
+
+  getInterviewSessionDetails(sessionId: string): Observable<InterviewSessionDetails> {
+    return this.http.get<InterviewSessionDetails>(
+      `${this.baseUrl}/sessions/${sessionId}`
     );
   }
 }

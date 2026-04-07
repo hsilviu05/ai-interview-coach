@@ -1,1 +1,57 @@
-<h1>Interview Sessions</h1>
+<app-navbar></app-navbar>
+
+<div class="page">
+  <div class="shell">
+    <div class="header-card">
+      <div>
+        <div class="badge">Interview Sessions</div>
+        <h1>Review candidate participation and completion status.</h1>
+        <p>Inspect every session created for this interview and open the detailed review page.</p>
+      </div>
+
+      <button type="button" class="secondary-btn" (click)="goBack()">
+        Back to Dashboard
+      </button>
+    </div>
+
+    <div class="content-card" *ngIf="!loading(); else loadingBlock">
+      <p class="error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+
+      <div class="empty-state" *ngIf="!errorMessage() && sessions().length === 0">
+        No sessions found for this interview yet.
+      </div>
+
+      <div class="sessions-list" *ngIf="sessions().length > 0">
+        <button
+          type="button"
+          class="session-item"
+          *ngFor="let session of sessions()"
+          (click)="openSession(session.id)">
+          <div class="session-main">
+            <h2>Candidate {{ session.candidateId }}</h2>
+            <p>
+              Started: {{ session.startedAt | date:'medium' }}
+              <span *ngIf="session.submittedAt">
+                · Submitted: {{ session.submittedAt | date:'medium' }}
+              </span>
+            </p>
+          </div>
+
+          <div class="session-meta">
+            <span class="status-chip">{{ session.status }}</span>
+            <span class="score-chip">{{ session.totalScore }} pts</span>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <ng-template #loadingBlock>
+    <div class="loading-state">
+      <div class="loading-card">
+        <h2>Loading sessions...</h2>
+        <p>Please wait while the recruiter view is prepared.</p>
+      </div>
+    </div>
+  </ng-template>
+</div>

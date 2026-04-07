@@ -4,11 +4,12 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CandidateApi } from '../../services/candidate-api.service';
 import { CandidateInterviewResponse } from '../../models/candidate-interview.models';
+import { Navbar } from '../../../../shared/components/navbar/navbar';
 
 @Component({
   selector: 'app-interview-access-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, Navbar],
   templateUrl: './interview-access-page.html',
   styleUrl: './interview-access-page.scss',
 })

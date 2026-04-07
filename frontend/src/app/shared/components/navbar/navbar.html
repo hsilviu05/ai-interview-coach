@@ -1,1 +1,38 @@
-<p>navbar works!</p>
+<nav class="navbar">
+  <div class="navbar-shell">
+    <a class="brand" routerLink="/">
+      <span class="brand-mark">AIC</span>
+      <span class="brand-text">AI Interview Coach</span>
+    </a>
+
+    <div class="nav-links" *ngIf="role() === 'Interviewer' || role() === 'Admin'">
+      <a
+        routerLink="/interviewer/dashboard"
+        routerLinkActive="active-link"
+        class="nav-link">
+        Dashboard
+      </a>
+
+      <a
+        routerLink="/interviewer/create-interview"
+        routerLinkActive="active-link"
+        class="nav-link">
+        Create Interview
+      </a>
+    </div>
+
+    <div class="nav-links" *ngIf="role() === 'Candidate'">
+      <a
+        routerLink="/candidate/access"
+        routerLinkActive="active-link"
+        class="nav-link">
+        Access Interview
+      </a>
+    </div>
+
+    <div class="nav-actions">
+      <span class="role-chip" *ngIf="role()">{{ role() }}</span>
+      <button type="button" class="logout-btn" (click)="logout()">Logout</button>
+    </div>
+  </div>
+</nav>
