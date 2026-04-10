@@ -1,0 +1,63 @@
+<app-navbar></app-navbar>
+
+<div class="page">
+  <div class="shell" *ngIf="!loading(); else loadingBlock">
+    <div class="header-card">
+      <div>
+        <div class="badge">My Problems</div>
+        <h1>Manage reusable coding problems.</h1>
+        <p>Create and review the problems that can be attached to interviews.</p>
+      </div>
+
+      <button type="button" class="primary-btn" (click)="goToCreateProblem()">
+        Create Problem
+      </button>
+    </div>
+
+    <p class="error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+
+    <div class="empty-state-card" *ngIf="!errorMessage() && problems().length === 0">
+      <h2>No problems yet</h2>
+      <p>Create your first problem to make interview creation self-sufficient.</p>
+      <button type="button" class="primary-btn" (click)="goToCreateProblem()">
+        Create Problem
+      </button>
+    </div>
+
+    <div class="problem-grid" *ngIf="problems().length > 0">
+      <div class="problem-card" *ngFor="let problem of problems()">
+        <div class="card-top">
+          <div>
+            <h2>{{ problem.title }}</h2>
+            <p class="topic">{{ problem.topic }}</p>
+          </div>
+
+          <span class="difficulty-chip">{{ problem.difficulty }}</span>
+        </div>
+
+        <p class="description">{{ problem.description }}</p>
+
+        <div class="meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">Created</span>
+            <strong>{{ problem.createdAt | date:'mediumDate' }}</strong>
+          </div>
+
+          <div class="meta-item">
+            <span class="meta-label">Visibility</span>
+            <strong>Available</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ng-template #loadingBlock>
+    <div class="loading-state">
+      <div class="loading-card">
+        <h2>Loading problems...</h2>
+        <p>Please wait while your recruiter workspace is prepared.</p>
+      </div>
+    </div>
+  </ng-template>
+</div>

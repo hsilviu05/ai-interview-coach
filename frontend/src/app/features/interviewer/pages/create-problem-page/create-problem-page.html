@@ -1,0 +1,92 @@
+<app-navbar></app-navbar>
+
+<div class="page">
+  <div class="shell">
+    <div class="header-card">
+      <div>
+        <div class="badge">Create Problem</div>
+        <h1>Create a reusable coding problem.</h1>
+        <p>Define the problem once and reuse it in multiple interviews.</p>
+      </div>
+
+      <button type="button" class="secondary-btn" (click)="goToProblems()">
+        Back to My Problems
+      </button>
+    </div>
+
+    <div class="form-card">
+      <form [formGroup]="form" (ngSubmit)="submit()" class="form">
+        <div class="field">
+          <label for="title">Title</label>
+          <input id="title" type="text" formControlName="title" />
+        </div>
+
+        <div class="field">
+          <label for="description">Description</label>
+          <textarea id="description" rows="5" formControlName="description"></textarea>
+        </div>
+
+        <div class="two-cols">
+          <div class="field">
+            <label for="difficulty">Difficulty</label>
+            <select id="difficulty" formControlName="difficulty">
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="topic">Topic</label>
+            <input id="topic" type="text" formControlName="topic" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="constraintsText">Constraints</label>
+          <textarea id="constraintsText" rows="3" formControlName="constraintsText"></textarea>
+        </div>
+
+        <div class="two-cols">
+          <div class="field">
+            <label for="exampleInput">Example Input</label>
+            <textarea id="exampleInput" rows="3" formControlName="exampleInput"></textarea>
+          </div>
+
+          <div class="field">
+            <label for="exampleOutput">Example Output</label>
+            <textarea id="exampleOutput" rows="3" formControlName="exampleOutput"></textarea>
+          </div>
+        </div>
+
+        <div class="checkbox-row">
+          <input id="isPublic" type="checkbox" formControlName="isPublic" />
+          <label for="isPublic">Make problem public</label>
+        </div>
+
+        <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+        <button type="submit" class="primary-btn" [disabled]="loading">
+          {{ loading ? 'Creating Problem...' : 'Create Problem' }}
+        </button>
+      </form>
+    </div>
+
+    <div class="result-card" *ngIf="createdProblem">
+      <h2>Problem Created</h2>
+      <p><strong>Title:</strong> {{ createdProblem.title }}</p>
+      <p><strong>Difficulty:</strong> {{ createdProblem.difficulty }}</p>
+      <p><strong>Topic:</strong> {{ createdProblem.topic }}</p>
+
+      <div class="result-actions">
+        <button type="button" class="primary-btn" (click)="goToProblems()">Go to My Problems</button>
+        <button type="button" class="secondary-btn" (click)="createAnother()">Create Another</button>
+      </div>
+    </div>
+
+    <app-test-case-form
+        *ngIf="createdProblem"
+        [problemId]="createdProblem.id">
+    </app-test-case-form>
+  </div>
+</div>

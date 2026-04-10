@@ -43,3 +43,37 @@ export interface AddProblemToInterviewRequest {
   orderIndex: number;
   points: number;
 }
+export interface CreateProblemRequest {
+  title: string;
+  description: string;
+  difficulty: string;
+  topic: string;
+  constraintsText: string;
+  exampleInput: string;
+  exampleOutput: string;
+  isPublic: boolean;
+}
+
+export interface TestCaseListItem {
+  id: string;
+  problemId: string;
+  input: string;
+  expectedOutput: string;
+  isHidden: boolean;
+  orderIndex: number;
+}
+export interface CreateTestCaseRequest {
+  input: string;
+  expectedOutput: string;
+  isHidden: boolean;
+  orderIndex: number;
+}
+
+export interface TestCaseListItem {
+  id: string;
+  problemId: string;
+  input: string;
+  expectedOutput: string;
+  isHidden: boolean;
+  orderIndex: number;
+}
