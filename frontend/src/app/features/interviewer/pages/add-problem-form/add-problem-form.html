@@ -1,0 +1,48 @@
+<div class="problem-card">
+  <div class="header">
+    <h3>Add Problem to Interview</h3>
+    <p>Select an existing problem and define its order and score.</p>
+  </div>
+
+  <div class="loading" *ngIf="loadingProblems">Loading problems...</div>
+
+  <form class="form" [formGroup]="form" (ngSubmit)="submit()" *ngIf="!loadingProblems">
+    <div class="field">
+      <label for="problemId">Problem</label>
+      <select id="problemId" formControlName="problemId">
+        <option value="">Select a problem</option>
+        <option *ngFor="let problem of problems" [value]="problem.id">
+          {{ problem.title }} - {{ problem.difficulty }} - {{ problem.topic }}
+        </option>
+      </select>
+      <small class="validation" *ngIf="form.controls.problemId.touched && form.controls.problemId.invalid">
+        Please select a problem.
+      </small>
+    </div>
+
+    <div class="grid">
+      <div class="field">
+        <label for="orderIndex">Order Index</label>
+        <input id="orderIndex" type="number" formControlName="orderIndex" />
+        <small class="validation" *ngIf="form.controls.orderIndex.touched && form.controls.orderIndex.invalid">
+          Order must be at least 1.
+        </small>
+      </div>
+
+      <div class="field">
+        <label for="points">Points</label>
+        <input id="points" type="number" formControlName="points" />
+        <small class="validation" *ngIf="form.controls.points.touched && form.controls.points.invalid">
+          Points must be at least 1.
+        </small>
+      </div>
+    </div>
+
+    <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+    <p class="success" *ngIf="successMessage">{{ successMessage }}</p>
+
+    <button type="submit" class="primary-btn" [disabled]="submitting">
+      {{ submitting ? 'Adding Problem...' : 'Add Problem' }}
+    </button>
+  </form>
+</div>

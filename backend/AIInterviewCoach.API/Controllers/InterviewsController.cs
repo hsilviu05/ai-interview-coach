@@ -120,5 +120,15 @@ namespace AIInterviewCoach.API.Controllers
 
             return Ok(result);
         }
+
+        [HttpGet]
+        [Authorize(Roles = "Interviewer,Admin")]
+        public async Task<IActionResult> GetMyInterviews()
+        {
+            var interviewerId = GetCurrentUserId();
+            var result = await _interviewService.GetMineAsync(interviewerId);
+
+            return Ok(result);
+        }
     }
 }

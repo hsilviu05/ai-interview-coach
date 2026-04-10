@@ -1,1 +1,45 @@
-<h1>Interviewer Dashboard</h1>
+<app-navbar></app-navbar>
+
+<div class="page">
+  <div class="background-grid"></div>
+
+  <div class="dashboard-shell">
+    <div class="hero-card">
+      <div class="badge">Interviewer Workspace</div>
+      <h1>Manage interviews with a clean and structured workflow.</h1>
+      <p>
+        Create technical interviews, assign problems, and review candidate sessions
+        from a single place.
+      </p>
+
+      <div class="actions">
+        <button class="primary-btn" type="button" (click)="goToCreateInterview()">
+          Create Interview
+        </button>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-card">
+        <h2>Create interviews</h2>
+        <p>
+          Define interview title, role, description, and duration for each technical session.
+        </p>
+      </div>
+
+      <div class="info-card">
+        <h2>Assign problems</h2>
+        <p>
+          Attach coding problems to each interview and control order and scoring.
+        </p>
+      </div>
+
+      <div class="info-card">
+        <h2>Review sessions</h2>
+        <p>
+          Inspect candidate submissions, completion status, and total scores.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>

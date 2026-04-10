@@ -1,1 +1,70 @@
-<h1>Interview Session Details</h1>
+<app-navbar></app-navbar>
+
+<div class="page">
+  <div class="shell" *ngIf="!loading(); else loadingBlock">
+    <div class="header-card" *ngIf="details() as details">
+      <div>
+        <div class="badge">Session Details</div>
+        <h1>Candidate {{ details.session.candidateId }}</h1>
+        <p>
+          Status: {{ details.session.status }} ·
+          Score: {{ details.session.totalScore }} pts
+        </p>
+        <p>
+          Started: {{ details.session.startedAt | date:'medium' }}
+          <span *ngIf="details.session.submittedAt">
+            · Submitted: {{ details.session.submittedAt | date:'medium' }}
+          </span>
+        </p>
+      </div>
+
+      <button type="button" class="secondary-btn" (click)="goBack()">
+        Back to Sessions
+      </button>
+    </div>
+
+    <p class="error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+
+    <div class="content-card" *ngIf="details() as details">
+      <div class="empty-state" *ngIf="details.submissions.length === 0">
+        No submissions found for this session.
+      </div>
+
+      <div class="submission-list" *ngIf="details.submissions.length > 0">
+        <div class="submission-card" *ngFor="let submission of details.submissions">
+          <div class="submission-header">
+            <div>
+              <h2>Problem {{ submission.problemId }}</h2>
+              <p>{{ submission.language }} · {{ submission.submittedAt | date:'medium' }}</p>
+            </div>
+
+            <div class="submission-meta">
+              <span class="status-chip">{{ submission.status }}</span>
+              <span class="score-chip">
+                {{ submission.passedTests }}/{{ submission.totalTests }} tests
+              </span>
+            </div>
+          </div>
+
+          <div class="stats-row">
+            <span>Execution: {{ submission.executionTimeMs ?? 0 }} ms</span>
+            <span>Memory: {{ submission.memoryKb ?? 0 }} KB</span>
+          </div>
+
+          <div class="code-block">
+            <pre>{{ submission.sourceCode }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ng-template #loadingBlock>
+    <div class="loading-state">
+      <div class="loading-card">
+        <h2>Loading session details...</h2>
+        <p>Please wait while the recruiter view is prepared.</p>
+      </div>
+    </div>
+  </ng-template>
+</div>

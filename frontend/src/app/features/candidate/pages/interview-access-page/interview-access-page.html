@@ -1,1 +1,62 @@
-<h1>Candidate Interview Access</h1>
+<app-navbar></app-navbar>
+
+<div class="page">
+  <div class="background-grid"></div>
+
+  <div class="access-shell">
+    <div class="intro-panel">
+      <div class="badge">Candidate Access</div>
+      <h1>Enter your interview token to preview and start the session.</h1>
+      <p>
+        Use the token provided by the interviewer to access the interview, review its
+        details, and continue to the solving page.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Access Interview</h2>
+        <p>Paste the token you received from the interviewer.</p>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="submit()" class="form">
+        <div class="field">
+          <label for="token">Interview Token</label>
+          <input
+            id="token"
+            type="text"
+            formControlName="token"
+            placeholder="Paste interview token here" />
+          <small class="validation" *ngIf="form.controls.token.touched && form.controls.token.invalid">
+            Token is required.
+          </small>
+        </div>
+
+        <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+        <button type="submit" class="primary-btn" [disabled]="loading">
+          {{ loading ? 'Checking Token...' : 'Load Interview' }}
+        </button>
+      </form>
+
+      <div class="result-card" *ngIf="interview">
+        <h3>{{ interview.title }}</h3>
+        <p><strong>Position:</strong> {{ interview.positionName }}</p>
+        <p><strong>Description:</strong> {{ interview.description }}</p>
+        <p><strong>Duration:</strong> {{ interview.durationMinutes }} minutes</p>
+        <p><strong>Problems:</strong> {{ interview.problems.length }}</p>
+
+        <div class="problems" *ngIf="interview.problems.length > 0">
+          <div class="problem-item" *ngFor="let problem of interview.problems">
+            <span>{{ problem.orderIndex }}. {{ problem.title }}</span>
+            <span>{{ problem.points }} pts</span>
+          </div>
+        </div>
+
+        <button type="button" class="continue-btn" (click)="continueToInterview()">
+          Continue to Interview
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

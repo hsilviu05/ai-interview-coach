@@ -1,0 +1,93 @@
+<app-navbar></app-navbar>
+
+<div class="page">
+  <div class="shell" *ngIf="!loading(); else loadingBlock">
+    <div class="header-card">
+      <div>
+        <div class="badge">My Interviews</div>
+        <h1>Manage all interviews you created.</h1>
+        <p>View interview details, copy access tokens, and open candidate sessions.</p>
+      </div>
+
+      <button type="button" class="primary-btn" (click)="goToCreateInterview()">
+        Create Interview
+      </button>
+    </div>
+
+    <p class="error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+
+    <div class="empty-state-card" *ngIf="!errorMessage() && interviews().length === 0">
+      <h2>No interviews yet</h2>
+      <p>Create your first interview to start the recruiter workflow.</p>
+      <button type="button" class="primary-btn" (click)="goToCreateInterview()">
+        Create Interview
+      </button>
+    </div>
+
+    <div class="interview-grid" *ngIf="interviews().length > 0">
+      <div class="interview-card" *ngFor="let interview of interviews()">
+        <div class="card-top">
+          <div>
+            <h2>{{ interview.title }}</h2>
+            <p class="position">{{ interview.positionName }}</p>
+          </div>
+
+          <span class="status-chip" [class.inactive]="!interview.isActive">
+            {{ interview.isActive ? 'Active' : 'Inactive' }}
+          </span>
+        </div>
+
+        <p class="description">
+          {{ interview.description }}
+        </p>
+
+        <div class="meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">Duration</span>
+            <strong>{{ interview.durationMinutes }} min</strong>
+          </div>
+
+          <div class="meta-item">
+            <span class="meta-label">Problems</span>
+            <strong>{{ interview.problems.length }}</strong>
+          </div>
+
+          <div class="meta-item">
+            <span class="meta-label">Created</span>
+            <strong>{{ interview.createdAt | date:'mediumDate' }}</strong>
+          </div>
+        </div>
+
+        <div class="token-box">
+          <span class="meta-label">Access Token</span>
+          <code>{{ interview.accessToken }}</code>
+        </div>
+
+        <div class="card-actions">
+          <button
+            type="button"
+            class="secondary-btn"
+            (click)="copyToken(interview.id, interview.accessToken)">
+            {{ copiedTokenFor() === interview.id ? 'Copied' : 'Copy Token' }}
+          </button>
+
+          <button
+            type="button"
+            class="primary-btn"
+            (click)="goToSessions(interview.id)">
+            View Sessions
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ng-template #loadingBlock>
+    <div class="loading-state">
+      <div class="loading-card">
+        <h2>Loading interviews...</h2>
+        <p>Please wait while your recruiter workspace is prepared.</p>
+      </div>
+    </div>
+  </ng-template>
+</div>

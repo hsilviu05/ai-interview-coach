@@ -12,6 +12,6 @@ namespace AIInterviewCoach.Application.Interfaces.Services
         Task<InterviewSessionResponseDto> CompleteSessionAsync(Guid sessionId, Guid candidateId);
         Task<IEnumerable<InterviewSessionResponseDto>> GetInterviewSessionsAsync(Guid interviewId, Guid interviewerId);
         Task<InterviewSessionDetailsDto> GetInterviewSessionDetailsAsync(Guid sessionId, Guid interviewerId);
-
+        Task<IEnumerable<InterviewResponseDto>> GetMineAsync(Guid interviewerId);
     }
 }
