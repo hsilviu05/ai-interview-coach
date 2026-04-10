@@ -8,6 +8,7 @@ import { InterviewSessionDetailsPage } from './features/interviewer/pages/interv
 import { InterviewAccessPage } from './features/candidate/pages/interview-access-page/interview-access-page';
 import { InterviewSolvePage } from './features/candidate/pages/interview-solve-page/interview-solve-page';
 import { InterviewResultPage } from './features/candidate/pages/interview-result-page/interview-result-page';
+import { InterviewsListPage } from './features/interviewer/pages/interviews-list-page/interviews-list-page';
 import { authGuard } from './core/guards/auth-guard';
 import { roleGuard } from './core/guards/role-guard';
 
@@ -24,9 +25,11 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       { path: 'dashboard', component: DashboardPage },
+      { path: 'interviews', component: InterviewsListPage },
       { path: 'create-interview', component: CreateInterviewPage },
       { path: ':interviewId/sessions', component: InterviewSessionsPage },
       { path: 'sessions/:sessionId', component: InterviewSessionDetailsPage },
+      
     ],
   },
 

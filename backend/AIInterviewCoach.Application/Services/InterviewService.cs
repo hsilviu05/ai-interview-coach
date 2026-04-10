@@ -286,5 +286,31 @@ namespace AIInterviewCoach.Application.Services
                     .ToList()
             };
         }
+        public async Task<IEnumerable<InterviewResponseDto>> GetMineAsync(Guid interviewerId)
+        {
+            var interviews = await _dbContext.Interviews
+         .AsNoTracking()
+         .Include(i => i.InterviewProblems)
+             .ThenInclude(ip => ip.Problem)
+         .Where(i => i.InterviewerId == interviewerId)
+         .OrderByDescending(i => i.CreatedAt)
+         .ToListAsync();
+
+            return interviews.Select(interview =>
+            {
+                var problems = interview.InterviewProblems
+                    .OrderBy(ip => ip.OrderIndex)
+                    .Select(ip => new InterviewProblemDto
+                    {
+                        ProblemId = ip.ProblemId,
+                        Title = ip.Problem?.Title ?? string.Empty,
+                        OrderIndex = ip.OrderIndex,
+                        Points = ip.Points
+                    })
+                    .ToList();
+
+                return MapInterviewToDto(interview, problems);
+            }).ToList();
+        }
     }
 }

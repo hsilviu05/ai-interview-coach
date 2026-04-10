@@ -85,6 +85,16 @@
         <p><strong>Interview ID:</strong> {{ createdInterview.id }}</p>
         <p><strong>Access Token:</strong> {{ createdInterview.accessToken }}</p>
         <p><strong>Duration:</strong> {{ createdInterview.durationMinutes }} minutes</p>
+
+        <div class="result-actions">
+          <button type="button" class="primary-btn" (click)="goToSessions()">
+            View Sessions
+          </button>
+
+          <button type="button" class="secondary-light-btn" (click)="createAnother()">
+            Create Another
+          </button>
+        </div>
       </div>
 
       <app-add-problem-form

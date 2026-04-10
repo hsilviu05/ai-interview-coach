@@ -1,1 +1,74 @@
-<h1>Candidate Interview Result</h1>
+<app-navbar></app-navbar>
+
+<div class="page">
+  <div class="shell" *ngIf="!loading(); else loadingBlock">
+    <div class="header-card">
+      <div>
+        <div class="badge">Interview Completed</div>
+        <h1>Your session has been submitted successfully.</h1>
+        <p>Review the saved submissions for this interview session.</p>
+      </div>
+
+      <button type="button" class="secondary-btn" (click)="goToAccessPage()">
+        Back to Access Page
+      </button>
+    </div>
+
+    <p class="error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+
+    <div class="summary-grid" *ngIf="!errorMessage()">
+      <div class="summary-card">
+        <h2>Session ID</h2>
+        <p>{{ sessionId() }}</p>
+      </div>
+
+      <div class="summary-card">
+        <h2>Total Submissions</h2>
+        <p>{{ submissions().length }}</p>
+      </div>
+
+      <div class="summary-card">
+        <h2>Accepted Submissions</h2>
+        <p>{{ acceptedCount() }}</p>
+      </div>
+    </div>
+
+    <div class="content-card" *ngIf="submissions().length > 0">
+      <div class="submission-list">
+        <div class="submission-card" *ngFor="let submission of submissions()">
+          <div class="submission-header">
+            <div>
+              <h2>Problem {{ submission.problemId }}</h2>
+              <p>{{ submission.language }} · {{ submission.submittedAt | date:'medium' }}</p>
+            </div>
+
+            <div class="submission-meta">
+              <span class="status-chip">{{ submission.status }}</span>
+              <span class="score-chip">
+                {{ submission.passedTests }}/{{ submission.totalTests }} tests
+              </span>
+            </div>
+          </div>
+
+          <div class="stats-row">
+            <span>Execution: {{ submission.executionTimeMs ?? 0 }} ms</span>
+            <span>Memory: {{ submission.memoryKb ?? 0 }} KB</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content-card empty-state" *ngIf="submissions().length === 0 && !errorMessage()">
+      No submissions were found for this session.
+    </div>
+  </div>
+
+  <ng-template #loadingBlock>
+    <div class="loading-state">
+      <div class="loading-card">
+        <h2>Loading interview results...</h2>
+        <p>Please wait while your result page is prepared.</p>
+      </div>
+    </div>
+  </ng-template>
+</div>

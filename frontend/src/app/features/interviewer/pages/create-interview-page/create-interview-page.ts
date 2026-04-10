@@ -2,10 +2,10 @@ import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { Navbar } from '../../../../shared/components/navbar/navbar';
 import { AddProblemForm } from '../add-problem-form/add-problem-form';
 import { InterviewerApi } from '../../services/interviewer-api.service';
 import { InterviewResponse } from '../../models/interviewer.models';
-import { Navbar } from '../../../../shared/components/navbar/navbar';
 
 @Component({
   selector: 'app-create-interview-page',
@@ -61,5 +61,22 @@ export class CreateInterviewPage {
 
   onProblemAdded(): void {
     this.lastProblemAddedAt = new Date().toLocaleTimeString();
+  }
+
+  goToSessions(): void {
+    if (!this.createdInterview) return;
+    this.router.navigate(['/interviewer', this.createdInterview.id, 'sessions']);
+  }
+
+  createAnother(): void {
+    this.createdInterview = null;
+    this.lastProblemAddedAt = null;
+    this.errorMessage = '';
+    this.form.reset({
+      title: '',
+      positionName: '',
+      description: '',
+      durationMinutes: 60,
+    });
   }
 }
