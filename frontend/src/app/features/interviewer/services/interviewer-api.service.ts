@@ -5,8 +5,11 @@ import { environment } from '../../../../environments/environment';
 import {
     AddProblemToInterviewRequest,
     CreateInterviewRequest,
+    CreateProblemRequest,
+    CreateTestCaseRequest,
     InterviewResponse,
     ProblemListItem,
+    TestCaseListItem,
 } from '../models/interviewer.models';
 import {
     InterviewSessionDetails,
@@ -52,5 +55,22 @@ export class InterviewerApi {
 
     getMyInterviews(): Observable<InterviewListItem[]> {
         return this.http.get<InterviewListItem[]>(this.baseUrl);
+    }
+
+    createProblem(payload: CreateProblemRequest): Observable<ProblemListItem> {
+        return this.http.post<ProblemListItem>(this.problemsBaseUrl, payload);
+    }
+    getTestCases(problemId: string, includeHidden = true): Observable<TestCaseListItem[]> {
+        return this.http.get<TestCaseListItem[]>(
+            `${this.problemsBaseUrl}/${problemId}/testcases`,
+            { params: { includeHidden } }
+        );
+    }
+
+    addTestCase(problemId: string, payload: CreateTestCaseRequest): Observable<TestCaseListItem> {
+        return this.http.post<TestCaseListItem>(
+            `${this.problemsBaseUrl}/${problemId}/testcases`,
+            payload
+        );
     }
 }

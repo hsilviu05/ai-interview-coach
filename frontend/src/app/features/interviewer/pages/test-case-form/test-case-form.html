@@ -1,0 +1,85 @@
+<div class="test-case-card">
+  <div class="header">
+    <h3>Manage Test Cases</h3>
+    <p>Add visible and hidden test cases for this problem.</p>
+  </div>
+
+  <form class="form" [formGroup]="form" (ngSubmit)="submit()">
+    <div class="field">
+      <label for="input">Input</label>
+      <textarea
+        id="input"
+        rows="4"
+        formControlName="input"
+        placeholder="Example input for the test case"></textarea>
+      <small class="validation" *ngIf="form.controls.input.touched && form.controls.input.invalid">
+        Input is required.
+      </small>
+    </div>
+
+    <div class="field">
+      <label for="expectedOutput">Expected Output</label>
+      <textarea
+        id="expectedOutput"
+        rows="4"
+        formControlName="expectedOutput"
+        placeholder="Expected output"></textarea>
+      <small class="validation" *ngIf="form.controls.expectedOutput.touched && form.controls.expectedOutput.invalid">
+        Expected output is required.
+      </small>
+    </div>
+
+    <div class="grid">
+      <div class="field">
+        <label for="orderIndex">Order Index</label>
+        <input id="orderIndex" type="number" formControlName="orderIndex" />
+        <small class="validation" *ngIf="form.controls.orderIndex.touched && form.controls.orderIndex.invalid">
+          Order index must be at least 1.
+        </small>
+      </div>
+
+      <div class="checkbox-field">
+        <input id="isHidden" type="checkbox" formControlName="isHidden" />
+        <label for="isHidden">Hidden test case</label>
+      </div>
+    </div>
+
+    <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+    <p class="success" *ngIf="successMessage">{{ successMessage }}</p>
+
+    <button type="submit" class="primary-btn" [disabled]="loading">
+      {{ loading ? 'Adding Test Case...' : 'Add Test Case' }}
+    </button>
+  </form>
+
+  <div class="test-cases-list" *ngIf="!loadingTestCases">
+    <h4>Existing Test Cases</h4>
+
+    <div class="empty-state" *ngIf="testCases.length === 0">
+      No test cases added yet.
+    </div>
+
+    <div class="test-case-item" *ngFor="let testCase of testCases">
+      <div class="item-top">
+        <span class="order-chip">#{{ testCase.orderIndex }}</span>
+        <span class="visibility-chip" [class.hidden]="testCase.isHidden">
+          {{ testCase.isHidden ? 'Hidden' : 'Visible' }}
+        </span>
+      </div>
+
+      <div class="item-section">
+        <span class="label">Input</span>
+        <pre>{{ testCase.input }}</pre>
+      </div>
+
+      <div class="item-section">
+        <span class="label">Expected Output</span>
+        <pre>{{ testCase.expectedOutput }}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading-text" *ngIf="loadingTestCases">
+    Loading test cases...
+  </div>
+</div>

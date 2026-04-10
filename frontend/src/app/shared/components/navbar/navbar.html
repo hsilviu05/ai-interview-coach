@@ -26,6 +26,19 @@
         class="nav-link">
         My Interviews
       </a>
+      <a
+        routerLink="/interviewer/problems"
+        routerLinkActive="active-link"
+        class="nav-link">
+        My Problems
+      </a>
+
+      <a
+        routerLink="/interviewer/create-problem"
+        routerLinkActive="active-link"
+        class="nav-link">
+        Create Problem
+      </a>
     </div>
 
     <div class="nav-links" *ngIf="role() === 'Candidate'">

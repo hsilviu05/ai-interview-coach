@@ -9,6 +9,8 @@ import { InterviewAccessPage } from './features/candidate/pages/interview-access
 import { InterviewSolvePage } from './features/candidate/pages/interview-solve-page/interview-solve-page';
 import { InterviewResultPage } from './features/candidate/pages/interview-result-page/interview-result-page';
 import { InterviewsListPage } from './features/interviewer/pages/interviews-list-page/interviews-list-page';
+import { InterviewerProblemsListPage } from './features/interviewer/pages/interviewer-problems-list-page/interviewer-problems-list-page';
+import { CreateProblemPage } from './features/interviewer/pages/create-problem-page/create-problem-page';
 import { authGuard } from './core/guards/auth-guard';
 import { roleGuard } from './core/guards/role-guard';
 
@@ -29,7 +31,8 @@ export const routes: Routes = [
       { path: 'create-interview', component: CreateInterviewPage },
       { path: ':interviewId/sessions', component: InterviewSessionsPage },
       { path: 'sessions/:sessionId', component: InterviewSessionDetailsPage },
-      
+      { path: 'problems', component: InterviewerProblemsListPage },
+      { path: 'create-problem', component: CreateProblemPage },
     ],
   },
 
