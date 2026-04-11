@@ -6,11 +6,12 @@
   <div class="solve-shell" *ngIf="!loading(); else loadingBlock">
     <div class="sidebar" *ngIf="interview() as interview">
       <div class="sidebar-card">
-        <div class="badge">Candidate Session</div>
+        <div class="badge">{{ isPracticeMode() ? 'Practice Mode' : 'Candidate Session' }}</div>
         <h1>{{ interview.title }}</h1>
         <p>{{ interview.positionName }}</p>
         <div class="meta">
-          <span>{{ interview.durationMinutes }} min</span>
+          <span *ngIf="!isPracticeMode()">{{ interview.durationMinutes }} min</span>
+          <span *ngIf="isPracticeMode()">Self-paced</span>
           <span>{{ interview.problems.length }} problems</span>
           <span *ngIf="session() as session">{{ session.status }}</span>
         </div>
@@ -48,6 +49,7 @@
           </div>
 
           <button
+            *ngIf="!isPracticeMode()"
             type="button"
             class="complete-btn"
             (click)="completeInterview()"
@@ -56,15 +58,63 @@
           </button>
         </div>
 
+        <div class="problem-details">
+          <div class="detail-chips" *ngIf="problem.difficulty || problem.topic">
+            <span class="detail-chip" *ngIf="problem.difficulty">{{ problem.difficulty }}</span>
+            <span class="detail-chip" *ngIf="problem.topic">{{ problem.topic }}</span>
+          </div>
+
+          <section class="detail-section" *ngIf="problem.description">
+            <h3>Description</h3>
+            <p>{{ problem.description }}</p>
+          </section>
+
+          <section class="detail-section" *ngIf="problem.constraintsText">
+            <h3>Constraints</h3>
+            <p>{{ problem.constraintsText }}</p>
+          </section>
+
+          <div class="example-grid">
+            <section class="detail-section" *ngIf="problem.exampleInput">
+              <h3>Example Input</h3>
+              <pre>{{ problem.exampleInput }}</pre>
+            </section>
+
+            <section class="detail-section" *ngIf="problem.exampleOutput">
+              <h3>Example Output</h3>
+              <pre>{{ problem.exampleOutput }}</pre>
+            </section>
+          </div>
+
+          <section class="detail-section" *ngIf="problem.visibleTestCases?.length">
+            <h3>Visible Test Cases</h3>
+
+            <div class="test-case-grid">
+              <div class="test-case-card" *ngFor="let testCase of problem.visibleTestCases ?? []">
+                <div class="test-case-label">Case {{ testCase.orderIndex }}</div>
+                <div class="test-case-block">
+                  <span>Input</span>
+                  <pre>{{ testCase.input }}</pre>
+                </div>
+                <div class="test-case-block">
+                  <span>Expected Output</span>
+                  <pre>{{ testCase.expectedOutput }}</pre>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
         <form [formGroup]="form" class="editor-form" (ngSubmit)="submitSolution()">
           <div class="field">
             <label for="language">Language</label>
             <select id="language" formControlName="language">
               <option value="csharp">C#</option>
-              <option value="java">Java</option>
-              <option value="cpp">C++</option>
-              <option value="python">Python</option>
             </select>
+            <small class="validation">
+              Submissions run as standalone C# console programs. Read from stdin and write
+              the final answer to stdout.
+            </small>
           </div>
 
           <div class="field">
@@ -85,7 +135,11 @@
           <p class="success" *ngIf="successMessage()">{{ successMessage() }}</p>
 
           <button type="submit" class="submit-btn" [disabled]="submitting()">
-            {{ submitting() ? 'Submitting...' : 'Submit Solution' }}
+            {{
+              submitting()
+                ? 'Submitting...'
+                : (isPracticeMode() ? 'Save Practice Submission' : 'Submit Solution')
+            }}
           </button>
         </form>
       </div>

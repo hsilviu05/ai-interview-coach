@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using AIInterviewCoach.Application.DTOs.Problems;
 using AIInterviewCoach.Application.Interfaces.Services;
+using AIInterviewCoach.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,14 +22,18 @@ namespace AIInterviewCoach.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAllProblems()
         {
-            var problems = await _problemService.GetAllProblemsAsync();
+            var currentUserId = GetCurrentUserId();
+            var currentUserRole = GetCurrentUserRole();
+            var problems = await _problemService.GetAllProblemsAsync(currentUserId, currentUserRole);
             return Ok(problems);
         }
 
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetProblemById(Guid id)
         {
-            var problem = await _problemService.GetProblemByIdAsync(id);
+            var currentUserId = GetCurrentUserId();
+            var currentUserRole = GetCurrentUserRole();
+            var problem = await _problemService.GetProblemByIdAsync(id, currentUserId, currentUserRole);
             if (problem == null)
                 return NotFound(new { message = "Problem not found." });
 
@@ -87,7 +92,12 @@ namespace AIInterviewCoach.API.Controllers
             if (!ModelState.IsValid)
                 return ValidationProblem(ModelState);
 
-            var testCase = await _problemService.AddTestCaseAsync(problemId, createTestCaseRequest);
+            var currentUserId = GetCurrentUserId();
+            var testCase = await _problemService.AddTestCaseAsync(
+                problemId,
+                currentUserId,
+                IsAdmin(),
+                createTestCaseRequest);
             return Ok(testCase);
         }
 
@@ -95,7 +105,12 @@ namespace AIInterviewCoach.API.Controllers
         [Authorize(Roles = "Interviewer,Admin")]
         public async Task<IActionResult> GetTestCases(Guid problemId, [FromQuery] bool includeHidden = false)
         {
-            var testCases = await _problemService.GetTestCasesAsync(problemId, includeHidden);
+            var currentUserId = GetCurrentUserId();
+            var testCases = await _problemService.GetTestCasesAsync(
+                problemId,
+                currentUserId,
+                IsAdmin(),
+                includeHidden);
             return Ok(testCases);
         }
 
@@ -110,5 +125,18 @@ namespace AIInterviewCoach.API.Controllers
 
             return userId;
         }
+
+        private UserRole GetCurrentUserRole()
+        {
+            var roleClaim = User.FindFirst(ClaimTypes.Role)
+                            ?? User.FindFirst("role");
+
+            if (roleClaim is null || !Enum.TryParse<UserRole>(roleClaim.Value, true, out var role))
+                throw new UnauthorizedAccessException("Invalid user role.");
+
+            return role;
+        }
+
+        private bool IsAdmin() => GetCurrentUserRole() == UserRole.Admin;
     }
 }

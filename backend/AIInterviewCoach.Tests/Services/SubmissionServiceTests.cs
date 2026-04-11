@@ -26,7 +26,19 @@ namespace AIInterviewCoach.Tests.Services
                 candidate.Id,
                 InterviewSessionStatus.InProgress);
 
-            var service = new SubmissionService(db);
+            var service = new SubmissionService(
+                db,
+                new FakeCodeExecutor((_, _, testCases) =>
+                {
+                    var totalTests = testCases.Count();
+                    return new(
+                        SubmissionStatus.Accepted,
+                        "Accepted.",
+                        totalTests,
+                        totalTests,
+                        40,
+                        1024);
+                }));
 
             var request = new CreateSubmissionRequestDto
             {
@@ -41,7 +53,7 @@ namespace AIInterviewCoach.Tests.Services
             Assert.Equal(candidate.Id, result.CandidateId);
             Assert.Equal(problem.Id, result.ProblemId);
             Assert.Equal(session.Id, result.InterviewSessionId);
-            Assert.Equal("WrongAnswer", result.Status);
+            Assert.Equal("Accepted", result.Status);
             Assert.Equal(1, db.Submissions.Count());
         }
 
@@ -65,7 +77,7 @@ namespace AIInterviewCoach.Tests.Services
                 candidate.Id,
                 InterviewSessionStatus.InProgress);
 
-            var service = new SubmissionService(db);
+            var service = new SubmissionService(db, new FakeCodeExecutor());
 
             var request = new CreateSubmissionRequestDto
             {
@@ -99,7 +111,7 @@ namespace AIInterviewCoach.Tests.Services
                 candidate.Id,
                 InterviewSessionStatus.Completed);
 
-            var service = new SubmissionService(db);
+            var service = new SubmissionService(db, new FakeCodeExecutor());
 
             var request = new CreateSubmissionRequestDto
             {
@@ -152,12 +164,45 @@ namespace AIInterviewCoach.Tests.Services
                 passedTests: 1,
                 totalTests: 1);
 
-            var service = new SubmissionService(db);
+            var service = new SubmissionService(db, new FakeCodeExecutor());
 
             var result = (await service.GetMySubmissionsAsync(candidate1.Id)).ToList();
 
             Assert.Equal(2, result.Count);
             Assert.All(result, submission => Assert.Equal(candidate1.Id, submission.CandidateId));
+        }
+
+        [Fact]
+        public async Task CreateSubmissionAsync_ShouldPersistExecutorDiagnostics()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 2);
+            var service = new SubmissionService(
+                db,
+                new FakeCodeExecutor((_, _, __) => new(
+                    SubmissionStatus.CompilationError,
+                    "Missing Main method.",
+                    0,
+                    2,
+                    null,
+                    null)));
+
+            var result = await service.CreateSubmissionAsync(candidate.Id, new CreateSubmissionRequestDto
+            {
+                ProblemId = problem.Id,
+                Language = "csharp",
+                SourceCode = "public class Solution { }"
+            });
+
+            Assert.Equal("CompilationError", result.Status);
+
+            var storedSubmission = db.Submissions.Single(x => x.Id == result.Id);
+            Assert.Equal("Missing Main method.", storedSubmission.ExecutionOutput);
+            Assert.Equal(0, storedSubmission.PassedTests);
         }
     }
 }

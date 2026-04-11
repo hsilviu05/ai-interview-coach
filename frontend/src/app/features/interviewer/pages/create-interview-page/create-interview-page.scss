@@ -254,3 +254,101 @@ textarea:focus {
 .secondary-light-btn:hover {
   transform: translateY(-1px);
 }
+
+.success-banner {
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #166534;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.problems-section {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 20px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.problems-header h3 {
+  margin: 0 0 6px;
+  color: #0f172a;
+}
+
+.problems-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.empty-problems {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.problem-selection-list {
+  display: grid;
+  gap: 14px;
+}
+
+.problem-selection-item {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+}
+
+.checkbox-inline input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.selection-right {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 140px));
+  gap: 12px;
+}
+
+.mini-field {
+  display: grid;
+  gap: 6px;
+}
+
+.mini-field label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mini-field input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #dbe4f0;
+  background: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .selection-right {
+    grid-template-columns: 1fr;
+  }
+}

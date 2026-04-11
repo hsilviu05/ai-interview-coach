@@ -24,7 +24,6 @@ export class RegisterPage {
     fullName: ['', [Validators.required, Validators.minLength(2)]],
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
-    role: ['Candidate' as 'Candidate' | 'Interviewer', [Validators.required]],
   });
 
   submit(): void {

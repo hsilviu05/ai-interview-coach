@@ -161,6 +161,41 @@ textarea {
   font-size: 14px;
 }
 
+.success-banner {
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #166534;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 12px 28px rgba(22, 101, 52, 0.08);
+}
+
+.follow-up-section {
+  display: grid;
+  gap: 16px;
+}
+
+.follow-up-header {
+  padding: 20px 24px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  box-shadow: 0 20px 50px rgba(2, 8, 23, 0.24);
+}
+
+.follow-up-header h2 {
+  margin: 0 0 8px;
+  color: #0f172a;
+}
+
+.follow-up-header p {
+  margin: 0;
+  color: #64748b;
+}
+
 @media (max-width: 900px) {
   .two-cols {
     grid-template-columns: 1fr;

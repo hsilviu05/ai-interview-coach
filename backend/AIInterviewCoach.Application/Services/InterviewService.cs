@@ -73,16 +73,20 @@ namespace AIInterviewCoach.Application.Services
             return true;
         }
 
-        public async Task<InterviewResponseDto?> GetByIdAsync(Guid id)
+        public async Task<InterviewResponseDto?> GetByIdAsync(Guid id, Guid interviewerId, bool isAdmin)
         {
             var interview = await _dbContext.Interviews
                 .AsNoTracking()
                 .Include(i => i.InterviewProblems)
                     .ThenInclude(ip => ip.Problem)
+                        .ThenInclude(problem => problem.TestCases)
                 .FirstOrDefaultAsync(i => i.Id == id);
 
             if (interview is null)
                 return null;
+
+            if (!isAdmin && interview.InterviewerId != interviewerId)
+                throw new UnauthorizedAccessException("You can only access your own interviews.");
 
             var problems = interview.InterviewProblems
                 .OrderBy(ip => ip.OrderIndex)
@@ -90,6 +94,13 @@ namespace AIInterviewCoach.Application.Services
                 {
                     ProblemId = ip.ProblemId,
                     Title = ip.Problem?.Title ?? string.Empty,
+                    Description = BuildProblemDescription(ip.Problem),
+                    Difficulty = BuildProblemDifficulty(ip.Problem),
+                    Topic = BuildProblemTopic(ip.Problem),
+                    ConstraintsText = BuildProblemConstraints(ip.Problem),
+                    ExampleInput = BuildProblemExampleInput(ip.Problem),
+                    ExampleOutput = BuildProblemExampleOutput(ip.Problem),
+                    VisibleTestCases = BuildVisibleTestCases(ip.Problem),
                     OrderIndex = ip.OrderIndex,
                     Points = ip.Points
                 })
@@ -104,6 +115,7 @@ namespace AIInterviewCoach.Application.Services
                 .AsNoTracking()
                 .Include(i => i.InterviewProblems)
                     .ThenInclude(ip => ip.Problem)
+                        .ThenInclude(problem => problem.TestCases)
                 .FirstOrDefaultAsync(i => i.AccessToken == token);
 
             if (interview is null)
@@ -115,6 +127,13 @@ namespace AIInterviewCoach.Application.Services
                 {
                     ProblemId = ip.ProblemId,
                     Title = ip.Problem?.Title ?? string.Empty,
+                    Description = BuildProblemDescription(ip.Problem),
+                    Difficulty = BuildProblemDifficulty(ip.Problem),
+                    Topic = BuildProblemTopic(ip.Problem),
+                    ConstraintsText = BuildProblemConstraints(ip.Problem),
+                    ExampleInput = BuildProblemExampleInput(ip.Problem),
+                    ExampleOutput = BuildProblemExampleOutput(ip.Problem),
+                    VisibleTestCases = BuildVisibleTestCases(ip.Problem),
                     OrderIndex = ip.OrderIndex,
                     Points = ip.Points
                 })
@@ -281,6 +300,7 @@ namespace AIInterviewCoach.Application.Services
                         TotalTests = s.TotalTests,
                         ExecutionTimeMs = s.ExecutionTimeMs,
                         MemoryKb = s.MemoryKb,
+                        ExecutionOutput = s.ExecutionOutput,
                         SubmittedAt = s.SubmittedAt
                     })
                     .ToList()
@@ -292,6 +312,7 @@ namespace AIInterviewCoach.Application.Services
          .AsNoTracking()
          .Include(i => i.InterviewProblems)
              .ThenInclude(ip => ip.Problem)
+                .ThenInclude(problem => problem.TestCases)
          .Where(i => i.InterviewerId == interviewerId)
          .OrderByDescending(i => i.CreatedAt)
          .ToListAsync();
@@ -304,6 +325,13 @@ namespace AIInterviewCoach.Application.Services
                     {
                         ProblemId = ip.ProblemId,
                         Title = ip.Problem?.Title ?? string.Empty,
+                        Description = BuildProblemDescription(ip.Problem),
+                        Difficulty = BuildProblemDifficulty(ip.Problem),
+                        Topic = BuildProblemTopic(ip.Problem),
+                        ConstraintsText = BuildProblemConstraints(ip.Problem),
+                        ExampleInput = BuildProblemExampleInput(ip.Problem),
+                        ExampleOutput = BuildProblemExampleOutput(ip.Problem),
+                        VisibleTestCases = BuildVisibleTestCases(ip.Problem),
                         OrderIndex = ip.OrderIndex,
                         Points = ip.Points
                     })
@@ -312,5 +340,66 @@ namespace AIInterviewCoach.Application.Services
                 return MapInterviewToDto(interview, problems);
             }).ToList();
         }
+
+        private static string BuildProblemDescription(Problem? problem)
+        {
+            if (!string.IsNullOrWhiteSpace(problem?.Description))
+                return problem.Description;
+
+            return "No written description was provided for this problem yet. Use the title and sample cases below as the starting point.";
+        }
+
+        private static string BuildProblemDifficulty(Problem? problem) =>
+            string.IsNullOrWhiteSpace(problem?.Difficulty) ? "Unspecified" : problem.Difficulty;
+
+        private static string BuildProblemTopic(Problem? problem) =>
+            string.IsNullOrWhiteSpace(problem?.Topic) ? "General" : problem.Topic;
+
+        private static string BuildProblemConstraints(Problem? problem)
+        {
+            if (!string.IsNullOrWhiteSpace(problem?.ConstraintsText))
+                return problem.ConstraintsText;
+
+            return "No additional constraints were provided.";
+        }
+
+        private static string BuildProblemExampleInput(Problem? problem)
+        {
+            if (!string.IsNullOrWhiteSpace(problem?.ExampleInput))
+                return problem.ExampleInput;
+
+            return GetVisibleTestCases(problem)
+                .Select(testCase => testCase.Input)
+                .FirstOrDefault(input => !string.IsNullOrWhiteSpace(input))
+                ?? string.Empty;
+        }
+
+        private static string BuildProblemExampleOutput(Problem? problem)
+        {
+            if (!string.IsNullOrWhiteSpace(problem?.ExampleOutput))
+                return problem.ExampleOutput;
+
+            return GetVisibleTestCases(problem)
+                .Select(testCase => testCase.ExpectedOutput)
+                .FirstOrDefault(output => !string.IsNullOrWhiteSpace(output))
+                ?? string.Empty;
+        }
+
+        private static List<InterviewProblemVisibleTestCaseDto> BuildVisibleTestCases(Problem? problem) =>
+            GetVisibleTestCases(problem)
+                .Take(3)
+                .Select(testCase => new InterviewProblemVisibleTestCaseDto
+                {
+                    Input = testCase.Input,
+                    ExpectedOutput = testCase.ExpectedOutput,
+                    OrderIndex = testCase.OrderIndex
+                })
+                .ToList();
+
+        private static IEnumerable<TestCase> GetVisibleTestCases(Problem? problem) =>
+            problem?.TestCases?
+                .Where(testCase => !testCase.IsHidden)
+                .OrderBy(testCase => testCase.OrderIndex)
+            ?? Enumerable.Empty<TestCase>();
     }
 }

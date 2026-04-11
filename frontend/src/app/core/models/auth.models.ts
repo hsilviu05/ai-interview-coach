@@ -7,7 +7,6 @@ export interface RegisterRequest {
   fullName: string;
   email: string;
   password: string;
-  role: 'Candidate' | 'Interviewer' | 'Admin';
 }
 
 export interface AuthResponse {

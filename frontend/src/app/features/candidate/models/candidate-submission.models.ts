@@ -18,5 +18,6 @@ export interface SubmissionResponse {
   totalTests: number;
   executionTimeMs?: number | null;
   memoryKb?: number | null;
+  executionOutput?: string | null;
   submittedAt: string;
 }

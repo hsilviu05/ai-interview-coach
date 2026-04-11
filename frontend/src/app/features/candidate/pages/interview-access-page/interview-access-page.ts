@@ -56,4 +56,8 @@ export class InterviewAccessPage {
     if (!this.interview) return;
     this.router.navigate(['/candidate/solve', this.interview.accessToken]);
   }
+
+  goToPracticeProblems(): void {
+    this.router.navigateByUrl('/candidate/practice');
+  }
 }

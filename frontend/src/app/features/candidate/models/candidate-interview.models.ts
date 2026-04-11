@@ -1,6 +1,19 @@
+export interface CandidateInterviewVisibleTestCase {
+  input: string;
+  expectedOutput: string;
+  orderIndex: number;
+}
+
 export interface CandidateInterviewProblemDto {
   problemId: string;
   title: string;
+  description: string;
+  difficulty: string;
+  topic: string;
+  constraintsText: string;
+  exampleInput: string;
+  exampleOutput: string;
+  visibleTestCases?: CandidateInterviewVisibleTestCase[];
   orderIndex: number;
   points: number;
 }

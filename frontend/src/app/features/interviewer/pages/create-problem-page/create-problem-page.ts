@@ -6,7 +6,7 @@ import { Navbar } from '../../../../shared/components/navbar/navbar';
 import { CreateProblemRequest, ProblemListItem } from '../../models/interviewer.models';
 import { TestCaseForm } from '../..//pages/test-case-form/test-case-form';
 import { InterviewerApi } from '../../services/interviewer-api.service';
-
+import { finalize } from 'rxjs';
 @Component({
   selector: 'app-create-problem-page',
   standalone: true,
@@ -21,6 +21,7 @@ export class CreateProblemPage {
 
   loading = false;
   errorMessage = '';
+  successMessage = '';
   createdProblem: ProblemListItem | null = null;
 
   form = this.fb.nonNullable.group({
@@ -35,27 +36,31 @@ export class CreateProblemPage {
   });
 
   submit(): void {
+    if (this.loading) return;
+
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
     this.loading = true;
+    this.successMessage = '';
     this.errorMessage = '';
     this.createdProblem = null;
 
     const payload: CreateProblemRequest = this.form.getRawValue();
 
-    this.interviewerApi.createProblem(payload).subscribe({
+    this.interviewerApi.createProblem(payload).pipe(
+      finalize(() => {
+        this.loading = false;
+      })
+    ).subscribe({
       next: problem => {
         this.createdProblem = problem;
+        this.successMessage = 'Problem created successfully. You can now add test cases.';
       },
       error: err => {
         this.errorMessage = err?.error?.message ?? 'Failed to create problem.';
-        this.loading = false;
-      },
-      complete: () => {
-        this.loading = false;
       },
     });
   }
@@ -67,6 +72,7 @@ export class CreateProblemPage {
   createAnother(): void {
     this.createdProblem = null;
     this.errorMessage = '';
+    this.successMessage = '';
     this.form.reset({
       title: '',
       description: '',

@@ -51,7 +51,8 @@ namespace AIInterviewCoach.API.Controllers
         [Authorize(Roles = "Interviewer,Admin")]
         public async Task<IActionResult> GetInterviewById(Guid id)
         {
-            var interview = await _interviewService.GetByIdAsync(id);
+            var interviewerId = GetCurrentUserId();
+            var interview = await _interviewService.GetByIdAsync(id, interviewerId, User.IsInRole("Admin"));
 
             if (interview is null)
                 return NotFound(new { message = "Interview not found." });

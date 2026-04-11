@@ -9,14 +9,25 @@ namespace AIInterviewCoach.Application.Services
     public class ProblemService : IProblemService
     {
         private readonly IAppDbContext _dbContext;
+
         public ProblemService(IAppDbContext dbContext)
         {
             _dbContext = dbContext;
         }
-        public async Task<IEnumerable<ProblemResponseDto>> GetAllProblemsAsync()
+
+        public async Task<IEnumerable<ProblemResponseDto>> GetAllProblemsAsync(Guid currentUserId, UserRole currentUserRole)
         {
-            return await _dbContext.Problems
-                .AsNoTracking()
+            var query = _dbContext.Problems
+                .AsNoTracking();
+
+            if (currentUserRole != UserRole.Admin)
+            {
+                query = currentUserRole == UserRole.Candidate
+                    ? query.Where(p => p.IsPublic)
+                    : query.Where(p => p.IsPublic || p.CreatedByUserId == currentUserId);
+            }
+
+            return await query
                 .OrderByDescending(p => p.CreatedAt)
                 .Select(p => new ProblemResponseDto
                 {
@@ -33,17 +44,21 @@ namespace AIInterviewCoach.Application.Services
                 })
                 .ToListAsync();
         }
-        public async Task<ProblemResponseDto> GetProblemByIdAsync(Guid id)
+
+        public async Task<ProblemResponseDto> GetProblemByIdAsync(Guid id, Guid currentUserId, UserRole currentUserRole)
         {
             var problem = await _dbContext.Problems
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (problem == null)
+            if (problem is null)
                 throw new KeyNotFoundException("Problem not found.");
+
+            EnsureProblemAccessible(problem, currentUserId, currentUserRole);
 
             return MapProblemToDto(problem);
         }
+
         public async Task<ProblemResponseDto> CreateProblemAsync(Guid userId, CreateProblemRequestDto createRequest)
         {
             if (!Enum.TryParse<DifficultyLevel>(createRequest.Difficulty, true, out var parsedDifficulty))
@@ -71,10 +86,11 @@ namespace AIInterviewCoach.Application.Services
 
             return MapProblemToDto(problem);
         }
+
         public async Task<ProblemResponseDto?> UpdateProblemAsync(Guid id, Guid userId, UpdateProblemRequestDto updateRequest)
         {
             var problem = await _dbContext.Problems
-            .FirstOrDefaultAsync(p => p.Id == id);
+                .FirstOrDefaultAsync(p => p.Id == id);
 
             if (problem is null)
                 return null;
@@ -101,11 +117,12 @@ namespace AIInterviewCoach.Application.Services
 
             return MapProblemToDto(problem);
         }
+
         public async Task<bool> DeleteProblemAsync(Guid id, Guid userId)
         {
             var problem = await _dbContext.Problems
-            .Include(p => p.TestCases)
-            .FirstOrDefaultAsync(p => p.Id == id);
+                .Include(p => p.TestCases)
+                .FirstOrDefaultAsync(p => p.Id == id);
 
             if (problem is null)
                 return false;
@@ -119,13 +136,20 @@ namespace AIInterviewCoach.Application.Services
             await _dbContext.SaveChangesAsync();
             return true;
         }
-        public async Task<TestCaseResponseDto> AddTestCaseAsync(Guid problemId, CreateTestCaseRequestDto createTestCaseRequest)
-        {
-            var problemExists = await _dbContext.Problems
-            .AnyAsync(p => p.Id == problemId);
 
-            if (!problemExists)
+        public async Task<TestCaseResponseDto> AddTestCaseAsync(
+            Guid problemId,
+            Guid currentUserId,
+            bool isAdmin,
+            CreateTestCaseRequestDto createTestCaseRequest)
+        {
+            var problem = await _dbContext.Problems
+                .FirstOrDefaultAsync(p => p.Id == problemId);
+
+            if (problem is null)
                 throw new KeyNotFoundException("Problem not found.");
+
+            EnsureProblemOwnership(problem, currentUserId, isAdmin);
 
             var testCase = new TestCase
             {
@@ -150,11 +174,25 @@ namespace AIInterviewCoach.Application.Services
                 OrderIndex = testCase.OrderIndex
             };
         }
-        public async Task<IEnumerable<TestCaseResponseDto>> GetTestCasesAsync(Guid problemId, bool includeHidden = false)
+
+        public async Task<IEnumerable<TestCaseResponseDto>> GetTestCasesAsync(
+            Guid problemId,
+            Guid currentUserId,
+            bool isAdmin,
+            bool includeHidden = false)
         {
+            var problem = await _dbContext.Problems
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == problemId);
+
+            if (problem is null)
+                throw new KeyNotFoundException("Problem not found.");
+
+            EnsureProblemOwnership(problem, currentUserId, isAdmin);
+
             var query = _dbContext.TestCases
-            .AsNoTracking()
-            .Where(t => t.ProblemId == problemId);
+                .AsNoTracking()
+                .Where(t => t.ProblemId == problemId);
 
             if (!includeHidden)
             {
@@ -172,7 +210,29 @@ namespace AIInterviewCoach.Application.Services
                     IsHidden = t.IsHidden,
                     OrderIndex = t.OrderIndex
                 })
-                .ToListAsync();
+                    .ToListAsync();
+        }
+
+        private static void EnsureProblemAccessible(Problem problem, Guid currentUserId, UserRole currentUserRole)
+        {
+            if (currentUserRole == UserRole.Admin)
+                return;
+
+            if (currentUserRole == UserRole.Candidate && !problem.IsPublic)
+                throw new UnauthorizedAccessException("You do not have access to this problem.");
+
+            if (currentUserRole == UserRole.Interviewer &&
+                problem.CreatedByUserId != currentUserId &&
+                !problem.IsPublic)
+            {
+                throw new UnauthorizedAccessException("You do not have access to this problem.");
+            }
+        }
+
+        private static void EnsureProblemOwnership(Problem problem, Guid currentUserId, bool isAdmin)
+        {
+            if (!isAdmin && problem.CreatedByUserId != currentUserId)
+                throw new UnauthorizedAccessException("You can only manage test cases for your own problems.");
         }
 
         private static ProblemResponseDto MapProblemToDto(Problem problem)
