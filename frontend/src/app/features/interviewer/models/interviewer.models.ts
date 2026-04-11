@@ -54,6 +54,21 @@ export interface CreateProblemRequest {
   isPublic: boolean;
 }
 
+export interface InterviewProblemSelectionItem {
+  problemId: string;
+  title: string;
+  selected: boolean;
+  orderIndex: number;
+  points: number;
+}
+
+export interface CreateInterviewFormValue {
+  title: string;
+  positionName: string;
+  description: string;
+  durationMinutes: number;
+}
+
 export interface TestCaseListItem {
   id: string;
   problemId: string;

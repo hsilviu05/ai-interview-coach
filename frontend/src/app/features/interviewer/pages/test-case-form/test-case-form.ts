@@ -3,7 +3,7 @@ import { Component, Input, OnInit, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { InterviewerApi } from '../../services/interviewer-api.service';
 import { TestCaseListItem } from '../../models/interviewer.models';
-
+import { finalize } from 'rxjs';
 @Component({
   selector: 'app-test-case-form',
   standalone: true,
@@ -40,7 +40,11 @@ export class TestCaseForm implements OnInit {
     this.loadingTestCases = true;
     this.errorMessage = '';
 
-    this.interviewerApi.getTestCases(this.problemId, true).subscribe({
+    this.interviewerApi.getTestCases(this.problemId, true).pipe(
+      finalize(() => {
+        this.loadingTestCases = false;
+      })
+    ).subscribe({
       next: (testCases) => {
         const sorted = [...testCases].sort((a, b) => a.orderIndex - b.orderIndex);
         this.testCases = sorted;
@@ -52,15 +56,13 @@ export class TestCaseForm implements OnInit {
       },
       error: (err) => {
         this.errorMessage = err?.error?.message ?? 'Failed to load test cases.';
-        this.loadingTestCases = false;
-      },
-      complete: () => {
-        this.loadingTestCases = false;
       },
     });
   }
 
   submit(): void {
+    if (this.loading) return;
+
     if (!this.problemId) {
       this.errorMessage = 'Missing problem id.';
       return;
@@ -75,7 +77,11 @@ export class TestCaseForm implements OnInit {
     this.errorMessage = '';
     this.successMessage = '';
 
-    this.interviewerApi.addTestCase(this.problemId, this.form.getRawValue()).subscribe({
+    this.interviewerApi.addTestCase(this.problemId, this.form.getRawValue()).pipe(
+      finalize(() => {
+        this.loading = false;
+      })
+    ).subscribe({
       next: () => {
         this.successMessage = 'Test case added successfully.';
         this.form.patchValue({
@@ -87,10 +93,6 @@ export class TestCaseForm implements OnInit {
       },
       error: (err) => {
         this.errorMessage = err?.error?.message ?? 'Failed to add test case.';
-        this.loading = false;
-      },
-      complete: () => {
-        this.loading = false;
       },
     });
   }

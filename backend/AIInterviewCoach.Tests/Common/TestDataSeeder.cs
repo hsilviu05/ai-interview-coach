@@ -44,7 +44,8 @@ namespace AIInterviewCoach.Tests.Common
             AppDbContext db,
             Guid createdByUserId,
             int testCaseCount = 2,
-            string? title = null)
+            string? title = null,
+            bool isPublic = true)
         {
             var problem = new Problem
             {
@@ -56,7 +57,7 @@ namespace AIInterviewCoach.Tests.Common
                 ConstraintsText = "1 <= n <= 1000",
                 ExampleInput = "[]",
                 ExampleOutput = "[]",
-                IsPublic = true,
+                IsPublic = isPublic,
                 CreatedByUserId = createdByUserId,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow

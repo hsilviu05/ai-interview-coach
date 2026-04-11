@@ -9,10 +9,12 @@ namespace AIInterviewCoach.Application.Services
     public class SubmissionService : ISubmissionService
     {
         private readonly IAppDbContext _dbContext;
+        private readonly ICodeExecutor _codeExecutor;
 
-        public SubmissionService(IAppDbContext dbContext)
+        public SubmissionService(IAppDbContext dbContext, ICodeExecutor codeExecutor)
         {
             _dbContext = dbContext;
+            _codeExecutor = codeExecutor;
         }
 
         public async Task<SubmissionResponseDto> CreateSubmissionAsync(Guid candidateId, CreateSubmissionRequestDto request)
@@ -49,7 +51,10 @@ namespace AIInterviewCoach.Application.Services
                     throw new InvalidOperationException("Problem does not belong to this interview.");
             }
 
-            var totalTests = problem.TestCases.Count;
+            var executionResult = await _codeExecutor.ExecuteAsync(
+                request.SourceCode,
+                request.Language,
+                problem.TestCases);
 
             var submission = new Submission
             {
@@ -60,15 +65,13 @@ namespace AIInterviewCoach.Application.Services
                 Language = request.Language.Trim(),
                 SourceCode = request.SourceCode,
                 SubmittedAt = DateTime.UtcNow,
-                TotalTests = totalTests,
-                PassedTests = totalTests > 0 ? totalTests / 2 : 0,
-                ExecutionTimeMs = 120,
-                MemoryKb = 2048
+                TotalTests = executionResult.TotalTests,
+                PassedTests = executionResult.PassedTests,
+                ExecutionTimeMs = executionResult.TimeMs,
+                MemoryKb = executionResult.MemoryKb,
+                ExecutionOutput = executionResult.Output,
+                Status = executionResult.Status
             };
-
-            submission.Status = submission.TotalTests > 0 && submission.PassedTests == submission.TotalTests
-                ? SubmissionStatus.Accepted
-                : SubmissionStatus.WrongAnswer;
 
             _dbContext.Submissions.Add(submission);
             await _dbContext.SaveChangesAsync();
@@ -95,6 +98,7 @@ namespace AIInterviewCoach.Application.Services
                     TotalTests = s.TotalTests,
                     ExecutionTimeMs = s.ExecutionTimeMs,
                     MemoryKb = s.MemoryKb,
+                    ExecutionOutput = s.ExecutionOutput,
                     SubmittedAt = s.SubmittedAt
                 })
                 .ToListAsync();
@@ -125,6 +129,7 @@ namespace AIInterviewCoach.Application.Services
                     TotalTests = s.TotalTests,
                     ExecutionTimeMs = s.ExecutionTimeMs,
                     MemoryKb = s.MemoryKb,
+                    ExecutionOutput = s.ExecutionOutput,
                     SubmittedAt = s.SubmittedAt
                 })
                 .ToListAsync();
@@ -145,6 +150,7 @@ namespace AIInterviewCoach.Application.Services
                 TotalTests = submission.TotalTests,
                 ExecutionTimeMs = submission.ExecutionTimeMs,
                 MemoryKb = submission.MemoryKb,
+                ExecutionOutput = submission.ExecutionOutput,
                 SubmittedAt = submission.SubmittedAt
             };
         }

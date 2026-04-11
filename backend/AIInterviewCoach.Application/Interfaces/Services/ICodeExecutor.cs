@@ -1,4 +1,5 @@
 using AIInterviewCoach.Domain.Entities;
+using AIInterviewCoach.Domain.Enums;
 
 namespace AIInterviewCoach.Application.Interfaces.Services
 {
@@ -8,10 +9,10 @@ namespace AIInterviewCoach.Application.Interfaces.Services
     }
 
     public record ExecutionResult(
-    bool Success, 
-    string Output, 
-    int PassedTests, 
-    int TotalTests, 
-    int? TimeMs, 
-    int? MemoryKb);
+        SubmissionStatus Status,
+        string Output,
+        int PassedTests,
+        int TotalTests,
+        int? TimeMs,
+        int? MemoryKb);
 }

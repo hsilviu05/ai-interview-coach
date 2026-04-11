@@ -21,19 +21,27 @@ namespace AIInterviewCoach.Infrastructure.Services
 
         public bool VerifyPassword(string password, string storedHash)
         {
-            var parts = storedHash.Split('.');
-            if (parts.Length != 2)
+            try
+            {
+                var parts = storedHash.Split('.');
+                if (parts.Length != 2)
+                    return false;
+
+                byte[] salt = Convert.FromBase64String(parts[0]);
+                byte[] hashOfInput = KeyDerivation.Pbkdf2(
+                    password: password,
+                    salt: salt,
+                    prf: KeyDerivationPrf.HMACSHA256,
+                    iterationCount: 10000,
+                    numBytesRequested: 32);
+
+                byte[] expectedHash = Convert.FromBase64String(parts[1]);
+                return CryptographicOperations.FixedTimeEquals(hashOfInput, expectedHash);
+            }
+            catch (FormatException)
+            {
                 return false;
-
-            byte[] salt = Convert.FromBase64String(parts[0]);
-            string hashOfInput = Convert.ToBase64String(KeyDerivation.Pbkdf2(
-                password: password,
-                salt: salt,
-                prf: KeyDerivationPrf.HMACSHA256,
-                iterationCount: 10000,
-                numBytesRequested: 32));
-
-            return hashOfInput == parts[1];
+            }
         }
     }
 }

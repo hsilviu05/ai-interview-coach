@@ -20,6 +20,7 @@ namespace AIInterviewCoach.API.Extensions
             services.AddScoped<ISubmissionService, SubmissionService>();
             services.AddScoped<IPasswordHasherService, PasswordHasherService>();
             services.AddScoped<IJwtTokenService, JwtTokenService>();
+            services.AddScoped<ICodeExecutor, DotnetCodeExecutor>();
 
             return services;
         }
@@ -44,7 +45,11 @@ namespace AIInterviewCoach.API.Extensions
             IConfiguration configuration)
         {
             var jwtSettings = configuration.GetSection("Jwt");
-            var key = jwtSettings["Key"]!;
+            var key = jwtSettings["Key"];
+
+            if (string.IsNullOrWhiteSpace(key))
+                throw new InvalidOperationException(
+                    "JWT signing key is missing. Configure Jwt:Key via environment variables or a local secrets store.");
 
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>

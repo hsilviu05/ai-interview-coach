@@ -72,6 +72,8 @@
       </form>
     </div>
 
+    <p class="success-banner" *ngIf="successMessage">{{ successMessage }}</p>
+
     <div class="result-card" *ngIf="createdProblem">
       <h2>Problem Created</h2>
       <p><strong>Title:</strong> {{ createdProblem.title }}</p>
@@ -84,9 +86,13 @@
       </div>
     </div>
 
-    <app-test-case-form
-        *ngIf="createdProblem"
-        [problemId]="createdProblem.id">
-    </app-test-case-form>
+    <div class="follow-up-section" *ngIf="createdProblem">
+      <div class="follow-up-header">
+        <h2>Next Step: Add Test Cases</h2>
+        <p>Now define the visible and hidden cases used to validate candidate submissions.</p>
+      </div>
+
+      <app-test-case-form [problemId]="createdProblem.id"></app-test-case-form>
+    </div>
   </div>
 </div>

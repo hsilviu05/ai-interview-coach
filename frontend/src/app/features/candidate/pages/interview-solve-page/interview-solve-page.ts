@@ -30,6 +30,7 @@ export class InterviewSolvePage implements OnInit {
   readonly startingSession = signal(false);
   readonly submitting = signal(false);
   readonly completing = signal(false);
+  readonly isPracticeMode = signal(false);
 
   readonly errorMessage = signal('');
   readonly successMessage = signal('');
@@ -55,15 +56,24 @@ export class InterviewSolvePage implements OnInit {
   form = this.fb.nonNullable.group({
     language: ['csharp', [Validators.required]],
     sourceCode: [
-      `public class Solution
-{
-    // Write your solution here
-}`,
+      `using System;
+
+var input = Console.In.ReadToEnd();
+
+// TODO: Parse the test input from stdin and write only the expected output.
+Console.WriteLine(input.Trim());`,
       [Validators.required, Validators.minLength(10)],
     ],
   });
 
   ngOnInit(): void {
+    const practiceProblemId = this.route.snapshot.paramMap.get('problemId');
+    if (practiceProblemId) {
+      this.isPracticeMode.set(true);
+      this.loadPracticeProblem(practiceProblemId);
+      return;
+    }
+
     const token = this.route.snapshot.paramMap.get('token');
 
     if (!token) {
@@ -73,6 +83,24 @@ export class InterviewSolvePage implements OnInit {
     }
 
     this.loadInterviewAndStartSession(token);
+  }
+
+  private loadPracticeProblem(problemId: string): void {
+    this.loading.set(true);
+    this.errorMessage.set('');
+    this.successMessage.set('');
+
+    this.candidateApi.getPracticeProblemById(problemId).subscribe({
+      next: problem => {
+        this.interview.set(this.buildPracticeInterview(problem));
+        this.selectedProblemId.set(problem.problemId);
+        this.loadPracticeSubmissions(problem.problemId);
+      },
+      error: err => {
+        this.errorMessage.set(err?.error?.message ?? 'Failed to load practice problem.');
+        this.loading.set(false);
+      },
+    });
   }
 
   private loadInterviewAndStartSession(token: string): void {
@@ -92,6 +120,24 @@ export class InterviewSolvePage implements OnInit {
       },
       error: err => {
         this.errorMessage.set(err?.error?.message ?? 'Failed to load interview.');
+        this.loading.set(false);
+      },
+    });
+  }
+
+  private loadPracticeSubmissions(problemId: string): void {
+    this.submissionApi.getMySubmissions().subscribe({
+      next: submissions => {
+        this.submissions.set(
+          submissions.filter(submission =>
+            submission.problemId === problemId && !submission.interviewSessionId
+          )
+        );
+      },
+      error: () => {
+        this.submissions.set([]);
+      },
+      complete: () => {
         this.loading.set(false);
       },
     });
@@ -140,7 +186,12 @@ export class InterviewSolvePage implements OnInit {
     const session = this.session();
     const problem = this.selectedProblem();
 
-    if (!session || !problem) {
+    if (!problem) {
+      this.errorMessage.set('No selected problem.');
+      return;
+    }
+
+    if (!this.isPracticeMode() && !session) {
       this.errorMessage.set('No active session or selected problem.');
       return;
     }
@@ -156,13 +207,25 @@ export class InterviewSolvePage implements OnInit {
 
     this.submissionApi.createSubmission({
       problemId: problem.problemId,
-      interviewSessionId: session.id,
       language: this.form.controls.language.value,
       sourceCode: this.form.controls.sourceCode.value,
+      ...(session ? { interviewSessionId: session.id } : {}),
     }).subscribe({
       next: submission => {
         this.submissions.set([submission, ...this.submissions()]);
-        this.successMessage.set(`Submission saved with status: ${submission.status}.`);
+        const diagnostic = submission.executionOutput?.trim();
+
+        if (submission.status === 'Accepted') {
+          this.successMessage.set(diagnostic || 'Submission accepted.');
+          this.errorMessage.set('');
+        } else {
+          this.errorMessage.set(
+            diagnostic
+              ? `${submission.status}: ${diagnostic}`
+              : `Submission finished with status: ${submission.status}.`
+          );
+          this.successMessage.set('');
+        }
       },
       error: err => {
         this.errorMessage.set(err?.error?.message ?? 'Failed to submit solution.');
@@ -174,6 +237,11 @@ export class InterviewSolvePage implements OnInit {
   }
 
   completeInterview(): void {
+    if (this.isPracticeMode()) {
+      this.router.navigateByUrl('/candidate/practice');
+      return;
+    }
+
     const session = this.session();
 
     if (!session) {
@@ -201,5 +269,20 @@ export class InterviewSolvePage implements OnInit {
 
   getLatestSubmissionForProblem(problemId: string): SubmissionResponse | null {
     return this.submissions().find(submission => submission.problemId === problemId) ?? null;
+  }
+
+  private buildPracticeInterview(problem: CandidateInterviewProblemDto): CandidateInterviewResponse {
+    return {
+      id: `practice-${problem.problemId}`,
+      title: 'Practice Workspace',
+      positionName: 'Standalone Problem Practice',
+      description: 'Use this workspace to practice on individual coding problems.',
+      durationMinutes: 0,
+      accessToken: '',
+      isActive: true,
+      interviewerId: '',
+      createdAt: new Date().toISOString(),
+      problems: [problem],
+    };
   }
 }

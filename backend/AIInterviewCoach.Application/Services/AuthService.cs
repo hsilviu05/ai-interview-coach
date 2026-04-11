@@ -24,22 +24,21 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponseDto> RegisterAsync(RegisterRequestDto request)
     {
+        var normalizedEmail = request.Email.Trim().ToLower();
+
         var existingUser = await _dbContext.Users
-            .FirstOrDefaultAsync(x => x.Email == request.Email);
+            .FirstOrDefaultAsync(x => x.Email == normalizedEmail);
 
         if (existingUser is not null)
-            throw new Exception("Email is already in use.");
-
-        if (!Enum.TryParse<UserRole>(request.Role, true, out var parsedRole))
-            parsedRole = UserRole.Candidate;
+            throw new InvalidOperationException("Email is already in use.");
 
         var user = new User
         {
             Id = Guid.NewGuid(),
             FullName = request.FullName,
-            Email = request.Email.Trim().ToLower(),
+            Email = normalizedEmail,
             PasswordHash = _passwordHasher.HashPassword(request.Password),
-            UserRole = parsedRole,
+            UserRole = UserRole.Candidate,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -79,12 +78,12 @@ public class AuthService : IAuthService
             .FirstOrDefaultAsync(x => x.Email == request.Email.Trim().ToLower());
 
         if (user is null)
-            throw new Exception("Invalid email or password.");
+            throw new InvalidOperationException("Invalid email or password.");
 
         var isPasswordValid = _passwordHasher.VerifyPassword(request.Password, user.PasswordHash);
 
         if (!isPasswordValid)
-            throw new Exception("Invalid email or password.");
+            throw new InvalidOperationException("Invalid email or password.");
 
         var token = _jwtTokenService.GenerateToken(user);
 

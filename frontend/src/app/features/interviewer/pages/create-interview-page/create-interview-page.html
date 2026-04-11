@@ -6,10 +6,10 @@
   <div class="create-shell">
     <div class="intro-panel">
       <div class="badge">Create Interview</div>
-      <h1>Set up a new interview and generate an access token for candidates.</h1>
+      <h1>Create the interview and attach problems in one step.</h1>
       <p>
-        Define the interview metadata first. After creation, attach one or more problems
-        so the interview becomes usable in the candidate flow.
+        Fill in the interview details, select the problems you want to include,
+        then create the interview in one action.
       </p>
 
       <button type="button" class="secondary-btn" (click)="goBack()">
@@ -20,7 +20,7 @@
     <div class="card">
       <div class="card-header">
         <h2>Interview Details</h2>
-        <p>Fill in the core information for the interview.</p>
+        <p>Define the interview metadata and choose the included problems.</p>
       </div>
 
       <form [formGroup]="form" (ngSubmit)="submit()" class="form">
@@ -54,7 +54,7 @@
             id="description"
             rows="5"
             formControlName="description"
-            placeholder="Basic backend interview focused on algorithms and problem solving."></textarea>
+            placeholder="Technical interview focused on problem solving and algorithms."></textarea>
           <small class="validation" *ngIf="form.controls.description.touched && form.controls.description.invalid">
             Description is required and must be under 2000 characters.
           </small>
@@ -72,10 +72,55 @@
           </small>
         </div>
 
-        <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+        <div class="problems-section">
+          <div class="problems-header">
+            <h3>Select Problems</h3>
+            <p *ngIf="loadingProblems">Loading problems...</p>
+            <p *ngIf="!loadingProblems">Choose the problems to include in this interview.</p>
+          </div>
 
-        <button type="submit" class="primary-btn" [disabled]="loading">
-          {{ loading ? 'Creating Interview...' : 'Create Interview' }}
+          <div class="empty-problems" *ngIf="!loadingProblems && availableProblems.length === 0">
+            No problems available yet. Create problems first.
+          </div>
+
+          <div class="problem-selection-list" *ngIf="availableProblems.length > 0">
+            <div class="problem-selection-item" *ngFor="let problem of availableProblems">
+              <div class="selection-left">
+                <label class="checkbox-inline">
+                  <input
+                    type="checkbox"
+                    [checked]="problem.selected"
+                    (change)="toggleProblemSelection(problem.problemId, $any($event.target).checked)" />
+                  <span>{{ problem.title }}</span>
+                </label>
+              </div>
+
+              <div class="selection-right" *ngIf="problem.selected">
+                <div class="mini-field">
+                  <label>Order</label>
+                  <input
+                    type="number"
+                    [value]="problem.orderIndex"
+                    (input)="updateProblemOrder(problem.problemId, +$any($event.target).value)" />
+                </div>
+
+                <div class="mini-field">
+                  <label>Points</label>
+                  <input
+                    type="number"
+                    [value]="problem.points"
+                    (input)="updateProblemPoints(problem.problemId, +$any($event.target).value)" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+        <p class="success-banner" *ngIf="successMessage">{{ successMessage }}</p>
+
+        <button type="submit" class="primary-btn" [disabled]="loading || loadingProblems">
+          {{ loading ? 'Creating Interview and Attaching Problems...' : 'Create Interview' }}
         </button>
       </form>
 
@@ -96,16 +141,6 @@
           </button>
         </div>
       </div>
-
-      <app-add-problem-form
-        *ngIf="createdInterview"
-        [interviewId]="createdInterview.id"
-        (problemAdded)="onProblemAdded()">
-      </app-add-problem-form>
-
-      <p class="success-hint" *ngIf="lastProblemAddedAt">
-        Last problem added at {{ lastProblemAddedAt }}.
-      </p>
     </div>
   </div>
 </div>

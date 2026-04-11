@@ -6,7 +6,7 @@ namespace AIInterviewCoach.Application.Interfaces.Services
     {
         Task<InterviewResponseDto> CreateInterviewAsync(Guid interviewerId, CreateInterviewRequestDto request);
         Task<bool> AddProblemAsync(Guid interviewId, AddProblemToInterviewRequestDto request, Guid interviewerId);
-        Task<InterviewResponseDto?> GetByIdAsync(Guid id);
+        Task<InterviewResponseDto?> GetByIdAsync(Guid id, Guid interviewerId, bool isAdmin);
         Task<InterviewResponseDto?> GetByTokenAsync(string token);
         Task<InterviewSessionResponseDto> StartSessionAsync(string token, Guid candidateId);
         Task<InterviewSessionResponseDto> CompleteSessionAsync(Guid sessionId, Guid candidateId);

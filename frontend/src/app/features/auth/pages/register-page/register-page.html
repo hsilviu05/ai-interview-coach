@@ -6,14 +6,14 @@
       <div class="brand-badge">AI Interview Coach</div>
       <h1>Create your account and start using the platform immediately.</h1>
       <p>
-        Register as a candidate to practice interviews, or as an interviewer to create
-        interview sessions, assign problems, and review submissions.
+        Create a candidate account to practice interviews and submit solutions in the
+        secured coding flow.
       </p>
 
       <div class="brand-points">
         <div class="point">
           <span class="point-dot"></span>
-          <span>Candidate and interviewer roles</span>
+          <span>Candidate practice workspace</span>
         </div>
         <div class="point">
           <span class="point-dot"></span>
@@ -21,7 +21,7 @@
         </div>
         <div class="point">
           <span class="point-dot"></span>
-          <span>Fast onboarding for testing and demos</span>
+          <span>Interviewer access is provisioned separately</span>
         </div>
       </div>
     </div>
@@ -82,16 +82,6 @@
             *ngIf="form.controls.password.touched && form.controls.password.invalid">
             Password must contain at least 6 characters.
           </small>
-        </div>
-
-        <div class="field">
-          <label for="role">Role</label>
-          <div class="input-wrapper">
-            <select id="role" formControlName="role">
-              <option value="Candidate">Candidate</option>
-              <option value="Interviewer">Interviewer</option>
-            </select>
-          </div>
         </div>
 
         <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>

@@ -8,20 +8,7 @@ Content-Type: application/json
 {
   "fullName": "Silviu Hermeneanu",
   "email": "silviu@test.com",
-  "password": "Password123!",
-  "role": "Candidate"
-}
-
-### Register a new user
-# @name registerInterviewer
-POST {{baseUrl}}/auth/register
-Content-Type: application/json
-
-{
-  "fullName": "Interviewer",
-  "email": "interviewer@test.com",
-  "password": "Password123!",
-  "role": "Interviewer"
+  "password": "Password123!"
 }
 
 ### Login
@@ -146,7 +133,7 @@ Content-Type: application/json
   "problemId": "{{problemId}}",
   "interviewSessionId": "{{interviewSessionId}}",
   "language": "csharp",
-  "sourceCode": "public class Solution { }"
+  "sourceCode": "using System;\nvar input = Console.In.ReadToEnd();\nConsole.WriteLine(input.Trim());"
 }
 
 ### Get my submissions

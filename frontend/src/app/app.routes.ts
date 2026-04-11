@@ -8,6 +8,7 @@ import { InterviewSessionDetailsPage } from './features/interviewer/pages/interv
 import { InterviewAccessPage } from './features/candidate/pages/interview-access-page/interview-access-page';
 import { InterviewSolvePage } from './features/candidate/pages/interview-solve-page/interview-solve-page';
 import { InterviewResultPage } from './features/candidate/pages/interview-result-page/interview-result-page';
+import { PracticeProblemsPage } from './features/candidate/pages/practice-problems-page/practice-problems-page';
 import { InterviewsListPage } from './features/interviewer/pages/interviews-list-page/interviews-list-page';
 import { InterviewerProblemsListPage } from './features/interviewer/pages/interviewer-problems-list-page/interviewer-problems-list-page';
 import { CreateProblemPage } from './features/interviewer/pages/create-problem-page/create-problem-page';
@@ -44,6 +45,8 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'access' },
       { path: 'access', component: InterviewAccessPage },
       { path: 'solve/:token', component: InterviewSolvePage },
+      { path: 'practice', component: PracticeProblemsPage },
+      { path: 'practice/:problemId', component: InterviewSolvePage, data: { mode: 'practice' } },
       { path: 'result/:sessionId', component: InterviewResultPage },
     ],
   },

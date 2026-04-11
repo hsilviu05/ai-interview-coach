@@ -131,5 +131,20 @@ namespace AIInterviewCoach.Tests.Services
 
             await Assert.ThrowsAsync<InvalidOperationException>(action);
         }
+
+        [Fact]
+        public async Task GetByIdAsync_ShouldThrow_WhenInterviewerDoesNotOwnInterview()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var owner = TestDataSeeder.CreateInterviewer(db);
+            var otherInterviewer = TestDataSeeder.CreateInterviewer(db);
+            var interview = TestDataSeeder.CreateInterview(db, owner.Id);
+
+            var service = new InterviewService(db);
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                service.GetByIdAsync(interview.Id, otherInterviewer.Id, isAdmin: false));
+        }
     }
 }
