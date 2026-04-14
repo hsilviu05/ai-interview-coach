@@ -20,8 +20,60 @@
       <p>Once problems are published to the platform, they will appear here for candidates.</p>
     </div>
 
-    <div class="problem-grid" *ngIf="problems().length > 0">
-      <div class="problem-card" *ngFor="let problem of problems()">
+    <div class="filters-card" *ngIf="problems().length > 0">
+      <div class="search-field">
+        <label for="practice-search">Search</label>
+        <input
+          id="practice-search"
+          type="search"
+          placeholder="Search by title, topic, description, or difficulty"
+          [ngModel]="searchTerm()"
+          (ngModelChange)="updateSearchTerm($event)" />
+      </div>
+
+      <div class="filter-field">
+        <label for="difficulty-filter">Difficulty</label>
+        <select
+          id="difficulty-filter"
+          [ngModel]="selectedDifficulty()"
+          (ngModelChange)="updateSelectedDifficulty($event)">
+          <option *ngFor="let difficulty of availableDifficulties()" [value]="difficulty">
+            {{ difficulty }}
+          </option>
+        </select>
+      </div>
+
+      <div class="filter-field">
+        <label for="topic-filter">Topic</label>
+        <select
+          id="topic-filter"
+          [ngModel]="selectedTopic()"
+          (ngModelChange)="updateSelectedTopic($event)">
+          <option *ngFor="let topic of availableTopics()" [value]="topic">
+            {{ topic }}
+          </option>
+        </select>
+      </div>
+
+      <button type="button" class="secondary-btn" (click)="clearFilters()">
+        Clear Filters
+      </button>
+    </div>
+
+    <div class="results-summary" *ngIf="problems().length > 0">
+      Showing {{ filteredProblems().length }} of {{ problems().length }} practice problems
+    </div>
+
+    <div class="empty-state-card" *ngIf="problems().length > 0 && filteredProblems().length === 0">
+      <h2>No matches yet</h2>
+      <p>Try a different keyword or clear the filters to browse the full catalog again.</p>
+      <button type="button" class="secondary-btn" (click)="clearFilters()">
+        Reset Search
+      </button>
+    </div>
+
+    <div class="problem-grid" *ngIf="filteredProblems().length > 0">
+      <div class="problem-card" *ngFor="let problem of filteredProblems()">
         <div class="card-top">
           <div>
             <h2>{{ problem.title }}</h2>

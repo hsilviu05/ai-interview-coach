@@ -5,28 +5,40 @@ export class StorageService {
   private readonly tokenKey = 'auth_token';
   private readonly roleKey = 'auth_role';
 
+  setItem(key: string, value: string): void {
+    localStorage.setItem(key, value);
+  }
+
+  getItem(key: string): string | null {
+    return localStorage.getItem(key);
+  }
+
+  removeItem(key: string): void {
+    localStorage.removeItem(key);
+  }
+
   setToken(token: string): void {
-    localStorage.setItem(this.tokenKey, token);
+    this.setItem(this.tokenKey, token);
   }
 
   getToken(): string | null {
-    return localStorage.getItem(this.tokenKey);
+    return this.getItem(this.tokenKey);
   }
 
   clearToken(): void {
-    localStorage.removeItem(this.tokenKey);
+    this.removeItem(this.tokenKey);
   }
 
   setRole(role: string): void {
-    localStorage.setItem(this.roleKey, role);
+    this.setItem(this.roleKey, role);
   }
 
   getRole(): string | null {
-    return localStorage.getItem(this.roleKey);
+    return this.getItem(this.roleKey);
   }
 
   clearAll(): void {
-    localStorage.removeItem(this.tokenKey);
-    localStorage.removeItem(this.roleKey);
+    this.removeItem(this.tokenKey);
+    this.removeItem(this.roleKey);
   }
 }

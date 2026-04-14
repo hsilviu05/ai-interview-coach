@@ -1,0 +1,13 @@
+<div class="editor-shell" [style.height.px]="height">
+  <div #editorHost class="editor-host" *ngIf="!useTextareaFallback(); else fallbackEditor"></div>
+
+  <ng-template #fallbackEditor>
+    <textarea
+      class="editor-fallback"
+      [disabled]="isDisabled()"
+      [value]="value()"
+      spellcheck="false"
+      (blur)="handleBlur()"
+      (input)="handleFallbackInput($event)"></textarea>
+  </ng-template>
+</div>

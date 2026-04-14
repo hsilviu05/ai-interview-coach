@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { debounceTime, distinctUntilChanged, map } from 'rxjs';
 import {
   CandidateApi,
 } from '../../services/candidate-api.service';
@@ -11,20 +13,33 @@ import {
   SubmissionApi,
 } from '../../services/submission-api.service';
 import { Navbar } from '../../../../shared/components/navbar/navbar';
+import { CodeEditor } from '../../../../shared/components/code-editor/code-editor';
+import { CodeDraftStorageService } from '../../services/code-draft-storage.service';
 
 @Component({
   selector: 'app-interview-solve-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, Navbar],
+  imports: [CommonModule, ReactiveFormsModule, Navbar, CodeEditor],
   templateUrl: './interview-solve-page.html',
   styleUrl: './interview-solve-page.scss',
 })
-export class InterviewSolvePage implements OnInit {
+export class InterviewSolvePage implements OnInit, OnDestroy {
+  private static readonly defaultSourceCode = `using System;
+
+var input = Console.In.ReadToEnd();
+
+// TODO: Parse the test input from stdin and write only the expected output.
+Console.WriteLine(input.Trim());`;
+
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly candidateApi = inject(CandidateApi);
   private readonly submissionApi = inject(SubmissionApi);
+  private readonly codeDraftStorage = inject(CodeDraftStorageService);
+
+  private isHydratingDraft = false;
 
   readonly loading = signal(true);
   readonly startingSession = signal(false);
@@ -39,6 +54,35 @@ export class InterviewSolvePage implements OnInit {
   readonly session = signal<InterviewSessionResponse | null>(null);
   readonly submissions = signal<SubmissionResponse[]>([]);
   readonly selectedProblemId = signal<string | null>(null);
+  readonly lastSavedAt = signal<string | null>(null);
+  readonly completedProblemIds = computed(() =>
+    new Set(
+      this.submissions()
+        .filter(submission => submission.status === 'Accepted')
+        .map(submission => submission.problemId)
+    )
+  );
+  readonly allProblemsCompleted = computed(() => {
+    const interview = this.interview();
+
+    return !!interview &&
+      interview.problems.length > 0 &&
+      interview.problems.every(problem => this.completedProblemIds().has(problem.problemId));
+  });
+
+  readonly autosaveStatus = computed(() => {
+    const lastSavedAt = this.lastSavedAt();
+
+    if (!lastSavedAt) {
+      return 'Draft autosaves locally in this browser for each problem.';
+    }
+
+    return `Autosaved at ${new Date(lastSavedAt).toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+    })}`;
+  });
 
   readonly selectedProblem = computed(() => {
     const interview = this.interview();
@@ -55,16 +99,23 @@ export class InterviewSolvePage implements OnInit {
 
   form = this.fb.nonNullable.group({
     language: ['csharp', [Validators.required]],
-    sourceCode: [
-      `using System;
-
-var input = Console.In.ReadToEnd();
-
-// TODO: Parse the test input from stdin and write only the expected output.
-Console.WriteLine(input.Trim());`,
-      [Validators.required, Validators.minLength(10)],
-    ],
+    sourceCode: [InterviewSolvePage.defaultSourceCode, [Validators.required, Validators.minLength(10)]],
   });
+
+  constructor() {
+    this.form.valueChanges.pipe(
+      debounceTime(500),
+      map(() => JSON.stringify(this.form.getRawValue())),
+      distinctUntilChanged(),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(() => {
+      if (this.loading() || this.isHydratingDraft) {
+        return;
+      }
+
+      this.persistCurrentDraft();
+    });
+  }
 
   ngOnInit(): void {
     const practiceProblemId = this.route.snapshot.paramMap.get('problemId');
@@ -83,6 +134,10 @@ Console.WriteLine(input.Trim());`,
     }
 
     this.loadInterviewAndStartSession(token);
+  }
+
+  ngOnDestroy(): void {
+    this.persistCurrentDraft();
   }
 
   private loadPracticeProblem(problemId: string): void {
@@ -136,8 +191,11 @@ Console.WriteLine(input.Trim());`,
       },
       error: () => {
         this.submissions.set([]);
+        this.focusFirstOpenProblem();
+        this.loading.set(false);
       },
       complete: () => {
+        this.focusFirstOpenProblem();
         this.loading.set(false);
       },
     });
@@ -169,17 +227,26 @@ Console.WriteLine(input.Trim());`,
       },
       error: () => {
         this.submissions.set([]);
+        this.focusFirstOpenProblem();
+        this.loading.set(false);
       },
       complete: () => {
+        this.focusFirstOpenProblem();
         this.loading.set(false);
       },
     });
   }
 
   selectProblem(problem: CandidateInterviewProblemDto): void {
+    if (this.selectedProblemId() === problem.problemId) {
+      return;
+    }
+
+    this.persistCurrentDraft();
     this.selectedProblemId.set(problem.problemId);
     this.successMessage.set('');
     this.errorMessage.set('');
+    this.hydrateDraftForSelectedProblem();
   }
 
   submitSolution(): void {
@@ -213,12 +280,13 @@ Console.WriteLine(input.Trim());`,
     }).subscribe({
       next: submission => {
         this.submissions.set([submission, ...this.submissions()]);
-        const diagnostic = submission.executionOutput?.trim();
+        this.persistCurrentDraft();
 
         if (submission.status === 'Accepted') {
-          this.successMessage.set(diagnostic || 'Submission accepted.');
+          this.advanceAfterAcceptedSubmission(problem.problemId);
           this.errorMessage.set('');
         } else {
+          const diagnostic = submission.executionOutput?.trim();
           this.errorMessage.set(
             diagnostic
               ? `${submission.status}: ${diagnostic}`
@@ -269,6 +337,131 @@ Console.WriteLine(input.Trim());`,
 
   getLatestSubmissionForProblem(problemId: string): SubmissionResponse | null {
     return this.submissions().find(submission => submission.problemId === problemId) ?? null;
+  }
+
+  goToPracticeProblems(): void {
+    this.router.navigateByUrl('/candidate/practice');
+  }
+
+  private hydrateDraftForSelectedProblem(): void {
+    const problemId = this.selectedProblemId();
+
+    if (!problemId) {
+      return;
+    }
+
+    const draft = this.codeDraftStorage.getDraft(this.buildDraftScope(problemId));
+    const latestSubmission = this.getLatestSubmissionForProblem(problemId);
+    const nextLanguage = draft?.language ?? latestSubmission?.language ?? 'csharp';
+    const nextSourceCode =
+      draft?.sourceCode ??
+      latestSubmission?.sourceCode ??
+      InterviewSolvePage.defaultSourceCode;
+
+    this.isHydratingDraft = true;
+    this.form.reset(
+      {
+        language: nextLanguage,
+        sourceCode: nextSourceCode,
+      },
+      { emitEvent: false }
+    );
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
+    this.lastSavedAt.set(draft?.updatedAt ?? null);
+    this.isHydratingDraft = false;
+  }
+
+  private persistCurrentDraft(): void {
+    const problemId = this.selectedProblemId();
+
+    if (!problemId) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    this.codeDraftStorage.saveDraft(this.buildDraftScope(problemId), {
+      ...this.form.getRawValue(),
+      updatedAt: now,
+    });
+    this.lastSavedAt.set(now);
+  }
+
+  private buildDraftScope(problemId: string): string {
+    if (this.isPracticeMode()) {
+      return `practice:${problemId}`;
+    }
+
+    return `interview:${this.session()?.id ?? this.interview()?.id ?? 'pending'}:${problemId}`;
+  }
+
+  private focusFirstOpenProblem(): void {
+    const firstOpenProblem = this.interview()?.problems.find(
+      problem => !this.completedProblemIds().has(problem.problemId)
+    );
+
+    if (!firstOpenProblem) {
+      this.clearWorkspaceSelection();
+      return;
+    }
+
+    this.selectedProblemId.set(firstOpenProblem.problemId);
+    this.hydrateDraftForSelectedProblem();
+  }
+
+  private advanceAfterAcceptedSubmission(completedProblemId: string): void {
+    const nextProblem = this.findNextOpenProblem(completedProblemId);
+
+    if (!nextProblem) {
+      this.clearWorkspaceSelection();
+      this.successMessage.set(
+        this.isPracticeMode()
+          ? 'Problem accepted. Practice complete.'
+          : 'Problem accepted. No remaining open problems.'
+      );
+      return;
+    }
+
+    this.selectedProblemId.set(nextProblem.problemId);
+    this.hydrateDraftForSelectedProblem();
+    this.successMessage.set(`Problem accepted. Moved to ${nextProblem.orderIndex}. ${nextProblem.title}.`);
+  }
+
+  private clearWorkspaceSelection(): void {
+    this.selectedProblemId.set(null);
+    this.lastSavedAt.set(null);
+    this.isHydratingDraft = true;
+    this.form.reset(
+      {
+        language: 'csharp',
+        sourceCode: InterviewSolvePage.defaultSourceCode,
+      },
+      { emitEvent: false }
+    );
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
+    this.isHydratingDraft = false;
+  }
+
+  private findNextOpenProblem(completedProblemId: string): CandidateInterviewProblemDto | null {
+    const problems = this.interview()?.problems ?? [];
+    const completedProblemIds = this.completedProblemIds();
+    const currentProblemIndex = problems.findIndex(problem => problem.problemId === completedProblemId);
+
+    if (currentProblemIndex === -1) {
+      return null;
+    }
+
+    for (let problemIndex = currentProblemIndex + 1; problemIndex < problems.length; problemIndex += 1) {
+      const problem = problems[problemIndex];
+
+      if (!completedProblemIds.has(problem.problemId)) {
+        return problem;
+      }
+    }
+
+    return null;
   }
 
   private buildPracticeInterview(problem: CandidateInterviewProblemDto): CandidateInterviewResponse {

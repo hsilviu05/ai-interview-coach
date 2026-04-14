@@ -18,6 +18,7 @@
 }
 
 .header-card,
+.filters-card,
 .empty-state-card,
 .loading-card,
 .problem-card {
@@ -58,6 +59,59 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
+}
+
+.filters-card {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(180px, 1fr)) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.search-field,
+.filter-field {
+  display: grid;
+  gap: 8px;
+}
+
+.search-field label,
+.filter-field label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.search-field input,
+.filter-field select {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #dbe4f0;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 14px;
+  outline: none;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.search-field input:focus,
+.filter-field select:focus {
+  border-color: #2563eb;
+  box-shadow:
+    0 0 0 4px rgba(37, 99, 235, 0.12),
+    0 10px 25px rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
+}
+
+.results-summary {
+  color: #dbeafe;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .problem-card {
@@ -118,6 +172,17 @@
   background: linear-gradient(135deg, #2563eb, #1d4ed8 55%, #0f766e);
 }
 
+.secondary-btn {
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 16px;
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
 .difficulty-chip {
   padding: 8px 12px;
   border-radius: 999px;
@@ -154,6 +219,7 @@
 }
 
 @media (max-width: 960px) {
+  .filters-card,
   .problem-grid,
   .meta-grid {
     grid-template-columns: 1fr;
