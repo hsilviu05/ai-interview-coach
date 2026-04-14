@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using AIInterviewCoach.Application.Interfaces.Services;
+using AIInterviewCoach.Infrastructure.Configuration;
 using AIInterviewCoach.Domain.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -20,11 +21,7 @@ namespace AIInterviewCoach.Infrastructure.Services
         public string GenerateToken(User user)
         {
             var jwtSettings = _configuration.GetSection("Jwt");
-            var signingKey = jwtSettings["Key"];
-
-            if (string.IsNullOrWhiteSpace(signingKey))
-                throw new InvalidOperationException(
-                    "JWT signing key is missing. Configure Jwt:Key before generating tokens.");
+            var signingKey = JwtSigningKeyResolver.GetRequiredSigningKey(_configuration);
 
             var claims = new List<Claim>
             {

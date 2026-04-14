@@ -132,6 +132,37 @@
   margin-bottom: 22px;
 }
 
+.empty-workspace-card {
+  display: grid;
+  gap: 16px;
+  min-height: 340px;
+  align-content: center;
+  justify-items: start;
+}
+
+.empty-workspace-card h2,
+.empty-workspace-card p {
+  margin: 0;
+}
+
+.empty-workspace-badge {
+  display: inline-flex;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.empty-workspace-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .problem-details {
   display: grid;
   gap: 16px;
@@ -238,14 +269,20 @@
   gap: 8px;
 }
 
+.editor-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 label {
   font-size: 14px;
   font-weight: 700;
   color: #1e293b;
 }
 
-select,
-textarea {
+select {
   width: 100%;
   max-width: 100%;
   display: block;
@@ -262,15 +299,7 @@ textarea {
     transform 0.18s ease;
 }
 
-textarea {
-  resize: vertical;
-  min-height: 360px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  line-height: 1.55;
-}
-
-select:focus,
-textarea:focus {
+select:focus {
   border-color: #2563eb;
   box-shadow:
     0 0 0 4px rgba(37, 99, 235, 0.12),
@@ -278,12 +307,28 @@ textarea:focus {
   transform: translateY(-1px);
 }
 
+app-code-editor {
+  display: block;
+}
+
+.autosave-status,
+.helper-text,
+.submit-btn,
+.complete-btn {
+  font-size: 14px;
+}
+
+.autosave-status {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .submit-btn,
 .complete-btn {
   border: none;
   border-radius: 16px;
   padding: 14px 20px;
-  font-size: 14px;
   font-weight: 700;
   color: #ffffff;
   background: linear-gradient(135deg, #2563eb, #1d4ed8 55%, #0f766e);
@@ -306,6 +351,10 @@ textarea:focus {
 .error,
 .success {
   font-size: 13px;
+}
+
+.helper-text {
+  color: #64748b;
 }
 
 .validation,
@@ -338,6 +387,11 @@ textarea:focus {
   .workspace-header {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .editor-label-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .example-grid {

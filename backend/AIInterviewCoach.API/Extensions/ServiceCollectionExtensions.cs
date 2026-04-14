@@ -1,5 +1,6 @@
 using System.Text;
 using AIInterviewCoach.Application.Interfaces.Services;
+using AIInterviewCoach.Infrastructure.Configuration;
 using AIInterviewCoach.Infrastructure.Persistence;
 using AIInterviewCoach.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -45,11 +46,7 @@ namespace AIInterviewCoach.API.Extensions
             IConfiguration configuration)
         {
             var jwtSettings = configuration.GetSection("Jwt");
-            var key = jwtSettings["Key"];
-
-            if (string.IsNullOrWhiteSpace(key))
-                throw new InvalidOperationException(
-                    "JWT signing key is missing. Configure Jwt:Key via environment variables or a local secrets store.");
+            var key = JwtSigningKeyResolver.GetRequiredSigningKey(configuration);
 
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>

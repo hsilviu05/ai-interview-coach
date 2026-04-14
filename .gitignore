@@ -55,3 +55,7 @@ nunit-*.xml
 
 #
 *.DS_Store
+
+# Local developer-only API secrets
+backend/AIInterviewCoach.API/appsettings.Local.json
+backend/AIInterviewCoach.API/appsettings.*.Local.json

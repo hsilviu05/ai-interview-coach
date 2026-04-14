@@ -111,19 +111,21 @@
             <select id="language" formControlName="language">
               <option value="csharp">C#</option>
             </select>
-            <small class="validation">
+            <small class="helper-text">
               Submissions run as standalone C# console programs. Read from stdin and write
               the final answer to stdout.
             </small>
           </div>
 
           <div class="field">
-            <label for="sourceCode">Source Code</label>
-            <textarea
-              id="sourceCode"
-              rows="18"
+            <div class="editor-label-row">
+              <label>Source Code</label>
+              <span class="autosave-status">{{ autosaveStatus() }}</span>
+            </div>
+            <app-code-editor
               formControlName="sourceCode"
-              placeholder="Write your solution here"></textarea>
+              [height]="460"
+              [language]="form.controls.language.value"></app-code-editor>
             <small
               class="validation"
               *ngIf="form.controls.sourceCode.touched && form.controls.sourceCode.invalid">
@@ -142,6 +144,50 @@
             }}
           </button>
         </form>
+      </div>
+
+      <div class="workspace-card empty-workspace-card" *ngIf="!selectedProblem() && interview()">
+        <div class="empty-workspace-badge">
+          {{ allProblemsCompleted() ? 'All Problems Complete' : 'Workspace Ready' }}
+        </div>
+        <h2>
+          {{
+            allProblemsCompleted()
+              ? (isPracticeMode() ? 'Practice problem completed.' : 'Every problem in this session is done.')
+              : 'Select a problem to continue.'
+          }}
+        </h2>
+        <p>
+          {{
+            allProblemsCompleted()
+              ? (isPracticeMode()
+                  ? 'Return to the practice catalog or reopen the solved problem from the sidebar.'
+                  : 'You can review any solved problem from the sidebar or complete the interview now.')
+              : 'Choose a problem from the sidebar to open its workspace.'
+          }}
+        </p>
+
+        <p class="success" *ngIf="successMessage()">{{ successMessage() }}</p>
+        <p class="error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+
+        <div class="empty-workspace-actions">
+          <button
+            *ngIf="isPracticeMode()"
+            type="button"
+            class="complete-btn"
+            (click)="goToPracticeProblems()">
+            Back to Practice Problems
+          </button>
+
+          <button
+            *ngIf="!isPracticeMode() && allProblemsCompleted()"
+            type="button"
+            class="complete-btn"
+            (click)="completeInterview()"
+            [disabled]="completing()">
+            {{ completing() ? 'Completing...' : 'Complete Interview' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
