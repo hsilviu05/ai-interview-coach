@@ -7,6 +7,7 @@ namespace AIInterviewCoach.Infrastructure.Services
 {
     public sealed class DotnetCodeExecutor : ICodeExecutor
     {
+        private const string DefaultLanguage = "csharp";
         private static readonly TimeSpan RestoreTimeout = TimeSpan.FromSeconds(15);
         private static readonly TimeSpan BuildTimeout = TimeSpan.FromSeconds(15);
         private static readonly TimeSpan ExecutionTimeout = TimeSpan.FromSeconds(2);
@@ -20,19 +21,22 @@ namespace AIInterviewCoach.Infrastructure.Services
         }
 
         public async Task<ExecutionResult> ExecuteAsync(
+            Problem problem,
             string code,
             string language,
             IEnumerable<TestCase> testCases)
         {
+            var normalizedLanguage = NormalizeLanguage(language);
+            var normalizedExecutionMode = NormalizeExecutionMode(problem.ExecutionMode);
             var orderedTests = testCases
                 .OrderBy(testCase => testCase.OrderIndex)
                 .ToList();
 
-            if (!string.Equals(language.Trim(), "csharp", StringComparison.OrdinalIgnoreCase))
+            if (normalizedLanguage is null)
             {
                 return new ExecutionResult(
                     SubmissionStatus.CompilationError,
-                    "Only C# submissions are currently supported.",
+                    "Unsupported language. Supported languages are C#, Python, and C++.",
                     0,
                     orderedTests.Count,
                     null,
@@ -55,138 +59,19 @@ namespace AIInterviewCoach.Infrastructure.Services
 
             try
             {
-                await File.WriteAllTextAsync(
-                    Path.Combine(workspacePath, "SubmissionRunner.csproj"),
-                    SubmissionProjectTemplate);
-                await File.WriteAllTextAsync(
-                    Path.Combine(workspacePath, "Program.cs"),
-                    code);
-
-                var restoreResult = await RunProcessAsync(
-                    "dotnet",
-                    ["restore", "--nologo", "--ignore-failed-sources"],
-                    workspacePath,
-                    null,
-                    RestoreTimeout);
-
-                if (restoreResult.TimedOut)
+                return normalizedLanguage switch
                 {
-                    return new ExecutionResult(
+                    DefaultLanguage => await ExecuteCSharpAsync(problem, normalizedExecutionMode, code, orderedTests, workspacePath),
+                    "python" => await ExecutePythonAsync(problem, normalizedExecutionMode, code, orderedTests, workspacePath),
+                    "cpp" => await ExecuteCppAsync(problem, normalizedExecutionMode, code, orderedTests, workspacePath),
+                    _ => new ExecutionResult(
                         SubmissionStatus.CompilationError,
-                        "Dependency restore timed out.",
+                        "Unsupported language. Supported languages are C#, Python, and C++.",
                         0,
                         orderedTests.Count,
                         null,
-                        null);
-                }
-
-                if (restoreResult.ExitCode != 0)
-                {
-                    return new ExecutionResult(
-                        SubmissionStatus.CompilationError,
-                        BuildOutputMessage(restoreResult),
-                        0,
-                        orderedTests.Count,
-                        null,
-                        null);
-                }
-
-                var buildResult = await RunProcessAsync(
-                    "dotnet",
-                    ["build", "--no-restore", "--nologo", "--verbosity", "quiet"],
-                    workspacePath,
-                    null,
-                    BuildTimeout);
-
-                if (buildResult.TimedOut)
-                {
-                    return new ExecutionResult(
-                        SubmissionStatus.CompilationError,
-                        "Compilation timed out.",
-                        0,
-                        orderedTests.Count,
-                        null,
-                        null);
-                }
-
-                if (buildResult.ExitCode != 0)
-                {
-                    return new ExecutionResult(
-                        SubmissionStatus.CompilationError,
-                        BuildOutputMessage(buildResult),
-                        0,
-                        orderedTests.Count,
-                        null,
-                        null);
-                }
-
-                var assemblyPath = Path.Combine(
-                    workspacePath,
-                    "bin",
-                    "Debug",
-                    "net10.0",
-                    "SubmissionRunner.dll");
-
-                var totalExecutionTimeMs = 0;
-                var passedTests = 0;
-
-                foreach (var testCase in orderedTests)
-                {
-                    var executionResult = await RunProcessAsync(
-                        "dotnet",
-                        [assemblyPath],
-                        workspacePath,
-                        testCase.Input,
-                        ExecutionTimeout);
-
-                    if (executionResult.TimedOut)
-                    {
-                        return new ExecutionResult(
-                            SubmissionStatus.TimeLimitExceeded,
-                            "Execution timed out.",
-                            passedTests,
-                            orderedTests.Count,
-                            totalExecutionTimeMs,
-                            null);
-                    }
-
-                    totalExecutionTimeMs += executionResult.ElapsedMilliseconds;
-
-                    if (executionResult.ExitCode != 0)
-                    {
-                        return new ExecutionResult(
-                            SubmissionStatus.RuntimeError,
-                            BuildOutputMessage(executionResult),
-                            passedTests,
-                            orderedTests.Count,
-                            totalExecutionTimeMs,
-                            null);
-                    }
-
-                    var actualOutput = NormalizeOutput(executionResult.StandardOutput);
-                    var expectedOutput = NormalizeOutput(testCase.ExpectedOutput);
-
-                    if (!string.Equals(actualOutput, expectedOutput, StringComparison.Ordinal))
-                    {
-                        return new ExecutionResult(
-                            SubmissionStatus.WrongAnswer,
-                            $"Expected output '{expectedOutput}' but received '{actualOutput}'.",
-                            passedTests,
-                            orderedTests.Count,
-                            totalExecutionTimeMs,
-                            null);
-                    }
-
-                    passedTests++;
-                }
-
-                return new ExecutionResult(
-                    SubmissionStatus.Accepted,
-                    "Accepted.",
-                    passedTests,
-                    orderedTests.Count,
-                    totalExecutionTimeMs,
-                    null);
+                        null)
+                };
             }
             finally
             {
@@ -200,6 +85,334 @@ namespace AIInterviewCoach.Infrastructure.Services
                     // Best-effort cleanup; stale temp folders are less harmful than failing the request.
                 }
             }
+        }
+
+        private static string NormalizeExecutionMode(string executionMode)
+        {
+            return executionMode.Trim().ToLowerInvariant() == ProblemExecutionModes.FunctionSignature
+                ? ProblemExecutionModes.FunctionSignature
+                : ProblemExecutionModes.Stdin;
+        }
+
+        private static string? NormalizeLanguage(string language)
+        {
+            return language.Trim().ToLowerInvariant() switch
+            {
+                "csharp" or "cs" or "c#" => DefaultLanguage,
+                "python" or "py" => "python",
+                "cpp" or "c++" or "cc" or "cxx" => "cpp",
+                _ => null
+            };
+        }
+
+        private static async Task<ExecutionResult> ExecuteCSharpAsync(
+            Problem problem,
+            string executionMode,
+            string code,
+            IReadOnlyList<TestCase> orderedTests,
+            string workspacePath)
+        {
+            var sourceCodeResult = BuildSourceCode(problem, executionMode, DefaultLanguage, code);
+            if (sourceCodeResult.ErrorMessage is not null)
+            {
+                return new ExecutionResult(
+                    SubmissionStatus.CompilationError,
+                    sourceCodeResult.ErrorMessage,
+                    0,
+                    orderedTests.Count,
+                    null,
+                    null);
+            }
+
+            await File.WriteAllTextAsync(
+                Path.Combine(workspacePath, "SubmissionRunner.csproj"),
+                SubmissionProjectTemplate);
+            await File.WriteAllTextAsync(
+                Path.Combine(workspacePath, "Program.cs"),
+                sourceCodeResult.SourceCode);
+
+            var restoreResult = await RunProcessAsync(
+                "dotnet",
+                ["restore", "--nologo", "--ignore-failed-sources"],
+                workspacePath,
+                null,
+                RestoreTimeout);
+
+            if (restoreResult.TimedOut)
+            {
+                return new ExecutionResult(
+                    SubmissionStatus.CompilationError,
+                    "Dependency restore timed out.",
+                    0,
+                    orderedTests.Count,
+                    null,
+                    null);
+            }
+
+            if (restoreResult.ExitCode != 0)
+            {
+                return new ExecutionResult(
+                    SubmissionStatus.CompilationError,
+                    BuildOutputMessage(restoreResult),
+                    0,
+                    orderedTests.Count,
+                    null,
+                    null);
+            }
+
+            var buildResult = await RunProcessAsync(
+                "dotnet",
+                ["build", "--no-restore", "--nologo", "--verbosity", "quiet"],
+                workspacePath,
+                null,
+                BuildTimeout);
+
+            if (buildResult.TimedOut)
+            {
+                return new ExecutionResult(
+                    SubmissionStatus.CompilationError,
+                    "Compilation timed out.",
+                    0,
+                    orderedTests.Count,
+                    null,
+                    null);
+            }
+
+            if (buildResult.ExitCode != 0)
+            {
+                return new ExecutionResult(
+                    SubmissionStatus.CompilationError,
+                    BuildOutputMessage(buildResult),
+                    0,
+                    orderedTests.Count,
+                    null,
+                    null);
+            }
+
+            var assemblyPath = Path.Combine(
+                workspacePath,
+                "bin",
+                "Debug",
+                "net10.0",
+                "SubmissionRunner.dll");
+
+            return await RunAgainstTestsAsync(
+                "dotnet",
+                [assemblyPath],
+                workspacePath,
+                orderedTests);
+        }
+
+        private static async Task<ExecutionResult> ExecutePythonAsync(
+            Problem problem,
+            string executionMode,
+            string code,
+            IReadOnlyList<TestCase> orderedTests,
+            string workspacePath)
+        {
+            var pythonCommand = ResolveAvailableCommand("python3", "python");
+
+            if (pythonCommand is null)
+            {
+                return new ExecutionResult(
+                    SubmissionStatus.CompilationError,
+                    "Python is not available on the server.",
+                    0,
+                    orderedTests.Count,
+                    null,
+                    null);
+            }
+
+            var sourceCodeResult = BuildSourceCode(problem, executionMode, "python", code);
+            if (sourceCodeResult.ErrorMessage is not null)
+            {
+                return new ExecutionResult(
+                    SubmissionStatus.CompilationError,
+                    sourceCodeResult.ErrorMessage,
+                    0,
+                    orderedTests.Count,
+                    null,
+                    null);
+            }
+
+            var scriptPath = Path.Combine(workspacePath, "main.py");
+            await File.WriteAllTextAsync(scriptPath, sourceCodeResult.SourceCode);
+
+            var syntaxCheckResult = await RunProcessAsync(
+                pythonCommand,
+                ["-m", "py_compile", scriptPath],
+                workspacePath,
+                null,
+                BuildTimeout);
+
+            if (syntaxCheckResult.TimedOut)
+            {
+                return new ExecutionResult(
+                    SubmissionStatus.CompilationError,
+                    "Compilation timed out.",
+                    0,
+                    orderedTests.Count,
+                    null,
+                    null);
+            }
+
+            if (syntaxCheckResult.ExitCode != 0)
+            {
+                return new ExecutionResult(
+                    SubmissionStatus.CompilationError,
+                    BuildOutputMessage(syntaxCheckResult),
+                    0,
+                    orderedTests.Count,
+                    null,
+                    null);
+            }
+
+            return await RunAgainstTestsAsync(
+                pythonCommand,
+                [scriptPath],
+                workspacePath,
+                orderedTests);
+        }
+
+        private static async Task<ExecutionResult> ExecuteCppAsync(
+            Problem problem,
+            string executionMode,
+            string code,
+            IReadOnlyList<TestCase> orderedTests,
+            string workspacePath)
+        {
+            var compilerCommand = ResolveAvailableCommand("c++", "clang++", "g++");
+
+            if (compilerCommand is null)
+            {
+                return new ExecutionResult(
+                    SubmissionStatus.CompilationError,
+                    "A C++ compiler is not available on the server.",
+                    0,
+                    orderedTests.Count,
+                    null,
+                    null);
+            }
+
+            var sourceCodeResult = BuildSourceCode(problem, executionMode, "cpp", code);
+            if (sourceCodeResult.ErrorMessage is not null)
+            {
+                return new ExecutionResult(
+                    SubmissionStatus.CompilationError,
+                    sourceCodeResult.ErrorMessage,
+                    0,
+                    orderedTests.Count,
+                    null,
+                    null);
+            }
+
+            var sourcePath = Path.Combine(workspacePath, "main.cpp");
+            var binaryPath = Path.Combine(workspacePath, "SubmissionRunner");
+
+            await File.WriteAllTextAsync(sourcePath, sourceCodeResult.SourceCode);
+
+            var buildResult = await RunProcessAsync(
+                compilerCommand,
+                ["-std=c++17", "-O2", sourcePath, "-o", binaryPath],
+                workspacePath,
+                null,
+                BuildTimeout);
+
+            if (buildResult.TimedOut)
+            {
+                return new ExecutionResult(
+                    SubmissionStatus.CompilationError,
+                    "Compilation timed out.",
+                    0,
+                    orderedTests.Count,
+                    null,
+                    null);
+            }
+
+            if (buildResult.ExitCode != 0)
+            {
+                return new ExecutionResult(
+                    SubmissionStatus.CompilationError,
+                    BuildOutputMessage(buildResult),
+                    0,
+                    orderedTests.Count,
+                    null,
+                    null);
+            }
+
+            return await RunAgainstTestsAsync(
+                binaryPath,
+                [],
+                workspacePath,
+                orderedTests);
+        }
+
+        private static async Task<ExecutionResult> RunAgainstTestsAsync(
+            string fileName,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            IReadOnlyList<TestCase> orderedTests)
+        {
+            var totalExecutionTimeMs = 0;
+            var passedTests = 0;
+
+            foreach (var testCase in orderedTests)
+            {
+                var executionResult = await RunProcessAsync(
+                    fileName,
+                    arguments,
+                    workingDirectory,
+                    testCase.Input,
+                    ExecutionTimeout);
+
+                if (executionResult.TimedOut)
+                {
+                    return new ExecutionResult(
+                        SubmissionStatus.TimeLimitExceeded,
+                        "Execution timed out.",
+                        passedTests,
+                        orderedTests.Count,
+                        totalExecutionTimeMs,
+                        null);
+                }
+
+                totalExecutionTimeMs += executionResult.ElapsedMilliseconds;
+
+                if (executionResult.ExitCode != 0)
+                {
+                    return new ExecutionResult(
+                        SubmissionStatus.RuntimeError,
+                        BuildOutputMessage(executionResult),
+                        passedTests,
+                        orderedTests.Count,
+                        totalExecutionTimeMs,
+                        null);
+                }
+
+                var actualOutput = NormalizeOutput(executionResult.StandardOutput);
+                var expectedOutput = NormalizeOutput(testCase.ExpectedOutput);
+
+                if (!string.Equals(actualOutput, expectedOutput, StringComparison.Ordinal))
+                {
+                    return new ExecutionResult(
+                        SubmissionStatus.WrongAnswer,
+                        $"Expected output '{expectedOutput}' but received '{actualOutput}'.",
+                        passedTests,
+                        orderedTests.Count,
+                        totalExecutionTimeMs,
+                        null);
+                }
+
+                passedTests++;
+            }
+
+            return new ExecutionResult(
+                SubmissionStatus.Accepted,
+                "Accepted.",
+                passedTests,
+                orderedTests.Count,
+                totalExecutionTimeMs,
+                null);
         }
 
         private static async Task<ProcessExecutionResult> RunProcessAsync(
@@ -291,6 +504,70 @@ namespace AIInterviewCoach.Infrastructure.Services
         private static string NormalizeOutput(string value) =>
             value.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
 
+        private static SourceCodeBuildResult BuildSourceCode(
+            Problem problem,
+            string executionMode,
+            string language,
+            string candidateCode)
+        {
+            if (executionMode != ProblemExecutionModes.FunctionSignature)
+            {
+                return new SourceCodeBuildResult(candidateCode, null);
+            }
+
+            var harnessTemplate = language switch
+            {
+                DefaultLanguage => problem.CsharpHarnessTemplate,
+                "python" => problem.PythonHarnessTemplate,
+                "cpp" => problem.CppHarnessTemplate,
+                _ => string.Empty
+            };
+
+            if (string.IsNullOrWhiteSpace(harnessTemplate))
+            {
+                return new SourceCodeBuildResult(
+                    string.Empty,
+                    $"This problem is missing its hidden {FormatLanguage(language)} harness template.");
+            }
+
+            if (!harnessTemplate.Contains("{{candidate_code}}", StringComparison.Ordinal))
+            {
+                return new SourceCodeBuildResult(
+                    string.Empty,
+                    $"The hidden {FormatLanguage(language)} harness template is invalid because it does not contain the {{candidate_code}} placeholder.");
+            }
+
+            return new SourceCodeBuildResult(
+                harnessTemplate.Replace("{{candidate_code}}", candidateCode, StringComparison.Ordinal),
+                null);
+        }
+
+        private static string? ResolveAvailableCommand(params string[] commandNames)
+        {
+            var pathValue = Environment.GetEnvironmentVariable("PATH");
+
+            if (string.IsNullOrWhiteSpace(pathValue))
+                return null;
+
+            var pathEntries = pathValue.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var commandName in commandNames)
+            {
+                if (Path.IsPathRooted(commandName) && File.Exists(commandName))
+                    return commandName;
+
+                foreach (var pathEntry in pathEntries)
+                {
+                    var fullPath = Path.Combine(pathEntry, commandName);
+
+                    if (File.Exists(fullPath))
+                        return fullPath;
+                }
+            }
+
+            return null;
+        }
+
         private const string SubmissionProjectTemplate =
             """
             <Project Sdk="Microsoft.NET.Sdk">
@@ -304,11 +581,23 @@ namespace AIInterviewCoach.Infrastructure.Services
             </Project>
             """;
 
+        private static string FormatLanguage(string language) =>
+            language switch
+            {
+                "python" => "Python",
+                "cpp" => "C++",
+                _ => "C#"
+            };
+
         private sealed record ProcessExecutionResult(
             int? ExitCode,
             string StandardOutput,
             string StandardError,
             bool TimedOut,
             int ElapsedMilliseconds);
+
+        private sealed record SourceCodeBuildResult(
+            string SourceCode,
+            string? ErrorMessage);
     }
 }

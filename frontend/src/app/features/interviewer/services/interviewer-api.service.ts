@@ -9,6 +9,7 @@ import {
     CreateTestCaseRequest,
     InterviewResponse,
     ProblemListItem,
+    ReplaceProblemCatalogResponse,
     TestCaseListItem,
 } from '../models/interviewer.models';
 import {
@@ -60,6 +61,18 @@ export class InterviewerApi {
     createProblem(payload: CreateProblemRequest): Observable<ProblemListItem> {
         return this.http.post<ProblemListItem>(this.problemsBaseUrl, payload);
     }
+
+    deleteProblem(problemId: string): Observable<void> {
+        return this.http.delete<void>(`${this.problemsBaseUrl}/${problemId}`);
+    }
+
+    replaceCatalogWithStarterSet(): Observable<ReplaceProblemCatalogResponse> {
+        return this.http.post<ReplaceProblemCatalogResponse>(
+            `${this.problemsBaseUrl}/catalog/replace-with-starter-set`,
+            {}
+        );
+    }
+
     getTestCases(problemId: string, includeHidden = true): Observable<TestCaseListItem[]> {
         return this.http.get<TestCaseListItem[]>(
             `${this.problemsBaseUrl}/${problemId}/testcases`,

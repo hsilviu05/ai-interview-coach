@@ -63,4 +63,14 @@ export class InterviewResultPage implements OnInit {
   goToAccessPage(): void {
     this.router.navigateByUrl('/candidate/access');
   }
+
+  formatLanguage(language: string): string {
+    return language === 'cpp'
+      ? 'C++'
+      : language === 'python'
+        ? 'Python'
+        : language === 'csharp'
+          ? 'C#'
+          : language;
+  }
 }

@@ -41,7 +41,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Interviewer,Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateProblem([FromBody] CreateProblemRequestDto createRequest)
         {
             if (!ModelState.IsValid)
@@ -57,7 +57,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpPut("{id:guid}")]
-        [Authorize(Roles = "Interviewer,Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateProblem(Guid id, [FromBody] UpdateProblemRequestDto updateRequest)
         {
             if (!ModelState.IsValid)
@@ -73,11 +73,11 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpDelete("{id:guid}")]
-        [Authorize(Roles = "Interviewer,Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteProblem(Guid id)
         {
             var currentUserId = GetCurrentUserId();
-            var deleted = await _problemService.DeleteProblemAsync(id, currentUserId);
+            var deleted = await _problemService.DeleteProblemAsync(id, currentUserId, IsAdmin());
 
             if (!deleted)
                 return NotFound(new { message = "Problem not found." });
@@ -85,8 +85,17 @@ namespace AIInterviewCoach.API.Controllers
             return NoContent();
         }
 
+        [HttpPost("catalog/replace-with-starter-set")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ReplaceCatalogWithStarterSet()
+        {
+            var currentUserId = GetCurrentUserId();
+            var result = await _problemService.ReplaceCatalogWithStarterSetAsync(currentUserId);
+            return Ok(result);
+        }
+
         [HttpPost("{problemId:guid}/testcases")]
-        [Authorize(Roles = "Interviewer,Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> AddTestCase(Guid problemId, [FromBody] CreateTestCaseRequestDto createTestCaseRequest)
         {
             if (!ModelState.IsValid)
@@ -102,7 +111,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet("{problemId:guid}/testcases")]
-        [Authorize(Roles = "Interviewer,Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetTestCases(Guid problemId, [FromQuery] bool includeHidden = false)
         {
             var currentUserId = GetCurrentUserId();

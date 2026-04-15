@@ -132,6 +132,13 @@
   margin-bottom: 22px;
 }
 
+.workspace-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
 .empty-workspace-card {
   display: grid;
   gap: 16px;
@@ -161,6 +168,71 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.feedback-card {
+  display: grid;
+  gap: 16px;
+}
+
+.feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.feedback-header h3,
+.feedback-header p {
+  margin: 0;
+}
+
+.feedback-header p {
+  color: #64748b;
+}
+
+.feedback-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.feedback-badge {
+  display: inline-flex;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.feedback-source-chip {
+  display: inline-flex;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.feedback-card pre {
+  margin: 0;
+  padding: 18px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #dbe4f0;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .problem-details {
@@ -314,7 +386,8 @@ app-code-editor {
 .autosave-status,
 .helper-text,
 .submit-btn,
-.complete-btn {
+.complete-btn,
+.reset-btn {
   font-size: 14px;
 }
 
@@ -336,15 +409,32 @@ app-code-editor {
   transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
+.reset-btn {
+  border: 1px solid rgba(185, 28, 28, 0.16);
+  border-radius: 16px;
+  padding: 14px 20px;
+  font-weight: 700;
+  color: #991b1b;
+  background: rgba(254, 242, 242, 0.96);
+  cursor: pointer;
+  transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+}
+
 .submit-btn:hover,
-.complete-btn:hover {
+.complete-btn:hover,
+.reset-btn:hover {
   transform: translateY(-1px);
 }
 
 .submit-btn:disabled,
-.complete-btn:disabled {
+.complete-btn:disabled,
+.reset-btn:disabled {
   opacity: 0.68;
   cursor: not-allowed;
+}
+
+.reset-btn:hover:not(:disabled) {
+  background: #fee2e2;
 }
 
 .validation,
@@ -389,6 +479,7 @@ app-code-editor {
     align-items: stretch;
   }
 
+  .feedback-header,
   .editor-label-row {
     flex-direction: column;
     align-items: flex-start;

@@ -10,11 +10,16 @@ namespace AIInterviewCoach.Application.Services
     {
         private readonly IAppDbContext _dbContext;
         private readonly ICodeExecutor _codeExecutor;
+        private readonly ISubmissionFeedbackService _submissionFeedbackService;
 
-        public SubmissionService(IAppDbContext dbContext, ICodeExecutor codeExecutor)
+        public SubmissionService(
+            IAppDbContext dbContext,
+            ICodeExecutor codeExecutor,
+            ISubmissionFeedbackService submissionFeedbackService)
         {
             _dbContext = dbContext;
             _codeExecutor = codeExecutor;
+            _submissionFeedbackService = submissionFeedbackService;
         }
 
         public async Task<SubmissionResponseDto> CreateSubmissionAsync(Guid candidateId, CreateSubmissionRequestDto request)
@@ -52,9 +57,13 @@ namespace AIInterviewCoach.Application.Services
             }
 
             var executionResult = await _codeExecutor.ExecuteAsync(
+                problem,
                 request.SourceCode,
                 request.Language,
                 problem.TestCases);
+            var aiFeedbackResult = await _submissionFeedbackService.GenerateFeedbackAsync(
+                BuildFeedbackContext(problem, request, executionResult),
+                CancellationToken.None);
 
             var submission = new Submission
             {
@@ -70,13 +79,14 @@ namespace AIInterviewCoach.Application.Services
                 ExecutionTimeMs = executionResult.TimeMs,
                 MemoryKb = executionResult.MemoryKb,
                 ExecutionOutput = executionResult.Output,
+                AiFeedback = aiFeedbackResult.Content,
                 Status = executionResult.Status
             };
 
             _dbContext.Submissions.Add(submission);
             await _dbContext.SaveChangesAsync();
 
-            return MapToDto(submission);
+            return MapToDto(submission, aiFeedbackResult.Source);
         }
 
         public async Task<IEnumerable<SubmissionResponseDto>> GetMySubmissionsAsync(Guid candidateId)
@@ -99,6 +109,8 @@ namespace AIInterviewCoach.Application.Services
                     ExecutionTimeMs = s.ExecutionTimeMs,
                     MemoryKb = s.MemoryKb,
                     ExecutionOutput = s.ExecutionOutput,
+                    AiFeedback = s.AiFeedback,
+                    AiFeedbackSource = SubmissionFeedbackSourceResolver.ResolveSource(s.AiFeedback),
                     SubmittedAt = s.SubmittedAt
                 })
                 .ToListAsync();
@@ -130,12 +142,110 @@ namespace AIInterviewCoach.Application.Services
                     ExecutionTimeMs = s.ExecutionTimeMs,
                     MemoryKb = s.MemoryKb,
                     ExecutionOutput = s.ExecutionOutput,
+                    AiFeedback = s.AiFeedback,
+                    AiFeedbackSource = SubmissionFeedbackSourceResolver.ResolveSource(s.AiFeedback),
                     SubmittedAt = s.SubmittedAt
                 })
                 .ToListAsync();
         }
 
-        private static SubmissionResponseDto MapToDto(Submission submission)
+        public async Task ResetProblemAsync(Guid candidateId, Guid problemId, Guid? interviewSessionId)
+        {
+            if (interviewSessionId.HasValue)
+            {
+                var session = await _dbContext.InterviewSessions
+                    .Include(s => s.Interview)
+                    .FirstOrDefaultAsync(s =>
+                        s.Id == interviewSessionId.Value &&
+                        s.CandidateId == candidateId);
+
+                if (session is null)
+                    throw new KeyNotFoundException("Interview session not found.");
+
+                if (session.Status != InterviewSessionStatus.InProgress)
+                    throw new InvalidOperationException("Only in-progress interview sessions can be reset.");
+
+                var belongsToInterview = await _dbContext.InterviewProblems
+                    .AnyAsync(ip =>
+                        ip.InterviewId == session.InterviewId &&
+                        ip.ProblemId == problemId);
+
+                if (!belongsToInterview)
+                    throw new InvalidOperationException("Problem does not belong to this interview.");
+            }
+            else
+            {
+                var problemExists = await _dbContext.Problems.AnyAsync(p => p.Id == problemId);
+
+                if (!problemExists)
+                    throw new KeyNotFoundException("Problem not found.");
+            }
+
+            var submissions = await _dbContext.Submissions
+                .Where(s =>
+                    s.CandidateId == candidateId &&
+                    s.ProblemId == problemId &&
+                    s.InterviewSessionId == interviewSessionId)
+                .ToListAsync();
+
+            if (submissions.Count == 0)
+                return;
+
+            _dbContext.Submissions.RemoveRange(submissions);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        public async Task ResetInterviewSessionAsync(Guid candidateId, Guid interviewSessionId)
+        {
+            var session = await _dbContext.InterviewSessions
+                .FirstOrDefaultAsync(s =>
+                    s.Id == interviewSessionId &&
+                    s.CandidateId == candidateId);
+
+            if (session is null)
+                throw new KeyNotFoundException("Interview session not found.");
+
+            if (session.Status != InterviewSessionStatus.InProgress)
+                throw new InvalidOperationException("Only in-progress interview sessions can be reset.");
+
+            var submissions = await _dbContext.Submissions
+                .Where(s =>
+                    s.CandidateId == candidateId &&
+                    s.InterviewSessionId == interviewSessionId)
+                .ToListAsync();
+
+            if (submissions.Count == 0)
+                return;
+
+            _dbContext.Submissions.RemoveRange(submissions);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        private static SubmissionFeedbackContextDto BuildFeedbackContext(
+            Problem problem,
+            CreateSubmissionRequestDto request,
+            ExecutionResult executionResult)
+        {
+            return new SubmissionFeedbackContextDto
+            {
+                ProblemTitle = problem.Title,
+                ProblemDescription = problem.Description,
+                Difficulty = problem.Difficulty,
+                Topic = problem.Topic,
+                ConstraintsText = problem.ConstraintsText,
+                ExampleInput = problem.ExampleInput,
+                ExampleOutput = problem.ExampleOutput,
+                Language = request.Language.Trim(),
+                SourceCode = request.SourceCode,
+                Status = executionResult.Status.ToString(),
+                PassedTests = executionResult.PassedTests,
+                TotalTests = executionResult.TotalTests,
+                ExecutionOutput = executionResult.Output,
+                IsPracticeMode = !request.InterviewSessionId.HasValue
+            };
+        }
+
+        private static SubmissionResponseDto MapToDto(Submission submission, string? aiFeedbackSource = null)
         {
             return new SubmissionResponseDto
             {
@@ -151,6 +261,8 @@ namespace AIInterviewCoach.Application.Services
                 ExecutionTimeMs = submission.ExecutionTimeMs,
                 MemoryKb = submission.MemoryKb,
                 ExecutionOutput = submission.ExecutionOutput,
+                AiFeedback = submission.AiFeedback,
+                AiFeedbackSource = aiFeedbackSource ?? SubmissionFeedbackSourceResolver.ResolveSource(submission.AiFeedback),
                 SubmittedAt = submission.SubmittedAt
             };
         }

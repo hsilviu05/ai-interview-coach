@@ -39,7 +39,7 @@
           <div class="submission-header">
             <div>
               <h2>Problem {{ submission.problemId }}</h2>
-              <p>{{ submission.language }} · {{ submission.submittedAt | date:'medium' }}</p>
+              <p>{{ formatLanguage(submission.language) }} · {{ submission.submittedAt | date:'medium' }}</p>
             </div>
 
             <div class="submission-meta">
@@ -53,6 +53,16 @@
           <div class="stats-row">
             <span>Execution: {{ submission.executionTimeMs ?? 0 }} ms</span>
             <span>Memory: {{ submission.memoryKb ?? 0 }} KB</span>
+          </div>
+
+          <div class="feedback-block" *ngIf="submission.aiFeedback">
+            <div class="feedback-label-row">
+              <div class="feedback-label">AI Coach Feedback</div>
+              <div class="feedback-source-chip" *ngIf="submission.aiFeedbackSource">
+                {{ submission.aiFeedbackSource }}
+              </div>
+            </div>
+            <pre>{{ submission.aiFeedback }}</pre>
           </div>
         </div>
       </div>

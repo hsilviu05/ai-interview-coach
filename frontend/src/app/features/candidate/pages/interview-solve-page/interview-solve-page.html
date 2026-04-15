@@ -48,14 +48,24 @@
             <p>{{ problem.points }} points</p>
           </div>
 
-          <button
-            *ngIf="!isPracticeMode()"
-            type="button"
-            class="complete-btn"
-            (click)="completeInterview()"
-            [disabled]="completing()">
-            {{ completing() ? 'Completing...' : 'Complete Interview' }}
-          </button>
+          <div class="workspace-actions">
+            <button
+              type="button"
+              class="reset-btn"
+              (click)="resetCurrentProblem()"
+              [disabled]="resettingProblem() || resettingAllProblems() || submitting()">
+              {{ resettingProblem() ? 'Resetting...' : 'Reset Problem' }}
+            </button>
+
+            <button
+              *ngIf="!isPracticeMode()"
+              type="button"
+              class="complete-btn"
+              (click)="completeInterview()"
+              [disabled]="completing() || resettingAllProblems()">
+              {{ completing() ? 'Completing...' : 'Complete Interview' }}
+            </button>
+          </div>
         </div>
 
         <div class="problem-details">
@@ -109,11 +119,12 @@
           <div class="field">
             <label for="language">Language</label>
             <select id="language" formControlName="language">
-              <option value="csharp">C#</option>
+              <option *ngFor="let option of languageOptions" [value]="option.value">
+                {{ option.label }}
+              </option>
             </select>
             <small class="helper-text">
-              Submissions run as standalone C# console programs. Read from stdin and write
-              the final answer to stdout.
+              {{ getLanguageHelperText() }}
             </small>
           </div>
 
@@ -172,6 +183,14 @@
 
         <div class="empty-workspace-actions">
           <button
+            type="button"
+            class="reset-btn"
+            (click)="resetAllProblems()"
+            [disabled]="resettingAllProblems() || resettingProblem()">
+            {{ resettingAllProblems() ? 'Resetting...' : (isPracticeMode() ? 'Reset Problem' : 'Reset All Problems') }}
+          </button>
+
+          <button
             *ngIf="isPracticeMode()"
             type="button"
             class="complete-btn"
@@ -184,10 +203,29 @@
             type="button"
             class="complete-btn"
             (click)="completeInterview()"
-            [disabled]="completing()">
+            [disabled]="completing() || resettingAllProblems()">
             {{ completing() ? 'Completing...' : 'Complete Interview' }}
           </button>
         </div>
+      </div>
+
+      <div class="workspace-card feedback-card" *ngIf="latestFeedbackSubmission() as feedbackSubmission">
+        <div class="feedback-header">
+          <div>
+            <div class="feedback-badge-row">
+              <div class="feedback-badge">AI Coach Feedback</div>
+              <div class="feedback-source-chip" *ngIf="feedbackSubmission.aiFeedbackSource">
+                {{ feedbackSubmission.aiFeedbackSource }}
+              </div>
+            </div>
+            <h3>{{ getProblemTitle(feedbackSubmission.problemId) }}</h3>
+            <p>{{ feedbackSubmission.status }} · {{ feedbackSubmission.submittedAt | date:'short' }}</p>
+          </div>
+
+          <span class="status-chip">{{ feedbackSubmission.status }}</span>
+        </div>
+
+        <pre>{{ feedbackSubmission.aiFeedback }}</pre>
       </div>
     </div>
   </div>

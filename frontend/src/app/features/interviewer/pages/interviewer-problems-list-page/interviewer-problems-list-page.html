@@ -4,24 +4,75 @@
   <div class="shell" *ngIf="!loading(); else loadingBlock">
     <div class="header-card">
       <div>
-        <div class="badge">My Problems</div>
-        <h1>Manage reusable coding problems.</h1>
-        <p>Create and review the problems that can be attached to interviews.</p>
+        <div class="badge">{{ isAdmin() ? 'Problem Admin' : 'Problem Catalog' }}</div>
+        <h1>{{ isAdmin() ? 'Manage reusable coding problems.' : 'Browse reusable coding problems.' }}</h1>
+        <p>
+          {{ isAdmin()
+            ? 'Create, delete, and reset the problems that can be attached to interviews.'
+            : 'Interviewers can review the catalog here, while only admins can create or change problems.' }}
+        </p>
       </div>
 
-      <button type="button" class="primary-btn" (click)="goToCreateProblem()">
-        Create Problem
+      <div class="header-actions" *ngIf="isAdmin()">
+        <button type="button" class="primary-btn" (click)="goToCreateProblem()">
+          Create Problem
+        </button>
+      </div>
+    </div>
+
+    <div class="catalog-tools-card" *ngIf="isAdmin(); else readOnlyCard">
+      <div>
+        <div class="badge danger-badge">Catalog Admin</div>
+        <h2>Reset the workspace to a fresh starter catalog.</h2>
+        <p>
+          This clears the current problem catalog and all interview history, then loads a curated set of
+          function-signature problems for C#, Python, and C++.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        class="danger-btn"
+        (click)="replaceCatalogWithStarterSet()"
+        [disabled]="replacingCatalog() || !!deletingProblemId()">
+        {{ replacingCatalog() ? 'Replacing Catalog...' : 'Replace With Starter Catalog' }}
       </button>
     </div>
 
+    <ng-template #readOnlyCard>
+      <div class="catalog-tools-card read-only-card">
+        <div>
+          <div class="badge read-only-badge">Read Only</div>
+          <h2>Problem management is admin-only.</h2>
+          <p>
+            You can still review the catalog and attach problems to interviews, but only the seeded admin account can create, delete, or reset problems.
+          </p>
+        </div>
+      </div>
+    </ng-template>
+
     <p class="error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+    <p class="success" *ngIf="successMessage()">{{ successMessage() }}</p>
 
     <div class="empty-state-card" *ngIf="!errorMessage() && problems().length === 0">
       <h2>No problems yet</h2>
-      <p>Create your first problem to make interview creation self-sufficient.</p>
-      <button type="button" class="primary-btn" (click)="goToCreateProblem()">
-        Create Problem
-      </button>
+      <p>
+        {{ isAdmin()
+          ? 'Create your first problem or load the starter function-signature catalog.'
+          : 'There are no problems in the catalog yet. An admin can create one or load the starter set.' }}
+      </p>
+      <div class="empty-actions" *ngIf="isAdmin()">
+        <button type="button" class="primary-btn" (click)="goToCreateProblem()">
+          Create Problem
+        </button>
+        <button
+          type="button"
+          class="secondary-btn"
+          (click)="replaceCatalogWithStarterSet()"
+          [disabled]="replacingCatalog()">
+          Load Starter Catalog
+        </button>
+      </div>
     </div>
 
     <div class="problem-grid" *ngIf="problems().length > 0">
@@ -44,9 +95,38 @@
           </div>
 
           <div class="meta-item">
-            <span class="meta-label">Visibility</span>
-            <strong>Available</strong>
+            <span class="meta-label">Input Style</span>
+            <strong>{{ getExecutionModeLabel(problem) }}</strong>
           </div>
+
+          <div class="meta-item">
+            <span class="meta-label">Visibility</span>
+            <strong>{{ problem.isPublic ? 'Public' : 'Private' }}</strong>
+          </div>
+
+          <div class="meta-item">
+            <span class="meta-label">Updated</span>
+            <strong>{{ problem.updatedAt | date:'mediumDate' }}</strong>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          <button
+            *ngIf="isAdmin()"
+            type="button"
+            class="secondary-btn"
+            (click)="deleteProblem(problem)"
+            [disabled]="replacingCatalog() || deletingProblemId() === problem.id">
+            {{ deletingProblemId() === problem.id ? 'Deleting...' : 'Delete Problem' }}
+          </button>
+
+          <button
+            *ngIf="!isAdmin()"
+            type="button"
+            class="secondary-btn muted-btn"
+            disabled>
+            Admin only
+          </button>
         </div>
       </div>
     </div>

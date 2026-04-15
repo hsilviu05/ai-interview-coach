@@ -161,7 +161,8 @@ namespace AIInterviewCoach.Tests.Common
             Guid? interviewSessionId,
             SubmissionStatus status,
             int passedTests = 0,
-            int totalTests = 0)
+            int totalTests = 0,
+            string? aiFeedback = null)
         {
             var submission = new Submission
             {
@@ -176,6 +177,7 @@ namespace AIInterviewCoach.Tests.Common
                 TotalTests = totalTests,
                 ExecutionTimeMs = 100,
                 MemoryKb = 1024,
+                AiFeedback = aiFeedback,
                 SubmittedAt = DateTime.UtcNow
             };
 

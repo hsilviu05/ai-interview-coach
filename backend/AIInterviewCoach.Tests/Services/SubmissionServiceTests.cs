@@ -38,7 +38,8 @@ namespace AIInterviewCoach.Tests.Services
                         totalTests,
                         40,
                         1024);
-                }));
+                }),
+                new FakeSubmissionFeedbackService());
 
             var request = new CreateSubmissionRequestDto
             {
@@ -77,7 +78,10 @@ namespace AIInterviewCoach.Tests.Services
                 candidate.Id,
                 InterviewSessionStatus.InProgress);
 
-            var service = new SubmissionService(db, new FakeCodeExecutor());
+            var service = new SubmissionService(
+                db,
+                new FakeCodeExecutor(),
+                new FakeSubmissionFeedbackService());
 
             var request = new CreateSubmissionRequestDto
             {
@@ -111,7 +115,10 @@ namespace AIInterviewCoach.Tests.Services
                 candidate.Id,
                 InterviewSessionStatus.Completed);
 
-            var service = new SubmissionService(db, new FakeCodeExecutor());
+            var service = new SubmissionService(
+                db,
+                new FakeCodeExecutor(),
+                new FakeSubmissionFeedbackService());
 
             var request = new CreateSubmissionRequestDto
             {
@@ -164,7 +171,10 @@ namespace AIInterviewCoach.Tests.Services
                 passedTests: 1,
                 totalTests: 1);
 
-            var service = new SubmissionService(db, new FakeCodeExecutor());
+            var service = new SubmissionService(
+                db,
+                new FakeCodeExecutor(),
+                new FakeSubmissionFeedbackService());
 
             var result = (await service.GetMySubmissionsAsync(candidate1.Id)).ToList();
 
@@ -189,7 +199,8 @@ namespace AIInterviewCoach.Tests.Services
                     0,
                     2,
                     null,
-                    null)));
+                    null)),
+                new FakeSubmissionFeedbackService());
 
             var result = await service.CreateSubmissionAsync(candidate.Id, new CreateSubmissionRequestDto
             {
@@ -203,6 +214,141 @@ namespace AIInterviewCoach.Tests.Services
             var storedSubmission = db.Submissions.Single(x => x.Id == result.Id);
             Assert.Equal("Missing Main method.", storedSubmission.ExecutionOutput);
             Assert.Equal(0, storedSubmission.PassedTests);
+        }
+
+        [Fact]
+        public async Task CreateSubmissionAsync_ShouldPersistAiFeedback()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+
+            var service = new SubmissionService(
+                db,
+                new FakeCodeExecutor(),
+                new FakeSubmissionFeedbackService(context => new SubmissionFeedbackResultDto
+                {
+                    Content = $"Overall{Environment.NewLine}{context.ProblemTitle} feedback",
+                    Source = SubmissionFeedbackSources.OpenAI
+                }));
+
+            var result = await service.CreateSubmissionAsync(candidate.Id, new CreateSubmissionRequestDto
+            {
+                ProblemId = problem.Id,
+                Language = "csharp",
+                SourceCode = "public class Solution { }"
+            });
+
+            Assert.Contains(problem.Title, result.AiFeedback);
+            Assert.Equal(SubmissionFeedbackSources.OpenAI, result.AiFeedbackSource);
+
+            var storedSubmission = db.Submissions.Single(x => x.Id == result.Id);
+            Assert.Equal(result.AiFeedback, storedSubmission.AiFeedback);
+        }
+
+        [Fact]
+        public async Task GetMySubmissionsAsync_ShouldClassifyFallbackFeedbackSource()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+
+            TestDataSeeder.CreateSubmission(
+                db,
+                candidate.Id,
+                problem.Id,
+                null,
+                SubmissionStatus.Accepted,
+                passedTests: 1,
+                totalTests: 1,
+                aiFeedback: """
+                    Overall
+                    Nice work. This solution passed all available tests, which is a strong sign that your core approach is correct.
+
+                    Correctness
+                    You passed 1 out of 1 tests. That means the implementation handled the checked cases successfully.
+
+                    Code Quality
+                    Using a lookup-oriented data structure suggests good attention to runtime efficiency. The next polish point would be making the control flow easy to explain out loud.
+
+                    Next Step
+                    As a follow-up, explain the time and space complexity out loud and think about one edge case you would test next.
+                    """);
+
+            var service = new SubmissionService(
+                db,
+                new FakeCodeExecutor(),
+                new FakeSubmissionFeedbackService());
+
+            var result = (await service.GetMySubmissionsAsync(candidate.Id)).Single();
+
+            Assert.Equal(SubmissionFeedbackSources.LocalFallback, result.AiFeedbackSource);
+        }
+
+        [Fact]
+        public async Task ResetProblemAsync_ShouldDeleteOnlyMatchingPracticeSubmissions()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var otherCandidate = TestDataSeeder.CreateCandidate(db);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            var otherProblem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1, title: "Other");
+
+            TestDataSeeder.CreateSubmission(db, candidate.Id, problem.Id, null, SubmissionStatus.Accepted);
+            TestDataSeeder.CreateSubmission(db, candidate.Id, otherProblem.Id, null, SubmissionStatus.Accepted);
+            TestDataSeeder.CreateSubmission(db, otherCandidate.Id, problem.Id, null, SubmissionStatus.Accepted);
+
+            var service = new SubmissionService(
+                db,
+                new FakeCodeExecutor(),
+                new FakeSubmissionFeedbackService());
+
+            await service.ResetProblemAsync(candidate.Id, problem.Id, null);
+
+            Assert.DoesNotContain(db.Submissions, s => s.CandidateId == candidate.Id && s.ProblemId == problem.Id && s.InterviewSessionId == null);
+            Assert.Contains(db.Submissions, s => s.CandidateId == candidate.Id && s.ProblemId == otherProblem.Id);
+            Assert.Contains(db.Submissions, s => s.CandidateId == otherCandidate.Id && s.ProblemId == problem.Id);
+        }
+
+        [Fact]
+        public async Task ResetInterviewSessionAsync_ShouldDeleteOnlySessionSubmissions()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
+            var problemOne = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1, title: "One");
+            var problemTwo = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1, title: "Two");
+
+            TestDataSeeder.AddProblemToInterview(db, interview.Id, problemOne.Id, points: 100, orderIndex: 1);
+            TestDataSeeder.AddProblemToInterview(db, interview.Id, problemTwo.Id, points: 100, orderIndex: 2);
+
+            var session = TestDataSeeder.CreateInterviewSession(
+                db,
+                interview.Id,
+                candidate.Id,
+                InterviewSessionStatus.InProgress);
+
+            TestDataSeeder.CreateSubmission(db, candidate.Id, problemOne.Id, session.Id, SubmissionStatus.Accepted);
+            TestDataSeeder.CreateSubmission(db, candidate.Id, problemTwo.Id, session.Id, SubmissionStatus.WrongAnswer);
+            TestDataSeeder.CreateSubmission(db, candidate.Id, problemOne.Id, null, SubmissionStatus.Accepted);
+
+            var service = new SubmissionService(
+                db,
+                new FakeCodeExecutor(),
+                new FakeSubmissionFeedbackService());
+
+            await service.ResetInterviewSessionAsync(candidate.Id, session.Id);
+
+            Assert.DoesNotContain(db.Submissions, s => s.CandidateId == candidate.Id && s.InterviewSessionId == session.Id);
+            Assert.Contains(db.Submissions, s => s.CandidateId == candidate.Id && s.InterviewSessionId == null);
         }
     }
 }

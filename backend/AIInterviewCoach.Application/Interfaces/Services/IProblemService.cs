@@ -5,11 +5,12 @@ namespace AIInterviewCoach.Application.Interfaces.Services
 {
     public interface IProblemService
     {
-        Task<IEnumerable<ProblemResponseDto>> GetAllProblemsAsync(Guid currentUserId, UserRole currentUserRole);
+        Task<IEnumerable<ProblemSummaryResponseDto>> GetAllProblemsAsync(Guid currentUserId, UserRole currentUserRole);
         Task<ProblemResponseDto> GetProblemByIdAsync(Guid id, Guid currentUserId, UserRole currentUserRole);
         Task<ProblemResponseDto> CreateProblemAsync(Guid userId, CreateProblemRequestDto createRequest);
         Task<ProblemResponseDto?> UpdateProblemAsync(Guid id, Guid userId, UpdateProblemRequestDto updateRequest);
-        Task<bool> DeleteProblemAsync(Guid id, Guid userId);
+        Task<bool> DeleteProblemAsync(Guid id, Guid userId, bool isAdmin);
+        Task<ReplaceProblemCatalogResponseDto> ReplaceCatalogWithStarterSetAsync(Guid userId);
         Task<TestCaseResponseDto> AddTestCaseAsync(
             Guid problemId,
             Guid currentUserId,

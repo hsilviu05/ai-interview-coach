@@ -34,6 +34,7 @@
       </a>
 
       <a
+        *ngIf="role() === 'Admin'"
         routerLink="/interviewer/create-problem"
         routerLinkActive="active-link"
         class="nav-link">

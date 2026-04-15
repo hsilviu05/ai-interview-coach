@@ -77,6 +77,52 @@
   gap: 8px;
 }
 
+.helper-text {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.signature-card {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border-radius: 20px;
+  background: #f8fafc;
+  border: 1px solid #dbe4f0;
+}
+
+.signature-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.signature-card-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.signature-card-header h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.signature-card-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.language-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
 label {
   font-size: 14px;
   font-weight: 700;
@@ -197,12 +243,22 @@ textarea {
 }
 
 @media (max-width: 900px) {
-  .two-cols {
+  .two-cols,
+  .language-grid {
     grid-template-columns: 1fr;
   }
 
   .header-card {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .signature-card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .signature-card-actions {
+    justify-content: flex-start;
   }
 }

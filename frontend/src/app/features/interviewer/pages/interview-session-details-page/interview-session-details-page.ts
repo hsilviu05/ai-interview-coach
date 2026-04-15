@@ -61,4 +61,14 @@ export class InterviewSessionDetailsPage implements OnInit {
 
     this.router.navigateByUrl('/interviewer/dashboard');
   }
+
+  formatLanguage(language: string): string {
+    return language === 'cpp'
+      ? 'C++'
+      : language === 'python'
+        ? 'Python'
+        : language === 'csharp'
+          ? 'C#'
+          : language;
+  }
 }

@@ -2,6 +2,7 @@ using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
 using AIInterviewCoach.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace AIInterviewCoach.Infrastructure.Persistence
 {
@@ -9,7 +10,7 @@ namespace AIInterviewCoach.Infrastructure.Persistence
     {
         private const string DemoPassword = "Password123!";
 
-        public static async Task SeedAsync(AppDbContext context)
+        public static async Task SeedAsync(AppDbContext context, IConfiguration configuration)
         {
             var passwordHasher = new PasswordHasherService();
 
@@ -27,6 +28,7 @@ namespace AIInterviewCoach.Infrastructure.Persistence
                 "Candidate Demo",
                 UserRole.Candidate);
 
+            EnsureConfiguredAdminUser(context, passwordHasher, configuration);
             EnsureCandidateStatistic(context, candidate);
             BackfillLegacyProblemMetadata(context);
 
@@ -56,6 +58,67 @@ namespace AIInterviewCoach.Infrastructure.Persistence
                 FullName = fullName,
                 Email = email,
                 PasswordHash = passwordHasher.HashPassword(DemoPassword),
+                UserRole = role,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            context.Users.Add(user);
+            return user;
+        }
+
+        private static void EnsureConfiguredAdminUser(
+            AppDbContext context,
+            PasswordHasherService passwordHasher,
+            IConfiguration configuration)
+        {
+            var email = configuration["BootstrapAdmin:Email"]?.Trim();
+            var password = configuration["BootstrapAdmin:Password"];
+
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+            {
+                return;
+            }
+
+            var fullName = configuration["BootstrapAdmin:FullName"]?.Trim();
+            if (string.IsNullOrWhiteSpace(fullName))
+            {
+                fullName = "Local Admin";
+            }
+
+            EnsureConfiguredUser(
+                context,
+                passwordHasher,
+                email,
+                fullName,
+                password,
+                UserRole.Admin);
+        }
+
+        private static User EnsureConfiguredUser(
+            AppDbContext context,
+            PasswordHasherService passwordHasher,
+            string email,
+            string fullName,
+            string password,
+            UserRole role)
+        {
+            var existingUser = context.Users.FirstOrDefault(user => user.Email == email);
+            if (existingUser is not null)
+            {
+                existingUser.FullName = fullName;
+                existingUser.UserRole = role;
+                existingUser.PasswordHash = passwordHasher.HashPassword(password);
+                existingUser.UpdatedAt = DateTime.UtcNow;
+                return existingUser;
+            }
+
+            var user = new User
+            {
+                Id = Guid.NewGuid(),
+                FullName = fullName,
+                Email = email,
+                PasswordHash = passwordHasher.HashPassword(password),
                 UserRole = role,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -136,6 +199,12 @@ namespace AIInterviewCoach.Infrastructure.Persistence
                 if (string.IsNullOrWhiteSpace(problem.ExampleOutput) && firstVisibleTestCase is not null)
                 {
                     problem.ExampleOutput = firstVisibleTestCase.ExpectedOutput;
+                    updated = true;
+                }
+
+                if (string.IsNullOrWhiteSpace(problem.ExecutionMode))
+                {
+                    problem.ExecutionMode = ProblemExecutionModes.Stdin;
                     updated = true;
                 }
 

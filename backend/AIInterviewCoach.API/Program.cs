@@ -1,6 +1,7 @@
 using AIInterviewCoach.API.Extensions;
 using AIInterviewCoach.Infrastructure.Persistence;
 using AIInterviewCoach.API.Middleware;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,7 +50,8 @@ else
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await DBSedder.SeedAsync(dbContext);
+    await dbContext.Database.MigrateAsync();
+    await DBSedder.SeedAsync(dbContext, app.Configuration);
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
