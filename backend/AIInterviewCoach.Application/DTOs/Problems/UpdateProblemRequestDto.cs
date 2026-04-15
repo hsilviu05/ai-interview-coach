@@ -15,6 +15,13 @@ namespace AIInterviewCoach.Application.DTOs.Problems
         public string ConstraintsText { get; set; } = string.Empty;
         public string ExampleInput { get; set; } = string.Empty;
         public string ExampleOutput { get; set; } = string.Empty;
+        public string ExecutionMode { get; set; } = "stdin";
+        public string CsharpStarterCode { get; set; } = string.Empty;
+        public string PythonStarterCode { get; set; } = string.Empty;
+        public string CppStarterCode { get; set; } = string.Empty;
+        public string CsharpHarnessTemplate { get; set; } = string.Empty;
+        public string PythonHarnessTemplate { get; set; } = string.Empty;
+        public string CppHarnessTemplate { get; set; } = string.Empty;
         public bool IsPublic { get; set; } = true;
     }
 }

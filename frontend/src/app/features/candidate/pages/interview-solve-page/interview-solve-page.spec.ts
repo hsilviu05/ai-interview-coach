@@ -3,6 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { convertToParamMap, ActivatedRoute } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
+import { afterEach, vi } from 'vitest';
 
 import { InterviewSolvePage } from './interview-solve-page';
 import { CandidateApi } from '../../services/candidate-api.service';
@@ -11,8 +12,51 @@ import { SubmissionApi } from '../../services/submission-api.service';
 describe('InterviewSolvePage', () => {
   let component: InterviewSolvePage;
   let fixture: ComponentFixture<InterviewSolvePage>;
+  let submissionApiMock: {
+    getByInterviewSession: ReturnType<typeof vi.fn>;
+    createSubmission: ReturnType<typeof vi.fn>;
+    resetProblem: ReturnType<typeof vi.fn>;
+    resetInterviewSession: ReturnType<typeof vi.fn>;
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   beforeEach(async () => {
+    submissionApiMock = {
+      getByInterviewSession: vi.fn().mockReturnValue(of([
+        {
+          id: 'submission-1',
+          candidateId: 'candidate-1',
+          problemId: 'problem-1',
+          interviewSessionId: 'session-1',
+          language: 'csharp',
+          sourceCode: 'Console.WriteLine("done");',
+          status: 'Accepted',
+          passedTests: 3,
+          totalTests: 3,
+          executionOutput: '',
+          submittedAt: new Date().toISOString(),
+        },
+      ])),
+      createSubmission: vi.fn().mockReturnValue(of({
+        id: 'submission-2',
+        candidateId: 'candidate-1',
+        problemId: 'problem-2',
+        interviewSessionId: 'session-1',
+        language: 'csharp',
+        sourceCode: 'Console.WriteLine("done");',
+        status: 'Accepted',
+        passedTests: 4,
+        totalTests: 4,
+        executionOutput: '',
+        submittedAt: new Date().toISOString(),
+      })),
+      resetProblem: vi.fn().mockReturnValue(of(void 0)),
+      resetInterviewSession: vi.fn().mockReturnValue(of(void 0)),
+    };
+
     await TestBed.configureTestingModule({
       imports: [InterviewSolvePage],
       providers: [
@@ -49,6 +93,10 @@ describe('InterviewSolvePage', () => {
                   constraintsText: '',
                   exampleInput: '',
                   exampleOutput: '',
+                  executionMode: 'stdin',
+                  csharpStarterCode: '',
+                  pythonStarterCode: '',
+                  cppStarterCode: '',
                   visibleTestCases: [],
                   orderIndex: 1,
                   points: 100,
@@ -62,6 +110,10 @@ describe('InterviewSolvePage', () => {
                   constraintsText: '',
                   exampleInput: '',
                   exampleOutput: '',
+                  executionMode: 'stdin',
+                  csharpStarterCode: '',
+                  pythonStarterCode: '',
+                  cppStarterCode: '',
                   visibleTestCases: [],
                   orderIndex: 2,
                   points: 100,
@@ -90,36 +142,7 @@ describe('InterviewSolvePage', () => {
         },
         {
           provide: SubmissionApi,
-          useValue: {
-            getByInterviewSession: () => of([
-              {
-                id: 'submission-1',
-                candidateId: 'candidate-1',
-                problemId: 'problem-1',
-                interviewSessionId: 'session-1',
-                language: 'csharp',
-                sourceCode: 'Console.WriteLine("done");',
-                status: 'Accepted',
-                passedTests: 3,
-                totalTests: 3,
-                executionOutput: '',
-                submittedAt: new Date().toISOString(),
-              },
-            ]),
-            createSubmission: () => of({
-              id: 'submission-2',
-              candidateId: 'candidate-1',
-              problemId: 'problem-2',
-              interviewSessionId: 'session-1',
-              language: 'csharp',
-              sourceCode: 'Console.WriteLine("done");',
-              status: 'Accepted',
-              passedTests: 4,
-              totalTests: 4,
-              executionOutput: '',
-              submittedAt: new Date().toISOString(),
-            }),
-          },
+          useValue: submissionApiMock,
         },
       ],
     }).compileComponents();
@@ -143,5 +166,82 @@ describe('InterviewSolvePage', () => {
 
     expect(component.selectedProblemId()).toBeNull();
     expect(component.allProblemsCompleted()).toBe(true);
+  });
+
+  it('should swap starter code when changing to another supported language', () => {
+    component.form.controls.language.setValue('python');
+
+    expect(component.form.controls.sourceCode.value).toContain('import sys');
+    expect(component.getLanguageHelperText()).toContain('Python 3');
+  });
+
+  it('should reset all interview problems back to the first one', () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    component.submitSolution();
+    component.resetAllProblems();
+
+    expect(submissionApiMock.resetInterviewSession).toHaveBeenCalledWith('session-1');
+    expect(component.selectedProblemId()).toBe('problem-1');
+    expect(component.allProblemsCompleted()).toBe(false);
+  });
+
+  it('should reset a completed practice problem from the blank state', () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    component.isPracticeMode.set(true);
+    component.session.set(null);
+    component.interview.set({
+      id: 'practice-problem-1',
+      title: 'Practice Workspace',
+      positionName: 'Standalone Problem Practice',
+      description: '',
+      durationMinutes: 0,
+      accessToken: '',
+      isActive: true,
+      interviewerId: '',
+      createdAt: new Date().toISOString(),
+      problems: [
+        {
+          problemId: 'practice-problem-1',
+          title: 'Two Sum',
+          description: '',
+          difficulty: 'Easy',
+          topic: 'Arrays',
+          constraintsText: '',
+          exampleInput: '',
+          exampleOutput: '',
+          executionMode: 'stdin',
+          csharpStarterCode: '',
+          pythonStarterCode: '',
+          cppStarterCode: '',
+          visibleTestCases: [],
+          orderIndex: 1,
+          points: 0,
+        },
+      ],
+    });
+    component.submissions.set([
+      {
+        id: 'practice-submission-1',
+        candidateId: 'candidate-1',
+        problemId: 'practice-problem-1',
+        interviewSessionId: null,
+        language: 'csharp',
+        sourceCode: 'Console.WriteLine("done");',
+        status: 'Accepted',
+        passedTests: 1,
+        totalTests: 1,
+        executionOutput: '',
+        submittedAt: new Date().toISOString(),
+      },
+    ]);
+    component.selectedProblemId.set(null);
+
+    component.resetAllProblems();
+
+    expect(submissionApiMock.resetProblem).toHaveBeenCalledWith('practice-problem-1', undefined);
+    expect(component.selectedProblemId()).toBe('practice-problem-1');
+    expect(component.allProblemsCompleted()).toBe(false);
   });
 });

@@ -34,8 +34,19 @@ export interface ProblemListItem {
   constraintsText: string;
   exampleInput: string;
   exampleOutput: string;
+  executionMode: string;
+  isPublic: boolean;
   createdByUserId: string;
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReplaceProblemCatalogResponse {
+  deletedProblemCount: number;
+  deletedInterviewCount: number;
+  deletedSubmissionCount: number;
+  createdProblemCount: number;
+  createdProblemTitles: string[];
 }
 
 export interface AddProblemToInterviewRequest {
@@ -51,6 +62,13 @@ export interface CreateProblemRequest {
   constraintsText: string;
   exampleInput: string;
   exampleOutput: string;
+  executionMode: string;
+  csharpStarterCode: string;
+  pythonStarterCode: string;
+  cppStarterCode: string;
+  csharpHarnessTemplate: string;
+  pythonHarnessTemplate: string;
+  cppHarnessTemplate: string;
   isPublic: boolean;
 }
 
@@ -78,15 +96,6 @@ export interface TestCaseListItem {
   orderIndex: number;
 }
 export interface CreateTestCaseRequest {
-  input: string;
-  expectedOutput: string;
-  isHidden: boolean;
-  orderIndex: number;
-}
-
-export interface TestCaseListItem {
-  id: string;
-  problemId: string;
   input: string;
   expectedOutput: string;
   isHidden: boolean;

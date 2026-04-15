@@ -9,3 +9,10 @@ export interface CandidatePracticeProblemSummary {
   exampleOutput: string;
   createdAt: string;
 }
+
+export interface CandidatePracticeProblemDetail extends CandidatePracticeProblemSummary {
+  executionMode: string;
+  csharpStarterCode: string;
+  pythonStarterCode: string;
+  cppStarterCode: string;
+}

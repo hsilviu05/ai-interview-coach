@@ -100,6 +100,10 @@ namespace AIInterviewCoach.Application.Services
                     ConstraintsText = BuildProblemConstraints(ip.Problem),
                     ExampleInput = BuildProblemExampleInput(ip.Problem),
                     ExampleOutput = BuildProblemExampleOutput(ip.Problem),
+                    ExecutionMode = ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
+                    CsharpStarterCode = ip.Problem?.CsharpStarterCode ?? string.Empty,
+                    PythonStarterCode = ip.Problem?.PythonStarterCode ?? string.Empty,
+                    CppStarterCode = ip.Problem?.CppStarterCode ?? string.Empty,
                     VisibleTestCases = BuildVisibleTestCases(ip.Problem),
                     OrderIndex = ip.OrderIndex,
                     Points = ip.Points
@@ -133,6 +137,10 @@ namespace AIInterviewCoach.Application.Services
                     ConstraintsText = BuildProblemConstraints(ip.Problem),
                     ExampleInput = BuildProblemExampleInput(ip.Problem),
                     ExampleOutput = BuildProblemExampleOutput(ip.Problem),
+                    ExecutionMode = ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
+                    CsharpStarterCode = ip.Problem?.CsharpStarterCode ?? string.Empty,
+                    PythonStarterCode = ip.Problem?.PythonStarterCode ?? string.Empty,
+                    CppStarterCode = ip.Problem?.CppStarterCode ?? string.Empty,
                     VisibleTestCases = BuildVisibleTestCases(ip.Problem),
                     OrderIndex = ip.OrderIndex,
                     Points = ip.Points
@@ -301,6 +309,8 @@ namespace AIInterviewCoach.Application.Services
                         ExecutionTimeMs = s.ExecutionTimeMs,
                         MemoryKb = s.MemoryKb,
                         ExecutionOutput = s.ExecutionOutput,
+                        AiFeedback = s.AiFeedback,
+                        AiFeedbackSource = SubmissionFeedbackSourceResolver.ResolveSource(s.AiFeedback),
                         SubmittedAt = s.SubmittedAt
                     })
                     .ToList()

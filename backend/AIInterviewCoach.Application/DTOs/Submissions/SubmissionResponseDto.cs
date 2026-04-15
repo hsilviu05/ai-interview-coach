@@ -19,6 +19,8 @@ namespace AIInterviewCoach.Application.DTOs.Submissions
         public int? ExecutionTimeMs { get; set; }
         public int? MemoryKb { get; set; }
         public string? ExecutionOutput { get; set; }
+        public string? AiFeedback { get; set; }
+        public string? AiFeedbackSource { get; set; }
         public DateTime SubmittedAt { get; set; }
     }
 }

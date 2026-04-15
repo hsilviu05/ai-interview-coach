@@ -51,6 +51,26 @@ namespace AIInterviewCoach.API.Controllers
             return Ok(result);
         }
 
+        [HttpDelete("problem/{problemId:guid}")]
+        [Authorize(Roles = "Candidate,Admin")]
+        public async Task<IActionResult> ResetProblem(Guid problemId, [FromQuery] Guid? interviewSessionId)
+        {
+            var candidateId = GetCurrentUserId();
+            await _submissionService.ResetProblemAsync(candidateId, problemId, interviewSessionId);
+
+            return NoContent();
+        }
+
+        [HttpDelete("session/{interviewSessionId:guid}")]
+        [Authorize(Roles = "Candidate,Admin")]
+        public async Task<IActionResult> ResetInterviewSession(Guid interviewSessionId)
+        {
+            var candidateId = GetCurrentUserId();
+            await _submissionService.ResetInterviewSessionAsync(candidateId, interviewSessionId);
+
+            return NoContent();
+        }
+
         private Guid GetCurrentUserId()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)

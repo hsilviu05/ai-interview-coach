@@ -2,7 +2,10 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import { CandidatePracticeProblemSummary } from '../models/candidate-practice.models';
+import {
+  CandidatePracticeProblemDetail,
+  CandidatePracticeProblemSummary,
+} from '../models/candidate-practice.models';
 import {
   CandidateInterviewProblemDto,
   CandidateInterviewResponse,
@@ -28,7 +31,7 @@ export class CandidateApi {
 
   getPracticeProblemById(problemId: string): Observable<CandidateInterviewProblemDto> {
     return this.http
-      .get<CandidatePracticeProblemSummary>(`${this.problemsBaseUrl}/${problemId}`)
+      .get<CandidatePracticeProblemDetail>(`${this.problemsBaseUrl}/${problemId}`)
       .pipe(map(problem => this.mapPracticeProblem(problem)));
   }
 
@@ -56,6 +59,10 @@ export class CandidateApi {
       constraintsText: problem.constraintsText || '',
       exampleInput: problem.exampleInput || '',
       exampleOutput: problem.exampleOutput || '',
+      executionMode: problem.executionMode || 'stdin',
+      csharpStarterCode: problem.csharpStarterCode || '',
+      pythonStarterCode: problem.pythonStarterCode || '',
+      cppStarterCode: problem.cppStarterCode || '',
       visibleTestCases: this.normalizeVisibleTestCases(problem.visibleTestCases),
     };
   }
@@ -70,7 +77,7 @@ export class CandidateApi {
     }));
   }
 
-  private mapPracticeProblem(problem: CandidatePracticeProblemSummary): CandidateInterviewProblemDto {
+  private mapPracticeProblem(problem: CandidatePracticeProblemDetail): CandidateInterviewProblemDto {
     return this.normalizeProblem({
       problemId: problem.id,
       title: problem.title,
@@ -80,6 +87,10 @@ export class CandidateApi {
       constraintsText: problem.constraintsText,
       exampleInput: problem.exampleInput,
       exampleOutput: problem.exampleOutput,
+      executionMode: problem.executionMode,
+      csharpStarterCode: problem.csharpStarterCode,
+      pythonStarterCode: problem.pythonStarterCode,
+      cppStarterCode: problem.cppStarterCode,
       visibleTestCases: [],
       orderIndex: 1,
       points: 0,

@@ -19,5 +19,7 @@ export interface SubmissionResponse {
   executionTimeMs?: number | null;
   memoryKb?: number | null;
   executionOutput?: string | null;
+  aiFeedback?: string | null;
+  aiFeedbackSource?: string | null;
   submittedAt: string;
 }

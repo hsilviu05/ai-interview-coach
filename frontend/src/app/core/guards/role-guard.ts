@@ -13,5 +13,11 @@ export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
     return true;
   }
 
-  return router.createUrlTree(['/login']);
+  if (!currentRole) {
+    return router.createUrlTree(['/login']);
+  }
+
+  return currentRole === 'Candidate'
+    ? router.createUrlTree(['/candidate/access'])
+    : router.createUrlTree(['/interviewer/dashboard']);
 };

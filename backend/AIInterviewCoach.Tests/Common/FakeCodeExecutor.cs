@@ -15,6 +15,7 @@ namespace AIInterviewCoach.Tests.Common
         }
 
         public Task<ExecutionResult> ExecuteAsync(
+            Problem problem,
             string code,
             string language,
             IEnumerable<TestCase> testCases)

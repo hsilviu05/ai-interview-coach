@@ -19,6 +19,7 @@ namespace AIInterviewCoach.API.Extensions
             services.AddScoped<IProblemService, ProblemService>();
             services.AddScoped<IInterviewService, InterviewService>();
             services.AddScoped<ISubmissionService, SubmissionService>();
+            services.AddHttpClient<ISubmissionFeedbackService, SubmissionFeedbackService>();
             services.AddScoped<IPasswordHasherService, PasswordHasherService>();
             services.AddScoped<IJwtTokenService, JwtTokenService>();
             services.AddScoped<ICodeExecutor, DotnetCodeExecutor>();

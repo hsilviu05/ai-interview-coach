@@ -47,6 +47,17 @@
           <textarea id="constraintsText" rows="3" formControlName="constraintsText"></textarea>
         </div>
 
+        <div class="field">
+          <label for="executionMode">Submission Mode</label>
+          <select id="executionMode" formControlName="executionMode">
+            <option value="stdin">Full Program (stdin/stdout)</option>
+            <option value="function">Hidden Runner + Function Signature</option>
+          </select>
+          <small class="helper-text">
+            Use hidden runner mode for function-signature problems where candidates only implement the requested method.
+          </small>
+        </div>
+
         <div class="two-cols">
           <div class="field">
             <label for="exampleInput">Example Input</label>
@@ -62,6 +73,62 @@
         <div class="checkbox-row">
           <input id="isPublic" type="checkbox" formControlName="isPublic" />
           <label for="isPublic">Make problem public</label>
+        </div>
+
+        <div class="signature-card" *ngIf="isFunctionSignatureMode()">
+          <div class="signature-card-header">
+            <div>
+              <h2>Function Signature Setup</h2>
+              <p>Visible starters are shown to candidates. Hidden harness templates stay server-side and must include <code>{{ '{{candidate_code}}' }}</code>.</p>
+            </div>
+
+            <div class="signature-card-actions">
+              <button type="button" class="secondary-btn" (click)="loadGenericFunctionScaffold()">
+                Load Generic Example
+              </button>
+              <button type="button" class="secondary-btn" (click)="loadTwoSumScaffold()">
+                Load Two Sum Example
+              </button>
+            </div>
+          </div>
+
+          <p class="helper-text">
+            The generic example is the all-purpose starting point. It sends the full raw input string into a single method, so you can adapt it to arrays, strings, JSON payloads, or custom parsing.
+          </p>
+
+          <div class="language-grid">
+            <div class="field">
+              <label for="csharpStarterCode">C# Starter Code</label>
+              <textarea id="csharpStarterCode" rows="8" formControlName="csharpStarterCode"></textarea>
+            </div>
+
+            <div class="field">
+              <label for="pythonStarterCode">Python Starter Code</label>
+              <textarea id="pythonStarterCode" rows="8" formControlName="pythonStarterCode"></textarea>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="cppStarterCode">C++ Starter Code</label>
+            <textarea id="cppStarterCode" rows="8" formControlName="cppStarterCode"></textarea>
+          </div>
+
+          <div class="language-grid">
+            <div class="field">
+              <label for="csharpHarnessTemplate">Hidden C# Harness Template</label>
+              <textarea id="csharpHarnessTemplate" rows="10" formControlName="csharpHarnessTemplate"></textarea>
+            </div>
+
+            <div class="field">
+              <label for="pythonHarnessTemplate">Hidden Python Harness Template</label>
+              <textarea id="pythonHarnessTemplate" rows="10" formControlName="pythonHarnessTemplate"></textarea>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="cppHarnessTemplate">Hidden C++ Harness Template</label>
+            <textarea id="cppHarnessTemplate" rows="12" formControlName="cppHarnessTemplate"></textarea>
+          </div>
         </div>
 
         <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>

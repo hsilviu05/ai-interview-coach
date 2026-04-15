@@ -16,6 +16,13 @@ import { Navbar } from '../../../../shared/components/navbar/navbar';
 import { CodeEditor } from '../../../../shared/components/code-editor/code-editor';
 import { CodeDraftStorageService } from '../../services/code-draft-storage.service';
 
+type SubmissionLanguage = 'csharp' | 'python' | 'cpp';
+
+interface SubmissionLanguageOption {
+  value: SubmissionLanguage;
+  label: string;
+}
+
 @Component({
   selector: 'app-interview-solve-page',
   standalone: true,
@@ -24,12 +31,72 @@ import { CodeDraftStorageService } from '../../services/code-draft-storage.servi
   styleUrl: './interview-solve-page.scss',
 })
 export class InterviewSolvePage implements OnInit, OnDestroy {
-  private static readonly defaultSourceCode = `using System;
+  private static readonly functionExecutionMode = 'function';
+  private static readonly defaultLanguage: SubmissionLanguage = 'csharp';
+  private static readonly languageOptionsInternal: SubmissionLanguageOption[] = [
+    { value: 'csharp', label: 'C#' },
+    { value: 'python', label: 'Python' },
+    { value: 'cpp', label: 'C++' },
+  ];
+  private static readonly defaultStarterSourceByLanguage: Record<SubmissionLanguage, string> = {
+    csharp: `using System;
+
+static string Solve(string rawInput)
+{
+    var lines = rawInput
+        .Split(new[] { '\\r', '\\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+    // TODO: Parse lines or tokens based on the problem statement.
+    // Return only the final answer as a string.
+    return rawInput.Trim();
+}
 
 var input = Console.In.ReadToEnd();
+Console.WriteLine(Solve(input));`,
+    python: `import sys
 
-// TODO: Parse the test input from stdin and write only the expected output.
-Console.WriteLine(input.Trim());`;
+def solve(raw_input: str) -> str:
+    lines = [line for line in raw_input.splitlines() if line.strip()]
+
+    # TODO: Parse lines or tokens based on the problem statement.
+    # Return only the final answer as a string.
+    return raw_input.strip()
+
+
+if __name__ == "__main__":
+    print(solve(sys.stdin.read()))`,
+    cpp: `#include <algorithm>
+#include <cctype>
+#include <iostream>
+#include <iterator>
+#include <string>
+
+std::string TrimCopy(const std::string& value) {
+    const auto first = std::find_if_not(value.begin(), value.end(), [](unsigned char ch) {
+        return std::isspace(ch);
+    });
+    const auto last = std::find_if_not(value.rbegin(), value.rend(), [](unsigned char ch) {
+        return std::isspace(ch);
+    }).base();
+
+    return first >= last ? std::string() : std::string(first, last);
+}
+
+std::string Solve(const std::string& rawInput) {
+    // TODO: Parse lines or tokens based on the problem statement.
+    // Return only the final answer as a string.
+    return TrimCopy(rawInput);
+}
+
+int main() {
+    std::string input(
+        (std::istreambuf_iterator<char>(std::cin)),
+        std::istreambuf_iterator<char>());
+
+    std::cout << Solve(input);
+    return 0;
+}`,
+  };
 
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -45,7 +112,10 @@ Console.WriteLine(input.Trim());`;
   readonly startingSession = signal(false);
   readonly submitting = signal(false);
   readonly completing = signal(false);
+  readonly resettingProblem = signal(false);
+  readonly resettingAllProblems = signal(false);
   readonly isPracticeMode = signal(false);
+  readonly languageOptions = InterviewSolvePage.languageOptionsInternal;
 
   readonly errorMessage = signal('');
   readonly successMessage = signal('');
@@ -69,6 +139,9 @@ Console.WriteLine(input.Trim());`;
       interview.problems.length > 0 &&
       interview.problems.every(problem => this.completedProblemIds().has(problem.problemId));
   });
+  readonly latestFeedbackSubmission = computed(() =>
+    this.submissions().find(submission => !!submission.aiFeedback?.trim()) ?? null
+  );
 
   readonly autosaveStatus = computed(() => {
     const lastSavedAt = this.lastSavedAt();
@@ -98,11 +171,41 @@ Console.WriteLine(input.Trim());`;
   });
 
   form = this.fb.nonNullable.group({
-    language: ['csharp', [Validators.required]],
-    sourceCode: [InterviewSolvePage.defaultSourceCode, [Validators.required, Validators.minLength(10)]],
+    language: [InterviewSolvePage.defaultLanguage, [Validators.required]],
+    sourceCode: [
+      InterviewSolvePage.getStarterSourceCode(InterviewSolvePage.defaultLanguage),
+      [Validators.required, Validators.minLength(10)],
+    ],
   });
 
   constructor() {
+    this.form.controls.language.valueChanges.pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(language => {
+      if (this.loading() || this.isHydratingDraft) {
+        return;
+      }
+
+      if (!InterviewSolvePage.isSupportedLanguage(language)) {
+        return;
+      }
+
+      const currentSource = this.form.controls.sourceCode.value;
+      const selectedProblem = this.selectedProblem();
+      if (!InterviewSolvePage.isStarterSourceCodeForProblem(selectedProblem, currentSource)) {
+        return;
+      }
+
+      const starterSourceCode = InterviewSolvePage.getStarterSourceCodeForProblem(selectedProblem, language);
+      if (currentSource === starterSourceCode) {
+        return;
+      }
+
+      this.isHydratingDraft = true;
+      this.form.controls.sourceCode.setValue(starterSourceCode, { emitEvent: false });
+      this.isHydratingDraft = false;
+    });
+
     this.form.valueChanges.pipe(
       debounceTime(500),
       map(() => JSON.stringify(this.form.getRawValue())),
@@ -335,8 +438,129 @@ Console.WriteLine(input.Trim());`;
     });
   }
 
+  resetCurrentProblem(): void {
+    const problem = this.selectedProblem() ?? this.getResetTargetProblem();
+
+    if (!problem) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      this.isPracticeMode()
+        ? `Reset ${problem.title}? This removes your saved submissions and local draft for this practice problem.`
+        : `Reset ${problem.title}? This removes your saved submissions and local draft for this interview problem.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.resettingProblem.set(true);
+    this.errorMessage.set('');
+    this.successMessage.set('');
+
+    this.submissionApi.resetProblem(problem.problemId, this.session()?.id).subscribe({
+      next: () => {
+        this.codeDraftStorage.clearDraft(this.buildDraftScope(problem.problemId));
+        this.submissions.set(
+          this.submissions().filter(submission => {
+            if (submission.problemId !== problem.problemId) {
+              return true;
+            }
+
+            if (this.isPracticeMode()) {
+              return !!submission.interviewSessionId;
+            }
+
+            return submission.interviewSessionId !== this.session()?.id;
+          })
+        );
+        this.selectedProblemId.set(problem.problemId);
+        this.hydrateDraftForSelectedProblem();
+        this.successMessage.set(`${problem.title} was reset. You can start fresh now.`);
+      },
+      error: err => {
+        this.errorMessage.set(err?.error?.message ?? 'Failed to reset the problem.');
+      },
+      complete: () => {
+        this.resettingProblem.set(false);
+      },
+    });
+  }
+
+  resetAllProblems(): void {
+    if (this.isPracticeMode()) {
+      this.resetCurrentProblem();
+      return;
+    }
+
+    const session = this.session();
+    const interview = this.interview();
+
+    if (!session || !interview) {
+      this.errorMessage.set('No active session.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Reset all problems in this interview? This removes every saved submission and local draft for this session.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.resettingAllProblems.set(true);
+    this.errorMessage.set('');
+    this.successMessage.set('');
+
+    this.submissionApi.resetInterviewSession(session.id).subscribe({
+      next: () => {
+        for (const problem of interview.problems) {
+          this.codeDraftStorage.clearDraft(this.buildDraftScope(problem.problemId));
+        }
+
+        this.submissions.set(
+          this.submissions().filter(submission => submission.interviewSessionId !== session.id)
+        );
+        this.focusFirstOpenProblem();
+        this.successMessage.set('All problems were reset. The session is ready for a fresh pass.');
+      },
+      error: err => {
+        this.errorMessage.set(err?.error?.message ?? 'Failed to reset the problems.');
+      },
+      complete: () => {
+        this.resettingAllProblems.set(false);
+      },
+    });
+  }
+
   getLatestSubmissionForProblem(problemId: string): SubmissionResponse | null {
     return this.submissions().find(submission => submission.problemId === problemId) ?? null;
+  }
+
+  getProblemTitle(problemId: string): string {
+    return this.interview()?.problems.find(problem => problem.problemId === problemId)?.title ?? 'Latest Submission';
+  }
+
+  getLanguageHelperText(): string {
+    const selectedProblem = this.selectedProblem();
+    const isFunctionSignatureProblem =
+      selectedProblem?.executionMode === InterviewSolvePage.functionExecutionMode;
+
+    if (isFunctionSignatureProblem) {
+      return this.form.controls.language.value === 'python'
+        ? 'Implement the requested Python method only. A hidden runner handles input parsing and output formatting.'
+        : this.form.controls.language.value === 'cpp'
+          ? 'Implement the requested C++ method only. A hidden runner handles input parsing and output formatting.'
+          : 'Implement the requested C# method only. A hidden runner handles input parsing and output formatting.';
+    }
+
+    return this.form.controls.language.value === 'python'
+      ? 'Submissions run as standalone Python 3 programs. Read from stdin and write the final answer to stdout.'
+      : this.form.controls.language.value === 'cpp'
+        ? 'Submissions run as standalone C++17 console programs. Read from stdin and write the final answer to stdout.'
+        : 'Submissions run as standalone C# console programs. Read from stdin and write the final answer to stdout.';
   }
 
   goToPracticeProblems(): void {
@@ -352,11 +576,14 @@ Console.WriteLine(input.Trim());`;
 
     const draft = this.codeDraftStorage.getDraft(this.buildDraftScope(problemId));
     const latestSubmission = this.getLatestSubmissionForProblem(problemId);
-    const nextLanguage = draft?.language ?? latestSubmission?.language ?? 'csharp';
+    const selectedProblem = this.interview()?.problems.find(problem => problem.problemId === problemId) ?? null;
+    const nextLanguage = InterviewSolvePage.normalizeLanguage(
+      draft?.language ?? latestSubmission?.language ?? InterviewSolvePage.defaultLanguage
+    );
     const nextSourceCode =
       draft?.sourceCode ??
       latestSubmission?.sourceCode ??
-      InterviewSolvePage.defaultSourceCode;
+      InterviewSolvePage.getStarterSourceCodeForProblem(selectedProblem, nextLanguage);
 
     this.isHydratingDraft = true;
     this.form.reset(
@@ -394,6 +621,14 @@ Console.WriteLine(input.Trim());`;
     }
 
     return `interview:${this.session()?.id ?? this.interview()?.id ?? 'pending'}:${problemId}`;
+  }
+
+  private getResetTargetProblem(): CandidateInterviewProblemDto | null {
+    if (!this.isPracticeMode()) {
+      return null;
+    }
+
+    return this.interview()?.problems[0] ?? null;
   }
 
   private focusFirstOpenProblem(): void {
@@ -434,8 +669,8 @@ Console.WriteLine(input.Trim());`;
     this.isHydratingDraft = true;
     this.form.reset(
       {
-        language: 'csharp',
-        sourceCode: InterviewSolvePage.defaultSourceCode,
+        language: InterviewSolvePage.defaultLanguage,
+        sourceCode: InterviewSolvePage.getStarterSourceCode(InterviewSolvePage.defaultLanguage),
       },
       { emitEvent: false }
     );
@@ -477,5 +712,59 @@ Console.WriteLine(input.Trim());`;
       createdAt: new Date().toISOString(),
       problems: [problem],
     };
+  }
+
+  private static normalizeLanguage(language: string): SubmissionLanguage {
+    return InterviewSolvePage.isSupportedLanguage(language)
+      ? language
+      : InterviewSolvePage.defaultLanguage;
+  }
+
+  private static isSupportedLanguage(language: string): language is SubmissionLanguage {
+    return InterviewSolvePage.languageOptionsInternal.some(option => option.value === language);
+  }
+
+  private static getStarterSourceCode(language: SubmissionLanguage): string {
+    return InterviewSolvePage.defaultStarterSourceByLanguage[language];
+  }
+
+  private static getStarterSourceCodeForProblem(
+    problem: CandidateInterviewProblemDto | null,
+    language: SubmissionLanguage
+  ): string {
+    if (problem?.executionMode === InterviewSolvePage.functionExecutionMode) {
+      const configuredStarter = language === 'python'
+        ? problem.pythonStarterCode
+        : language === 'cpp'
+          ? problem.cppStarterCode
+          : problem.csharpStarterCode;
+
+      if (configuredStarter?.trim()) {
+        return configuredStarter;
+      }
+    }
+
+    return InterviewSolvePage.getStarterSourceCode(language);
+  }
+
+  private static isStarterSourceCodeForProblem(
+    problem: CandidateInterviewProblemDto | null,
+    sourceCode: string
+  ): boolean {
+    const starters = new Set(Object.values(InterviewSolvePage.defaultStarterSourceByLanguage));
+
+    if (problem?.csharpStarterCode?.trim()) {
+      starters.add(problem.csharpStarterCode);
+    }
+
+    if (problem?.pythonStarterCode?.trim()) {
+      starters.add(problem.pythonStarterCode);
+    }
+
+    if (problem?.cppStarterCode?.trim()) {
+      starters.add(problem.cppStarterCode);
+    }
+
+    return starters.has(sourceCode);
   }
 }

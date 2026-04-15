@@ -15,6 +15,10 @@ namespace AIInterviewCoach.Application.DTOs.Interviews
         public string ConstraintsText { get; set; } = string.Empty;
         public string ExampleInput { get; set; } = string.Empty;
         public string ExampleOutput { get; set; } = string.Empty;
+        public string ExecutionMode { get; set; } = string.Empty;
+        public string CsharpStarterCode { get; set; } = string.Empty;
+        public string PythonStarterCode { get; set; } = string.Empty;
+        public string CppStarterCode { get; set; } = string.Empty;
         public List<InterviewProblemVisibleTestCaseDto> VisibleTestCases { get; set; } = new();
         public int OrderIndex { get; set; }
         public int Points { get; set; }

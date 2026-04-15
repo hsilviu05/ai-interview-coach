@@ -33,7 +33,12 @@ export const routes: Routes = [
       { path: ':interviewId/sessions', component: InterviewSessionsPage },
       { path: 'sessions/:sessionId', component: InterviewSessionDetailsPage },
       { path: 'problems', component: InterviewerProblemsListPage },
-      { path: 'create-problem', component: CreateProblemPage },
+      {
+        path: 'create-problem',
+        component: CreateProblemPage,
+        canActivate: [roleGuard],
+        data: { roles: ['Admin'] },
+      },
     ],
   },
 

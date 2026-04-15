@@ -13,6 +13,10 @@ export interface CandidateInterviewProblemDto {
   constraintsText: string;
   exampleInput: string;
   exampleOutput: string;
+  executionMode: string;
+  csharpStarterCode: string;
+  pythonStarterCode: string;
+  cppStarterCode: string;
   visibleTestCases?: CandidateInterviewVisibleTestCase[];
   orderIndex: number;
   points: number;

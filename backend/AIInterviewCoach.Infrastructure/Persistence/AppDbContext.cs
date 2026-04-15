@@ -67,6 +67,10 @@ namespace AIInterviewCoach.Infrastructure.Persistence
                     .HasMaxLength(100)
                     .IsRequired();
 
+                entity.Property(x => x.ExecutionMode)
+                    .HasMaxLength(30)
+                    .IsRequired();
+
                 entity.HasOne(x => x.CreatedBy)
                     .WithMany(x => x.Problems)
                     .HasForeignKey(x => x.CreatedByUserId)

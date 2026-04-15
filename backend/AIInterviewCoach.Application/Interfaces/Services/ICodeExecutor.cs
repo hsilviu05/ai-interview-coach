@@ -5,7 +5,7 @@ namespace AIInterviewCoach.Application.Interfaces.Services
 {
     public interface ICodeExecutor
     {
-        Task<ExecutionResult> ExecuteAsync(string code, string language, IEnumerable<TestCase> testCases);
+        Task<ExecutionResult> ExecuteAsync(Problem problem, string code, string language, IEnumerable<TestCase> testCases);
     }
 
     public record ExecutionResult(
