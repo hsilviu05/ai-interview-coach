@@ -15,6 +15,7 @@ namespace AIInterviewCoach.API.Extensions
         public static IServiceCollection AddApplicationServices(
         this IServiceCollection services)
         {
+            services.AddScoped<IAdminAuditService, AdminAuditService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProblemService, ProblemService>();
             services.AddScoped<IInterviewService, InterviewService>();

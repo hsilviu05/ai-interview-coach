@@ -1,3 +1,4 @@
+using AIInterviewCoach.Application.DTOs.AdminAuditLogs;
 using AIInterviewCoach.Application.DTOs.Problems;
 using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Domain.Entities;
@@ -9,10 +10,12 @@ namespace AIInterviewCoach.Application.Services
     public class ProblemService : IProblemService
     {
         private readonly IAppDbContext _dbContext;
+        private readonly IAdminAuditService _adminAuditService;
 
-        public ProblemService(IAppDbContext dbContext)
+        public ProblemService(IAppDbContext dbContext, IAdminAuditService adminAuditService)
         {
             _dbContext = dbContext;
+            _adminAuditService = adminAuditService;
         }
 
         public async Task<IEnumerable<ProblemSummaryResponseDto>> GetAllProblemsAsync(Guid currentUserId, UserRole currentUserRole)
@@ -101,7 +104,24 @@ namespace AIInterviewCoach.Application.Services
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
+
             _dbContext.Problems.Add(problem);
+            await _adminAuditService.RecordAsync(new AdminAuditLogWriteRequestDto
+            {
+                AdminUserId = userId,
+                ActionType = "problem.created",
+                TargetType = "problem",
+                TargetId = problem.Id,
+                TargetDisplayName = problem.Title,
+                Summary = $"Created problem \"{problem.Title}\".",
+                Details = new Dictionary<string, string>
+                {
+                    ["difficulty"] = problem.Difficulty,
+                    ["topic"] = problem.Topic,
+                    ["executionMode"] = problem.ExecutionMode,
+                    ["visibility"] = problem.IsPublic ? "public" : "private"
+                }
+            });
             await _dbContext.SaveChangesAsync();
 
             return MapProblemToDto(problem);
@@ -122,6 +142,12 @@ namespace AIInterviewCoach.Application.Services
             {
                 parsedDifficulty = DifficultyLevel.Easy;
             }
+
+            var previousTitle = problem.Title;
+            var previousDifficulty = problem.Difficulty;
+            var previousTopic = problem.Topic;
+            var previousExecutionMode = problem.ExecutionMode;
+            var previousVisibility = problem.IsPublic;
 
             var normalizedExecutionMode = NormalizeExecutionMode(updateRequest.ExecutionMode);
             EnsureProblemExecutionConfiguration(
@@ -150,6 +176,28 @@ namespace AIInterviewCoach.Application.Services
             problem.IsPublic = updateRequest.IsPublic;
             problem.UpdatedAt = DateTime.UtcNow;
 
+            await _adminAuditService.RecordAsync(new AdminAuditLogWriteRequestDto
+            {
+                AdminUserId = userId,
+                ActionType = "problem.updated",
+                TargetType = "problem",
+                TargetId = problem.Id,
+                TargetDisplayName = problem.Title,
+                Summary = $"Updated problem \"{problem.Title}\".",
+                Details = new Dictionary<string, string>
+                {
+                    ["previousTitle"] = previousTitle,
+                    ["currentTitle"] = problem.Title,
+                    ["previousDifficulty"] = previousDifficulty,
+                    ["currentDifficulty"] = problem.Difficulty,
+                    ["previousTopic"] = previousTopic,
+                    ["currentTopic"] = problem.Topic,
+                    ["previousExecutionMode"] = previousExecutionMode,
+                    ["currentExecutionMode"] = problem.ExecutionMode,
+                    ["previousVisibility"] = previousVisibility ? "public" : "private",
+                    ["currentVisibility"] = problem.IsPublic ? "public" : "private"
+                }
+            });
             await _dbContext.SaveChangesAsync();
 
             return MapProblemToDto(problem);
@@ -172,6 +220,27 @@ namespace AIInterviewCoach.Application.Services
 
             if (isAttachedToInterview)
                 throw new InvalidOperationException("This problem is already attached to an interview. Remove the interview first, or use the catalog replacement tool to reset the workspace.");
+
+            if (isAdmin)
+            {
+                await _adminAuditService.RecordAsync(new AdminAuditLogWriteRequestDto
+                {
+                    AdminUserId = userId,
+                    ActionType = "problem.deleted",
+                    TargetType = "problem",
+                    TargetId = problem.Id,
+                    TargetDisplayName = problem.Title,
+                    Summary = $"Deleted problem \"{problem.Title}\".",
+                    Details = new Dictionary<string, string>
+                    {
+                        ["difficulty"] = problem.Difficulty,
+                        ["topic"] = problem.Topic,
+                        ["executionMode"] = problem.ExecutionMode,
+                        ["visibility"] = problem.IsPublic ? "public" : "private",
+                        ["testCaseCount"] = problem.TestCases.Count.ToString()
+                    }
+                });
+            }
 
             _dbContext.TestCases.RemoveRange(problem.TestCases);
             _dbContext.Problems.Remove(problem);
@@ -210,9 +279,7 @@ namespace AIInterviewCoach.Application.Services
             _dbContext.Problems.AddRange(starterProblemSeeds.Select(seed => seed.Problem));
             _dbContext.TestCases.AddRange(starterProblemSeeds.SelectMany(seed => seed.TestCases));
 
-            await _dbContext.SaveChangesAsync();
-
-            return new ReplaceProblemCatalogResponseDto
+            var result = new ReplaceProblemCatalogResponseDto
             {
                 DeletedProblemCount = deletedProblemCount,
                 DeletedInterviewCount = deletedInterviewCount,
@@ -222,6 +289,26 @@ namespace AIInterviewCoach.Application.Services
                     .Select(seed => seed.Problem.Title)
                     .ToArray()
             };
+
+            await _adminAuditService.RecordAsync(new AdminAuditLogWriteRequestDto
+            {
+                AdminUserId = userId,
+                ActionType = "catalog.replaced",
+                TargetType = "problem_catalog",
+                Summary = "Replaced the problem catalog with the starter set.",
+                Details = new Dictionary<string, string>
+                {
+                    ["deletedProblemCount"] = result.DeletedProblemCount.ToString(),
+                    ["deletedInterviewCount"] = result.DeletedInterviewCount.ToString(),
+                    ["deletedSubmissionCount"] = result.DeletedSubmissionCount.ToString(),
+                    ["createdProblemCount"] = result.CreatedProblemCount.ToString(),
+                    ["createdProblemTitles"] = string.Join(", ", result.CreatedProblemTitles)
+                }
+            });
+
+            await _dbContext.SaveChangesAsync();
+
+            return result;
         }
 
         public async Task<TestCaseResponseDto> AddTestCaseAsync(
@@ -249,6 +336,25 @@ namespace AIInterviewCoach.Application.Services
             };
 
             _dbContext.TestCases.Add(testCase);
+            if (isAdmin)
+            {
+                await _adminAuditService.RecordAsync(new AdminAuditLogWriteRequestDto
+                {
+                    AdminUserId = currentUserId,
+                    ActionType = "testcase.created",
+                    TargetType = "problem_test_case",
+                    TargetId = testCase.Id,
+                    TargetDisplayName = problem.Title,
+                    Summary = $"Added test case #{testCase.OrderIndex} to \"{problem.Title}\".",
+                    Details = new Dictionary<string, string>
+                    {
+                        ["problemId"] = problem.Id.ToString(),
+                        ["problemTitle"] = problem.Title,
+                        ["isHidden"] = testCase.IsHidden ? "true" : "false",
+                        ["orderIndex"] = testCase.OrderIndex.ToString()
+                    }
+                });
+            }
             await _dbContext.SaveChangesAsync();
 
             return new TestCaseResponseDto

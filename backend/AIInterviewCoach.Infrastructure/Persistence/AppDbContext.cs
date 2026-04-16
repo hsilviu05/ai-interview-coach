@@ -11,6 +11,7 @@ namespace AIInterviewCoach.Infrastructure.Persistence
         }
         public DbSet<User> Users => Set<User>();
         public DbSet<CandidateStatistic> CandidateStatistics => Set<CandidateStatistic>();
+        public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
 
         public DbSet<Problem> Problems => Set<Problem>();
         public DbSet<TestCase> TestCases => Set<TestCase>();
@@ -39,6 +40,41 @@ namespace AIInterviewCoach.Infrastructure.Persistence
 
                 entity.HasIndex(x => x.Email)
                     .IsUnique();
+            });
+
+            modelBuilder.Entity<AdminAuditLog>(entity =>
+            {
+                entity.HasKey(x => x.Id);
+
+                entity.Property(x => x.AdminEmail)
+                    .HasMaxLength(200)
+                    .IsRequired();
+
+                entity.Property(x => x.AdminFullName)
+                    .HasMaxLength(200)
+                    .IsRequired();
+
+                entity.Property(x => x.ActionType)
+                    .HasMaxLength(100)
+                    .IsRequired();
+
+                entity.Property(x => x.TargetType)
+                    .HasMaxLength(100)
+                    .IsRequired();
+
+                entity.Property(x => x.TargetDisplayName)
+                    .HasMaxLength(200);
+
+                entity.Property(x => x.Summary)
+                    .HasMaxLength(500)
+                    .IsRequired();
+
+                entity.HasIndex(x => x.CreatedAt);
+
+                entity.HasOne(x => x.AdminUser)
+                    .WithMany(x => x.AdminAuditLogs)
+                    .HasForeignKey(x => x.AdminUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<CandidateStatistic>(entity =>

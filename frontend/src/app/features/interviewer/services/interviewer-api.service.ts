@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
+    AdminAuditLogListItem,
     AddProblemToInterviewRequest,
     CreateInterviewRequest,
     CreateProblemRequest,
@@ -23,6 +24,7 @@ export class InterviewerApi {
     private readonly http = inject(HttpClient);
     private readonly baseUrl = `${environment.apiBaseUrl}/interviews`;
     private readonly problemsBaseUrl = `${environment.apiBaseUrl}/problems`;
+    private readonly adminAuditBaseUrl = `${environment.apiBaseUrl}/admin/audit-logs`;
 
     createInterview(payload: CreateInterviewRequest): Observable<InterviewResponse> {
         return this.http.post<InterviewResponse>(this.baseUrl, payload);
@@ -71,6 +73,12 @@ export class InterviewerApi {
             `${this.problemsBaseUrl}/catalog/replace-with-starter-set`,
             {}
         );
+    }
+
+    getRecentAdminAuditLogs(take = 20): Observable<AdminAuditLogListItem[]> {
+        return this.http.get<AdminAuditLogListItem[]>(this.adminAuditBaseUrl, {
+            params: { take },
+        });
     }
 
     getTestCases(problemId: string, includeHidden = true): Observable<TestCaseListItem[]> {

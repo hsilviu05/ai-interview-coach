@@ -54,6 +54,44 @@
     <p class="error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
     <p class="success" *ngIf="successMessage()">{{ successMessage() }}</p>
 
+    <div class="audit-card" *ngIf="isAdmin()">
+      <div class="audit-card-header">
+        <div>
+          <div class="badge audit-badge">Admin Audit Log</div>
+          <h2>Recent admin activity</h2>
+          <p>Every problem mutation is logged on the backend with the admin identity, action, target, and timestamp.</p>
+        </div>
+      </div>
+
+      <p class="audit-error" *ngIf="auditLogError()">{{ auditLogError() }}</p>
+
+      <div class="audit-loading" *ngIf="loadingAuditLogs() && auditLogs().length === 0">
+        <p>Loading recent activity...</p>
+      </div>
+
+      <div class="audit-empty" *ngIf="!loadingAuditLogs() && !auditLogError() && auditLogs().length === 0">
+        <p>No admin activity has been logged yet.</p>
+      </div>
+
+      <div class="audit-list" *ngIf="auditLogs().length > 0">
+        <div class="audit-item" *ngFor="let log of auditLogs()">
+          <div class="audit-item-top">
+            <div>
+              <span class="audit-action">{{ getActionLabel(log) }}</span>
+              <h3>{{ log.summary }}</h3>
+            </div>
+
+            <span class="audit-time">{{ log.createdAt | date:'medium' }}</span>
+          </div>
+
+          <p class="audit-meta">
+            {{ log.adminFullName }} ({{ log.adminEmail }})
+            <span *ngIf="log.targetDisplayName"> • {{ log.targetDisplayName }}</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
     <div class="empty-state-card" *ngIf="!errorMessage() && problems().length === 0">
       <h2>No problems yet</h2>
       <p>

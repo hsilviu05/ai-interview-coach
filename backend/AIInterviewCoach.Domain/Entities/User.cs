@@ -18,5 +18,6 @@ namespace AIInterviewCoach.Domain.Entities
 
         public CandidateStatistic? CandidateStatistics { get; set; }
         public ICollection<Problem> Problems { get; set; } = new List<Problem>();
+        public ICollection<AdminAuditLog> AdminAuditLogs { get; set; } = new List<AdminAuditLog>();
     }
 }
