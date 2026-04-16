@@ -4,6 +4,7 @@ using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace AIInterviewCoach.Application.Services
 {
@@ -251,64 +252,94 @@ namespace AIInterviewCoach.Application.Services
 
         public async Task<ReplaceProblemCatalogResponseDto> ReplaceCatalogWithStarterSetAsync(Guid userId)
         {
-            var deletedProblemCount = await _dbContext.Problems.CountAsync();
-            var deletedInterviewCount = await _dbContext.Interviews.CountAsync();
-            var deletedSubmissionCount = await _dbContext.Submissions.CountAsync();
+            var supportsTransactions = !string.Equals(
+                _dbContext.Database.ProviderName,
+                "Microsoft.EntityFrameworkCore.InMemory",
+                StringComparison.Ordinal);
 
-            _dbContext.Submissions.RemoveRange(_dbContext.Submissions);
-            _dbContext.InterviewSessions.RemoveRange(_dbContext.InterviewSessions);
-            _dbContext.InterviewProblems.RemoveRange(_dbContext.InterviewProblems);
-            _dbContext.Interviews.RemoveRange(_dbContext.Interviews);
-            _dbContext.TestCases.RemoveRange(_dbContext.TestCases);
-            _dbContext.Problems.RemoveRange(_dbContext.Problems);
+            IDbContextTransaction? transaction = null;
 
-            await _dbContext.SaveChangesAsync();
-
-            var now = DateTime.UtcNow;
-            var candidateStatistics = await _dbContext.CandidateStatistics.ToListAsync();
-            foreach (var statistic in candidateStatistics)
+            if (supportsTransactions)
             {
-                statistic.ProblemsSolved = 0;
-                statistic.TotalSubmissions = 0;
-                statistic.AccuracyRate = 0;
-                statistic.AverageExecutionTimeMs = 0;
-                statistic.UpdatedAt = now;
+                // Keep the destructive reset all-or-nothing on real relational databases.
+                transaction = await _dbContext.Database.BeginTransactionAsync();
             }
 
-            var starterProblemSeeds = StarterProblemCatalogFactory.Build(userId);
-            _dbContext.Problems.AddRange(starterProblemSeeds.Select(seed => seed.Problem));
-            _dbContext.TestCases.AddRange(starterProblemSeeds.SelectMany(seed => seed.TestCases));
-
-            var result = new ReplaceProblemCatalogResponseDto
+            try
             {
-                DeletedProblemCount = deletedProblemCount,
-                DeletedInterviewCount = deletedInterviewCount,
-                DeletedSubmissionCount = deletedSubmissionCount,
-                CreatedProblemCount = starterProblemSeeds.Count,
-                CreatedProblemTitles = starterProblemSeeds
-                    .Select(seed => seed.Problem.Title)
-                    .ToArray()
-            };
+                var deletedProblemCount = await _dbContext.Problems.CountAsync();
+                var deletedInterviewCount = await _dbContext.Interviews.CountAsync();
+                var deletedSubmissionCount = await _dbContext.Submissions.CountAsync();
 
-            await _adminAuditService.RecordAsync(new AdminAuditLogWriteRequestDto
-            {
-                AdminUserId = userId,
-                ActionType = "catalog.replaced",
-                TargetType = "problem_catalog",
-                Summary = "Replaced the problem catalog with the starter set.",
-                Details = new Dictionary<string, string>
+                _dbContext.Submissions.RemoveRange(_dbContext.Submissions);
+                _dbContext.InterviewSessions.RemoveRange(_dbContext.InterviewSessions);
+                _dbContext.InterviewProblems.RemoveRange(_dbContext.InterviewProblems);
+                _dbContext.Interviews.RemoveRange(_dbContext.Interviews);
+                _dbContext.TestCases.RemoveRange(_dbContext.TestCases);
+                _dbContext.Problems.RemoveRange(_dbContext.Problems);
+
+                await _dbContext.SaveChangesAsync();
+
+                var now = DateTime.UtcNow;
+                var candidateStatistics = await _dbContext.CandidateStatistics.ToListAsync();
+                foreach (var statistic in candidateStatistics)
                 {
-                    ["deletedProblemCount"] = result.DeletedProblemCount.ToString(),
-                    ["deletedInterviewCount"] = result.DeletedInterviewCount.ToString(),
-                    ["deletedSubmissionCount"] = result.DeletedSubmissionCount.ToString(),
-                    ["createdProblemCount"] = result.CreatedProblemCount.ToString(),
-                    ["createdProblemTitles"] = string.Join(", ", result.CreatedProblemTitles)
+                    statistic.ProblemsSolved = 0;
+                    statistic.TotalSubmissions = 0;
+                    statistic.AccuracyRate = 0;
+                    statistic.AverageExecutionTimeMs = 0;
+                    statistic.UpdatedAt = now;
                 }
-            });
 
-            await _dbContext.SaveChangesAsync();
+                var starterProblemSeeds = StarterProblemCatalogFactory.Build(userId);
+                _dbContext.Problems.AddRange(starterProblemSeeds.Select(seed => seed.Problem));
+                _dbContext.TestCases.AddRange(starterProblemSeeds.SelectMany(seed => seed.TestCases));
 
-            return result;
+                var result = new ReplaceProblemCatalogResponseDto
+                {
+                    DeletedProblemCount = deletedProblemCount,
+                    DeletedInterviewCount = deletedInterviewCount,
+                    DeletedSubmissionCount = deletedSubmissionCount,
+                    CreatedProblemCount = starterProblemSeeds.Count,
+                    CreatedProblemTitles = starterProblemSeeds
+                        .Select(seed => seed.Problem.Title)
+                        .ToArray()
+                };
+
+                await _adminAuditService.RecordAsync(new AdminAuditLogWriteRequestDto
+                {
+                    AdminUserId = userId,
+                    ActionType = "catalog.replaced",
+                    TargetType = "problem_catalog",
+                    Summary = "Replaced the problem catalog with the starter set.",
+                    Details = new Dictionary<string, string>
+                    {
+                        ["deletedProblemCount"] = result.DeletedProblemCount.ToString(),
+                        ["deletedInterviewCount"] = result.DeletedInterviewCount.ToString(),
+                        ["deletedSubmissionCount"] = result.DeletedSubmissionCount.ToString(),
+                        ["createdProblemCount"] = result.CreatedProblemCount.ToString(),
+                        ["createdProblemTitles"] = string.Join(", ", result.CreatedProblemTitles)
+                    }
+                });
+
+                await _dbContext.SaveChangesAsync();
+
+                if (transaction is not null)
+                {
+                    await transaction.CommitAsync();
+                }
+
+                return result;
+            }
+            catch
+            {
+                if (transaction is not null)
+                {
+                    await transaction.RollbackAsync();
+                }
+
+                throw;
+            }
         }
 
         public async Task<TestCaseResponseDto> AddTestCaseAsync(

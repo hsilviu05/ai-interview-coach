@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { canAccessInterviewerWorkspace } from '../../../../core/auth/access-policies';
 import { AuthService } from '../../../../core/services/auth.service';
 
 @Component({
@@ -37,7 +38,7 @@ export class LoginPage {
       next: () => {
         const role = this.authService.getRole();
 
-        if (role === 'Interviewer' || role === 'Admin') {
+        if (canAccessInterviewerWorkspace(role)) {
           this.router.navigateByUrl('/interviewer/dashboard');
           return;
         }

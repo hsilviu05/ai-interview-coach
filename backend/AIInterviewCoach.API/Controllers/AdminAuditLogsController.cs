@@ -1,3 +1,4 @@
+using AIInterviewCoach.API.Authorization;
 using AIInterviewCoach.Application.DTOs.AdminAuditLogs;
 using AIInterviewCoach.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -8,7 +9,7 @@ namespace AIInterviewCoach.API.Controllers
 {
     [ApiController]
     [Route("api/admin/audit-logs")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = AuthorizationPolicies.AdminAuditLogAccess)]
     public class AdminAuditLogsController : ControllerBase
     {
         private readonly IAdminAuditService _adminAuditService;

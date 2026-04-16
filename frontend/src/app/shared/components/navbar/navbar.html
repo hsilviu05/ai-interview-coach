@@ -5,7 +5,7 @@
       <span class="brand-text">AI Interview Coach</span>
     </a>
 
-    <div class="nav-links" *ngIf="role() === 'Interviewer' || role() === 'Admin'">
+    <div class="nav-links" *ngIf="canAccessInterviewerWorkspace()">
       <a
         routerLink="/interviewer/dashboard"
         routerLinkActive="active-link"
@@ -34,7 +34,7 @@
       </a>
 
       <a
-        *ngIf="role() === 'Admin'"
+        *ngIf="isAdmin()"
         routerLink="/interviewer/create-problem"
         routerLinkActive="active-link"
         class="nav-link">
@@ -42,7 +42,7 @@
       </a>
     </div>
 
-    <div class="nav-links" *ngIf="role() === 'Candidate'">
+    <div class="nav-links" *ngIf="canAccessCandidateWorkspace()">
       <a
         routerLink="/candidate/access"
         routerLinkActive="active-link"

@@ -1,14 +1,18 @@
 using System.Security.Claims;
+using AIInterviewCoach.API.Authorization;
+using AIInterviewCoach.API.RateLimiting;
 using AIInterviewCoach.Application.DTOs.Submissions;
 using AIInterviewCoach.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace AIInterviewCoach.API.Controllers
 {
     [ApiController]
     [Route("api/submissions")]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.CandidateWorkspaceAccess)]
+    [EnableRateLimiting(RateLimitingPolicies.CandidateSubmissionFlow)]
     public class SubmissionsController : ControllerBase
     {
         private readonly ISubmissionService _submissionService;
@@ -19,7 +23,6 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Candidate,Admin")]
         public async Task<IActionResult> CreateSubmission([FromBody] CreateSubmissionRequestDto request)
         {
             if (!ModelState.IsValid)
@@ -32,7 +35,6 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet("me")]
-        [Authorize(Roles = "Candidate,Admin")]
         public async Task<IActionResult> GetMySubmissions()
         {
             var candidateId = GetCurrentUserId();
@@ -42,7 +44,6 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet("session/{interviewSessionId:guid}")]
-        [Authorize(Roles = "Candidate,Admin")]
         public async Task<IActionResult> GetByInterviewSession(Guid interviewSessionId)
         {
             var candidateId = GetCurrentUserId();
@@ -52,7 +53,6 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpDelete("problem/{problemId:guid}")]
-        [Authorize(Roles = "Candidate,Admin")]
         public async Task<IActionResult> ResetProblem(Guid problemId, [FromQuery] Guid? interviewSessionId)
         {
             var candidateId = GetCurrentUserId();
@@ -62,7 +62,6 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpDelete("session/{interviewSessionId:guid}")]
-        [Authorize(Roles = "Candidate,Admin")]
         public async Task<IActionResult> ResetInterviewSession(Guid interviewSessionId)
         {
             var candidateId = GetCurrentUserId();

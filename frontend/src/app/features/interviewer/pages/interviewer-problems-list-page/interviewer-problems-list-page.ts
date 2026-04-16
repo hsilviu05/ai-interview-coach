@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { isAdminRole } from '../../../../core/auth/access-policies';
 import { AuthService } from '../../../../core/services/auth.service';
 import { Navbar } from '../../../../shared/components/navbar/navbar';
 import { AdminAuditLogListItem, ProblemListItem } from '../../models/interviewer.models';
@@ -27,7 +28,7 @@ export class InterviewerProblemsListPage implements OnInit {
   readonly auditLogs = signal<AdminAuditLogListItem[]>([]);
   readonly auditLogError = signal('');
   readonly loadingAuditLogs = signal(false);
-  readonly isAdmin = computed(() => this.authService.getRole() === 'Admin');
+  readonly isAdmin = computed(() => isAdminRole(this.authService.getRole()));
 
   ngOnInit(): void {
     this.loadProblems();

@@ -1,4 +1,6 @@
+using AIInterviewCoach.Application.DTOs.AdminAuditLogs;
 using AIInterviewCoach.Application.DTOs.Problems;
+using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Application.Services;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
@@ -254,6 +256,54 @@ namespace AIInterviewCoach.Tests.Services
             Assert.Contains("Two Sum", auditLog.DetailsJson);
         }
 
+        [Fact]
+        public async Task ReplaceCatalogWithStarterSetAsync_ShouldRollback_WhenFinalStepFails()
+        {
+            using var sqliteScope = TestDbContextFactory.CreateSqliteContext();
+            var db = sqliteScope.Context;
+
+            var admin = TestDataSeeder.CreateAdmin(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var originalProblem = TestDataSeeder.CreateProblem(db, admin.Id, title: "Original Problem");
+            var originalInterview = TestDataSeeder.CreateInterview(db, admin.Id);
+            var originalSession = TestDataSeeder.CreateInterviewSession(db, originalInterview.Id, candidate.Id);
+            TestDataSeeder.AddProblemToInterview(db, originalInterview.Id, originalProblem.Id);
+            TestDataSeeder.CreateSubmission(db, candidate.Id, originalProblem.Id, originalSession.Id, SubmissionStatus.Accepted);
+
+            db.CandidateStatistics.Add(new CandidateStatistic
+            {
+                Id = Guid.NewGuid(),
+                CandidateId = candidate.Id,
+                ProblemsSolved = 5,
+                TotalSubmissions = 9,
+                AccuracyRate = 88.8m,
+                AverageExecutionTimeMs = 123,
+                UpdatedAt = DateTime.UtcNow
+            });
+            db.SaveChanges();
+
+            var service = new ProblemService(db, new ThrowingAdminAuditService("catalog.replaced"));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.ReplaceCatalogWithStarterSetAsync(admin.Id));
+
+            using var verificationDb = sqliteScope.CreateAdditionalContext();
+
+            Assert.Equal(1, await verificationDb.Problems.CountAsync());
+            Assert.Equal("Original Problem", (await verificationDb.Problems.SingleAsync()).Title);
+            Assert.Equal(1, await verificationDb.Interviews.CountAsync());
+            Assert.Equal(1, await verificationDb.InterviewSessions.CountAsync());
+            Assert.Equal(1, await verificationDb.Submissions.CountAsync());
+            Assert.Equal(2, await verificationDb.TestCases.CountAsync());
+            Assert.Empty(await verificationDb.AdminAuditLogs.ToListAsync());
+
+            var statistics = await verificationDb.CandidateStatistics.SingleAsync();
+            Assert.Equal(5, statistics.ProblemsSolved);
+            Assert.Equal(9, statistics.TotalSubmissions);
+            Assert.Equal(88.8m, statistics.AccuracyRate);
+            Assert.Equal(123, statistics.AverageExecutionTimeMs);
+        }
+
         private static ProblemService CreateService(Infrastructure.Persistence.AppDbContext db) =>
             new(db, new AdminAuditService(db));
 
@@ -296,5 +346,30 @@ namespace AIInterviewCoach.Tests.Services
                 CppHarnessTemplate = "{{candidate_code}}",
                 IsPublic = false
             };
+
+        private sealed class ThrowingAdminAuditService : IAdminAuditService
+        {
+            private readonly string _actionTypeToThrow;
+
+            public ThrowingAdminAuditService(string actionTypeToThrow)
+            {
+                _actionTypeToThrow = actionTypeToThrow;
+            }
+
+            public Task RecordAsync(AdminAuditLogWriteRequestDto request, CancellationToken cancellationToken = default)
+            {
+                if (request.ActionType == _actionTypeToThrow)
+                {
+                    throw new InvalidOperationException("Simulated audit write failure.");
+                }
+
+                return Task.CompletedTask;
+            }
+
+            public Task<IReadOnlyList<AdminAuditLogResponseDto>> GetRecentLogsAsync(int take = 25, CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult<IReadOnlyList<AdminAuditLogResponseDto>>(Array.Empty<AdminAuditLogResponseDto>());
+            }
+        }
     }
 }
