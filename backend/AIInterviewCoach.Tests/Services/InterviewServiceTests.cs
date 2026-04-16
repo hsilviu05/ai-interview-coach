@@ -146,5 +146,32 @@ namespace AIInterviewCoach.Tests.Services
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
                 service.GetByIdAsync(interview.Id, otherInterviewer.Id, isAdmin: false));
         }
+
+        [Fact]
+        public async Task GetByTokenAsync_ShouldPopulateCentralizedStarterCode_WhenInterviewProblemUsesBlankStdinStarters()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id, token: "template-token");
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, title: "Template Check");
+            problem.ExecutionMode = ProblemExecutionModes.Stdin;
+            problem.CsharpStarterCode = string.Empty;
+            problem.PythonStarterCode = string.Empty;
+            problem.CppStarterCode = string.Empty;
+            db.SaveChanges();
+
+            TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id, orderIndex: 1);
+
+            var service = new InterviewService(db);
+
+            var result = await service.GetByTokenAsync("template-token");
+
+            Assert.NotNull(result);
+            Assert.Single(result!.Problems);
+            Assert.Contains("using System;", result.Problems[0].CsharpStarterCode);
+            Assert.Contains("import sys", result.Problems[0].PythonStarterCode);
+            Assert.Contains("#include <algorithm>", result.Problems[0].CppStarterCode);
+        }
     }
 }

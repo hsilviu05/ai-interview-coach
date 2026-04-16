@@ -8,6 +8,7 @@
       [value]="value()"
       spellcheck="false"
       (blur)="handleBlur()"
+      (keydown)="handleFallbackKeydown($event)"
       (input)="handleFallbackInput($event)"></textarea>
   </ng-template>
 </div>

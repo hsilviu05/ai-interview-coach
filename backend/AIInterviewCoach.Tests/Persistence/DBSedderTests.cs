@@ -1,4 +1,5 @@
 using AIInterviewCoach.Domain.Entities;
+using AIInterviewCoach.Domain.Enums;
 using AIInterviewCoach.Infrastructure.Persistence;
 using AIInterviewCoach.Tests.Common;
 using Microsoft.Extensions.Configuration;
@@ -78,6 +79,53 @@ namespace AIInterviewCoach.Tests.Persistence
             var admin = db.Users.Single(user => user.Email == "admin@test.com");
             Assert.Equal("Admin Demo", admin.FullName);
             Assert.Equal(Domain.Enums.UserRole.Admin, admin.UserRole);
+        }
+
+        [Fact]
+        public async Task SeedAsync_ShouldUpgradeLegacyStarterProblemPythonTemplate_InDevelopment()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+            var configuration = BuildConfiguration();
+            var environment = new TestHostEnvironment { EnvironmentName = Environments.Development };
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, title: "Two Sum");
+            problem.ExecutionMode = ProblemExecutionModes.FunctionSignature;
+            problem.CsharpStarterCode = """
+                public class Solution
+                {
+                    public int[] TwoSum(int[] nums, int target)
+                    {
+                        
+                    }
+                }
+                """;
+            problem.PythonStarterCode = """
+                from typing import List
+
+
+                class Solution:
+                    def twoSum(self, nums: List[int], target: int) -> List[int]:
+                        
+                """;
+            problem.CppStarterCode = """
+                #include <vector>
+                using namespace std;
+
+                class Solution {
+                public:
+                    vector<int> twoSum(vector<int>& nums, int target) {
+                        
+                    }
+                };
+                """;
+            db.SaveChanges();
+
+            await DBSedder.SeedAsync(db, configuration, environment);
+
+            var updatedProblem = db.Problems.Single(existingProblem => existingProblem.Id == problem.Id);
+            Assert.Contains("return []", updatedProblem.PythonStarterCode);
+            Assert.Contains("Array.Empty<int>()", updatedProblem.CsharpStarterCode);
+            Assert.Contains("return {};", updatedProblem.CppStarterCode);
         }
 
         private static IConfiguration BuildConfiguration(Dictionary<string, string?>? values = null)

@@ -101,9 +101,18 @@ namespace AIInterviewCoach.Application.Services
                     ExampleInput = BuildProblemExampleInput(ip.Problem),
                     ExampleOutput = BuildProblemExampleOutput(ip.Problem),
                     ExecutionMode = ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
-                    CsharpStarterCode = ip.Problem?.CsharpStarterCode ?? string.Empty,
-                    PythonStarterCode = ip.Problem?.PythonStarterCode ?? string.Empty,
-                    CppStarterCode = ip.Problem?.CppStarterCode ?? string.Empty,
+                    CsharpStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
+                        ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
+                        "csharp",
+                        ip.Problem?.CsharpStarterCode),
+                    PythonStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
+                        ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
+                        "python",
+                        ip.Problem?.PythonStarterCode),
+                    CppStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
+                        ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
+                        "cpp",
+                        ip.Problem?.CppStarterCode),
                     VisibleTestCases = BuildVisibleTestCases(ip.Problem),
                     OrderIndex = ip.OrderIndex,
                     Points = ip.Points
@@ -138,9 +147,18 @@ namespace AIInterviewCoach.Application.Services
                     ExampleInput = BuildProblemExampleInput(ip.Problem),
                     ExampleOutput = BuildProblemExampleOutput(ip.Problem),
                     ExecutionMode = ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
-                    CsharpStarterCode = ip.Problem?.CsharpStarterCode ?? string.Empty,
-                    PythonStarterCode = ip.Problem?.PythonStarterCode ?? string.Empty,
-                    CppStarterCode = ip.Problem?.CppStarterCode ?? string.Empty,
+                    CsharpStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
+                        ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
+                        "csharp",
+                        ip.Problem?.CsharpStarterCode),
+                    PythonStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
+                        ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
+                        "python",
+                        ip.Problem?.PythonStarterCode),
+                    CppStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
+                        ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
+                        "cpp",
+                        ip.Problem?.CppStarterCode),
                     VisibleTestCases = BuildVisibleTestCases(ip.Problem),
                     OrderIndex = ip.OrderIndex,
                     Points = ip.Points

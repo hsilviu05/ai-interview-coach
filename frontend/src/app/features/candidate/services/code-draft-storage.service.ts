@@ -7,12 +7,71 @@ export interface CodeWorkspaceDraft {
   updatedAt: string;
 }
 
+interface CodeWorkspaceDraftCollection {
+  selectedLanguage: string;
+  draftsByLanguage: Record<string, CodeWorkspaceDraft>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class CodeDraftStorageService {
   private readonly storage = inject(StorageService);
   private readonly keyPrefix = 'candidate_workspace_draft';
 
-  getDraft(scope: string): CodeWorkspaceDraft | null {
+  getDraft(scope: string, language?: string): CodeWorkspaceDraft | null {
+    const collection = this.getDraftCollection(scope);
+
+    if (!collection) {
+      return null;
+    }
+
+    const selectedLanguage = language ?? collection.selectedLanguage;
+
+    if (!selectedLanguage) {
+      return null;
+    }
+
+    return collection.draftsByLanguage[selectedLanguage] ?? null;
+  }
+
+  saveDraft(scope: string, draft: CodeWorkspaceDraft): void {
+    const collection = this.getDraftCollection(scope) ?? {
+      selectedLanguage: draft.language,
+      draftsByLanguage: {},
+    };
+
+    collection.selectedLanguage = draft.language;
+    collection.draftsByLanguage[draft.language] = draft;
+    this.storage.setItem(this.buildKey(scope), JSON.stringify(collection));
+  }
+
+  clearDraft(scope: string, language?: string): void {
+    if (!language) {
+      this.removeDraftCollection(scope);
+      return;
+    }
+
+    const collection = this.getDraftCollection(scope);
+
+    if (!collection) {
+      return;
+    }
+
+    delete collection.draftsByLanguage[language];
+
+    const remainingLanguages = Object.keys(collection.draftsByLanguage);
+    if (remainingLanguages.length === 0) {
+      this.removeDraftCollection(scope);
+      return;
+    }
+
+    if (!collection.draftsByLanguage[collection.selectedLanguage]) {
+      collection.selectedLanguage = remainingLanguages[0];
+    }
+
+    this.storage.setItem(this.buildKey(scope), JSON.stringify(collection));
+  }
+
+  private getDraftCollection(scope: string): CodeWorkspaceDraftCollection | null {
     const serializedDraft = this.storage.getItem(this.buildKey(scope));
 
     if (!serializedDraft) {
@@ -20,33 +79,80 @@ export class CodeDraftStorageService {
     }
 
     try {
-      const draft = JSON.parse(serializedDraft) as Partial<CodeWorkspaceDraft>;
+      const parsedDraft = JSON.parse(serializedDraft) as Partial<CodeWorkspaceDraftCollection & CodeWorkspaceDraft>;
+      const legacyDraft = this.parseLegacyDraft(parsedDraft);
+
+      if (legacyDraft) {
+        return {
+          selectedLanguage: legacyDraft.language,
+          draftsByLanguage: {
+            [legacyDraft.language]: legacyDraft,
+          },
+        };
+      }
 
       if (
-        typeof draft.language !== 'string' ||
-        typeof draft.sourceCode !== 'string' ||
-        typeof draft.updatedAt !== 'string'
+        typeof parsedDraft.selectedLanguage !== 'string' ||
+        typeof parsedDraft.draftsByLanguage !== 'object' ||
+        !parsedDraft.draftsByLanguage
       ) {
-        this.clearDraft(scope);
+        this.removeDraftCollection(scope);
+        return null;
+      }
+
+      const normalizedDraftsByLanguage = Object.entries(parsedDraft.draftsByLanguage).reduce<Record<string, CodeWorkspaceDraft>>(
+        (draftsByLanguage, [language, draftValue]) => {
+          const draft = this.parseLegacyDraft(draftValue);
+
+          if (draft) {
+            draftsByLanguage[language] = draft;
+          }
+
+          return draftsByLanguage;
+        },
+        {}
+      );
+
+      if (Object.keys(normalizedDraftsByLanguage).length === 0) {
+        this.removeDraftCollection(scope);
         return null;
       }
 
       return {
-        language: draft.language,
-        sourceCode: draft.sourceCode,
-        updatedAt: draft.updatedAt,
+        selectedLanguage: normalizedDraftsByLanguage[parsedDraft.selectedLanguage]
+          ? parsedDraft.selectedLanguage
+          : Object.keys(normalizedDraftsByLanguage)[0],
+        draftsByLanguage: normalizedDraftsByLanguage,
       };
     } catch {
-      this.clearDraft(scope);
+      this.removeDraftCollection(scope);
       return null;
     }
   }
 
-  saveDraft(scope: string, draft: CodeWorkspaceDraft): void {
-    this.storage.setItem(this.buildKey(scope), JSON.stringify(draft));
+  private parseLegacyDraft(value: unknown): CodeWorkspaceDraft | null {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+
+    const draft = value as Partial<CodeWorkspaceDraft>;
+
+    if (
+      typeof draft.language !== 'string' ||
+      typeof draft.sourceCode !== 'string' ||
+      typeof draft.updatedAt !== 'string'
+    ) {
+      return null;
+    }
+
+    return {
+      language: draft.language,
+      sourceCode: draft.sourceCode,
+      updatedAt: draft.updatedAt,
+    };
   }
 
-  clearDraft(scope: string): void {
+  private removeDraftCollection(scope: string): void {
     this.storage.removeItem(this.buildKey(scope));
   }
 

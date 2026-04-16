@@ -46,6 +46,29 @@ namespace AIInterviewCoach.Tests.Services
         }
 
         [Fact]
+        public async Task GetProblemByIdAsync_ShouldPopulateCentralizedStarterCode_WhenProblemUsesBlankStdinStarters()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, isPublic: true);
+            problem.ExecutionMode = ProblemExecutionModes.Stdin;
+            problem.CsharpStarterCode = string.Empty;
+            problem.PythonStarterCode = string.Empty;
+            problem.CppStarterCode = string.Empty;
+            db.SaveChanges();
+
+            var service = CreateService(db);
+
+            var result = await service.GetProblemByIdAsync(problem.Id, candidate.Id, UserRole.Candidate);
+
+            Assert.Contains("using System;", result.CsharpStarterCode);
+            Assert.Contains("import sys", result.PythonStarterCode);
+            Assert.Contains("#include <algorithm>", result.CppStarterCode);
+        }
+
+        [Fact]
         public async Task GetTestCasesAsync_ShouldThrow_WhenInterviewerDoesNotOwnProblem()
         {
             using var db = TestDbContextFactory.CreateContext();
