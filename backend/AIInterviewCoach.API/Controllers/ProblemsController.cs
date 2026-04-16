@@ -16,10 +16,14 @@ namespace AIInterviewCoach.API.Controllers
     public class ProblemsController : ControllerBase
     {
         private readonly IProblemService _problemService;
+        private readonly IProblemTemplateService _problemTemplateService;
 
-        public ProblemsController(IProblemService problemService)
+        public ProblemsController(
+            IProblemService problemService,
+            IProblemTemplateService problemTemplateService)
         {
             _problemService = problemService;
+            _problemTemplateService = problemTemplateService;
         }
 
         [HttpGet]
@@ -41,6 +45,14 @@ namespace AIInterviewCoach.API.Controllers
                 return NotFound(new { message = "Problem not found." });
 
             return Ok(problem);
+        }
+
+        [HttpGet("templates")]
+        [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
+        public IActionResult GetProblemTemplates()
+        {
+            var templates = _problemTemplateService.GetTemplates();
+            return Ok(templates);
         }
 
         [HttpPost]
