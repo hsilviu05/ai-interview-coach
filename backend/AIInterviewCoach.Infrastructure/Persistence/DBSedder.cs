@@ -1,3 +1,4 @@
+using AIInterviewCoach.Application.Services;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
 using AIInterviewCoach.Infrastructure.Services;
@@ -10,6 +11,7 @@ namespace AIInterviewCoach.Infrastructure.Persistence
     public class DBSedder
     {
         private const string DemoPassword = "Password123!";
+        private const string IntegrationTestingEnvironment = "IntegrationTesting";
 
         public static async Task SeedAsync(
             AppDbContext context,
@@ -18,7 +20,7 @@ namespace AIInterviewCoach.Infrastructure.Persistence
         {
             EnsureSafeStartupConfiguration(configuration, environment);
 
-            if (!environment.IsDevelopment())
+            if (!IsDevelopmentLikeEnvironment(environment))
             {
                 return;
             }
@@ -42,6 +44,7 @@ namespace AIInterviewCoach.Infrastructure.Persistence
             EnsureConfiguredAdminUser(context, passwordHasher, configuration);
             EnsureCandidateStatistic(context, candidate);
             BackfillLegacyProblemMetadata(context);
+            BackfillLegacyStarterTemplates(context);
 
             await context.SaveChangesAsync();
         }
@@ -50,7 +53,7 @@ namespace AIInterviewCoach.Infrastructure.Persistence
             IConfiguration configuration,
             IHostEnvironment environment)
         {
-            if (environment.IsDevelopment())
+            if (IsDevelopmentLikeEnvironment(environment))
             {
                 return;
             }
@@ -244,6 +247,100 @@ namespace AIInterviewCoach.Infrastructure.Persistence
                 if (updated)
                     problem.UpdatedAt = DateTime.UtcNow;
             }
+        }
+
+        private static void BackfillLegacyStarterTemplates(AppDbContext context)
+        {
+            var sharedTemplatesByTitle = ProblemTemplateCatalog.GetCreateProblemTemplates()
+                .ToDictionary(template => template.Title, StringComparer.Ordinal);
+
+            foreach (var problem in context.Problems)
+            {
+                if (problem.ExecutionMode != ProblemExecutionModes.FunctionSignature)
+                {
+                    continue;
+                }
+
+                if (!sharedTemplatesByTitle.TryGetValue(problem.Title, out var template))
+                {
+                    continue;
+                }
+
+                var currentPythonStarter = problem.PythonStarterCode?.Trim() ?? string.Empty;
+                if (!ShouldUpgradeLegacyFunctionStarter(problem.Title, currentPythonStarter))
+                {
+                    continue;
+                }
+
+                problem.CsharpStarterCode = template.CsharpStarterCode.Trim();
+                problem.PythonStarterCode = template.PythonStarterCode.Trim();
+                problem.CppStarterCode = template.CppStarterCode.Trim();
+                problem.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        private static bool ShouldUpgradeLegacyFunctionStarter(string title, string pythonStarterCode)
+        {
+            if (string.IsNullOrWhiteSpace(pythonStarterCode))
+            {
+                return true;
+            }
+
+            return GetLegacyPythonStarterByTitle(title) is { } legacyStarter &&
+                string.Equals(
+                    pythonStarterCode,
+                    legacyStarter.Trim(),
+                    StringComparison.Ordinal);
+        }
+
+        private static string? GetLegacyPythonStarterByTitle(string title)
+        {
+            return title switch
+            {
+                "Generic Function Problem" =>
+                """
+                class Solution:
+                    def solve(self, raw_input: str) -> str:
+                        
+                """,
+                "Two Sum" =>
+                """
+                from typing import List
+
+
+                class Solution:
+                    def twoSum(self, nums: List[int], target: int) -> List[int]:
+                        
+                """,
+                "Valid Parentheses" =>
+                """
+                class Solution:
+                    def isValid(self, s: str) -> bool:
+                        
+                """,
+                "Merge Strings Alternately" =>
+                """
+                class Solution:
+                    def mergeAlternately(self, word1: str, word2: str) -> str:
+                        
+                """,
+                "Best Time to Buy and Sell Stock" =>
+                """
+                from typing import List
+
+
+                class Solution:
+                    def maxProfit(self, prices: List[int]) -> int:
+                        
+                """,
+                _ => null
+            };
+        }
+
+        private static bool IsDevelopmentLikeEnvironment(IHostEnvironment environment)
+        {
+            return environment.IsDevelopment() ||
+                environment.IsEnvironment(IntegrationTestingEnvironment);
         }
     }
 }

@@ -107,6 +107,7 @@ int main() {
   private readonly codeDraftStorage = inject(CodeDraftStorageService);
 
   private isHydratingDraft = false;
+  private activeDraftLanguage: SubmissionLanguage = InterviewSolvePage.defaultLanguage;
 
   readonly loading = signal(true);
   readonly startingSession = signal(false);
@@ -190,20 +191,50 @@ int main() {
         return;
       }
 
+      const problemId = this.selectedProblemId();
+      if (!problemId) {
+        this.activeDraftLanguage = language;
+        return;
+      }
+
       const currentSource = this.form.controls.sourceCode.value;
       const selectedProblem = this.selectedProblem();
-      if (!InterviewSolvePage.isStarterSourceCodeForProblem(selectedProblem, currentSource)) {
-        return;
+      const draftScope = this.buildDraftScope(problemId);
+      const now = new Date().toISOString();
+
+      this.codeDraftStorage.saveDraft(draftScope, {
+        language: this.activeDraftLanguage,
+        sourceCode: currentSource,
+        updatedAt: now,
+      });
+
+      const targetDraft = this.codeDraftStorage.getDraft(draftScope, language);
+      const sanitizedTargetDraftSource = InterviewSolvePage.sanitizeStoredSourceCodeForLanguage(
+        selectedProblem,
+        language,
+        targetDraft?.sourceCode
+      );
+
+      if (targetDraft && sanitizedTargetDraftSource === null) {
+        this.codeDraftStorage.clearDraft(draftScope, language);
       }
 
       const starterSourceCode = InterviewSolvePage.getStarterSourceCodeForProblem(selectedProblem, language);
-      if (currentSource === starterSourceCode) {
-        return;
-      }
+      const latestSubmission = this.getLatestSubmissionForProblemByLanguage(problemId, language);
+      const nextSourceCode =
+        sanitizedTargetDraftSource ??
+        InterviewSolvePage.sanitizeStoredSourceCodeForLanguage(
+          selectedProblem,
+          language,
+          latestSubmission?.sourceCode
+        ) ??
+        starterSourceCode;
 
       this.isHydratingDraft = true;
-      this.form.controls.sourceCode.setValue(starterSourceCode, { emitEvent: false });
+      this.form.controls.sourceCode.setValue(nextSourceCode, { emitEvent: false });
+      this.lastSavedAt.set(sanitizedTargetDraftSource ? targetDraft?.updatedAt ?? null : null);
       this.isHydratingDraft = false;
+      this.activeDraftLanguage = language;
     });
 
     this.form.valueChanges.pipe(
@@ -580,9 +611,27 @@ int main() {
     const nextLanguage = InterviewSolvePage.normalizeLanguage(
       draft?.language ?? latestSubmission?.language ?? InterviewSolvePage.defaultLanguage
     );
+    const draftScope = this.buildDraftScope(problemId);
+    const languageDraft = this.codeDraftStorage.getDraft(this.buildDraftScope(problemId), nextLanguage);
+    const latestLanguageSubmission = this.getLatestSubmissionForProblemByLanguage(problemId, nextLanguage);
+    const sanitizedDraftSource = InterviewSolvePage.sanitizeStoredSourceCodeForLanguage(
+      selectedProblem,
+      nextLanguage,
+      languageDraft?.sourceCode
+    );
+    const sanitizedLatestSubmissionSource = InterviewSolvePage.sanitizeStoredSourceCodeForLanguage(
+      selectedProblem,
+      nextLanguage,
+      latestLanguageSubmission?.sourceCode
+    );
+
+    if (languageDraft && sanitizedDraftSource === null) {
+      this.codeDraftStorage.clearDraft(draftScope, nextLanguage);
+    }
+
     const nextSourceCode =
-      draft?.sourceCode ??
-      latestSubmission?.sourceCode ??
+      sanitizedDraftSource ??
+      sanitizedLatestSubmissionSource ??
       InterviewSolvePage.getStarterSourceCodeForProblem(selectedProblem, nextLanguage);
 
     this.isHydratingDraft = true;
@@ -595,8 +644,9 @@ int main() {
     );
     this.form.markAsPristine();
     this.form.markAsUntouched();
-    this.lastSavedAt.set(draft?.updatedAt ?? null);
+    this.lastSavedAt.set(sanitizedDraftSource ? languageDraft?.updatedAt ?? draft?.updatedAt ?? null : null);
     this.isHydratingDraft = false;
+    this.activeDraftLanguage = nextLanguage;
   }
 
   private persistCurrentDraft(): void {
@@ -621,6 +671,17 @@ int main() {
     }
 
     return `interview:${this.session()?.id ?? this.interview()?.id ?? 'pending'}:${problemId}`;
+  }
+
+  private getLatestSubmissionForProblemByLanguage(
+    problemId: string,
+    language: SubmissionLanguage
+  ): SubmissionResponse | null {
+    return (
+      this.submissions().find(
+        submission => submission.problemId === problemId && submission.language === language
+      ) ?? null
+    );
   }
 
   private getResetTargetProblem(): CandidateInterviewProblemDto | null {
@@ -677,6 +738,7 @@ int main() {
     this.form.markAsPristine();
     this.form.markAsUntouched();
     this.isHydratingDraft = false;
+    this.activeDraftLanguage = InterviewSolvePage.defaultLanguage;
   }
 
   private findNextOpenProblem(completedProblemId: string): CandidateInterviewProblemDto | null {
@@ -747,24 +809,70 @@ int main() {
     return InterviewSolvePage.getStarterSourceCode(language);
   }
 
-  private static isStarterSourceCodeForProblem(
+  private static sanitizeStoredSourceCodeForLanguage(
     problem: CandidateInterviewProblemDto | null,
-    sourceCode: string
-  ): boolean {
-    const starters = new Set(Object.values(InterviewSolvePage.defaultStarterSourceByLanguage));
-
-    if (problem?.csharpStarterCode?.trim()) {
-      starters.add(problem.csharpStarterCode);
+    language: SubmissionLanguage,
+    sourceCode: string | null | undefined
+  ): string | null {
+    if (!sourceCode) {
+      return null;
     }
 
-    if (problem?.pythonStarterCode?.trim()) {
-      starters.add(problem.pythonStarterCode);
+    const expectedStarter = InterviewSolvePage.getStarterSourceCodeForProblem(problem, language);
+    if (sourceCode === expectedStarter) {
+      return sourceCode;
     }
 
-    if (problem?.cppStarterCode?.trim()) {
-      starters.add(problem.cppStarterCode);
+    for (const option of InterviewSolvePage.languageOptionsInternal) {
+      if (option.value === language) {
+        continue;
+      }
+
+      const otherStarter = InterviewSolvePage.getStarterSourceCodeForProblem(problem, option.value);
+      if (sourceCode === otherStarter) {
+        return null;
+      }
     }
 
-    return starters.has(sourceCode);
+    const detectedSourceLanguage = InterviewSolvePage.detectSourceLanguage(sourceCode);
+    if (detectedSourceLanguage && detectedSourceLanguage !== language) {
+      return null;
+    }
+
+    return sourceCode;
+  }
+
+  private static detectSourceLanguage(sourceCode: string): SubmissionLanguage | null {
+    const normalizedSource = sourceCode.trim();
+
+    if (!normalizedSource) {
+      return null;
+    }
+
+    if (
+      normalizedSource.includes('class Solution:') ||
+      normalizedSource.includes('def ')
+    ) {
+      return 'python';
+    }
+
+    if (
+      normalizedSource.includes('#include') ||
+      normalizedSource.includes('using namespace std') ||
+      normalizedSource.includes('std::') ||
+      normalizedSource.includes('vector<')
+    ) {
+      return 'cpp';
+    }
+
+    if (
+      normalizedSource.includes('public class Solution') ||
+      normalizedSource.includes('using System') ||
+      normalizedSource.includes('Console.')
+    ) {
+      return 'csharp';
+    }
+
+    return null;
   }
 }

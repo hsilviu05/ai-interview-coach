@@ -472,9 +472,18 @@ namespace AIInterviewCoach.Application.Services
                 ExampleInput = problem.ExampleInput,
                 ExampleOutput = problem.ExampleOutput,
                 ExecutionMode = problem.ExecutionMode,
-                CsharpStarterCode = problem.CsharpStarterCode,
-                PythonStarterCode = problem.PythonStarterCode,
-                CppStarterCode = problem.CppStarterCode,
+                CsharpStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
+                    problem.ExecutionMode,
+                    "csharp",
+                    problem.CsharpStarterCode),
+                PythonStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
+                    problem.ExecutionMode,
+                    "python",
+                    problem.PythonStarterCode),
+                CppStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
+                    problem.ExecutionMode,
+                    "cpp",
+                    problem.CppStarterCode),
                 IsPublic = problem.IsPublic,
                 CreatedByUserId = problem.CreatedByUserId,
                 CreatedAt = problem.CreatedAt,

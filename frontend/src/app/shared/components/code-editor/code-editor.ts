@@ -20,6 +20,11 @@ import type * as monaco from 'monaco-editor';
 type Monaco = typeof monaco;
 type MonacoEditorInstance = monaco.editor.IStandaloneCodeEditor;
 type MonacoTextModel = monaco.editor.ITextModel;
+interface TextEditResult {
+  value: string;
+  selectionStart: number;
+  selectionEnd: number;
+}
 
 interface MonacoAmdRequire {
   config: (config: { paths: Record<string, string> }) => void;
@@ -49,6 +54,7 @@ declare global {
 })
 export class CodeEditor implements AfterViewInit, OnChanges, OnDestroy, ControlValueAccessor {
   private static readonly monacoLoadTimeoutMs = 5000;
+  private static readonly fallbackIndent = '  ';
   private static monacoLoaderPromise: Promise<Monaco> | null = null;
   private static loaderScriptPromise: Promise<void> | null = null;
 
@@ -127,6 +133,33 @@ export class CodeEditor implements AfterViewInit, OnChanges, OnDestroy, ControlV
     this.onChange(nextValue);
   }
 
+  protected handleFallbackKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Tab' || this.isDisabled()) {
+      return;
+    }
+
+    const textarea = event.target as HTMLTextAreaElement | null;
+
+    if (!textarea) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const selectionStart = textarea.selectionStart ?? 0;
+    const selectionEnd = textarea.selectionEnd ?? selectionStart;
+    const nextEdit = event.shiftKey
+      ? this.outdentSelection(textarea.value, selectionStart, selectionEnd)
+      : this.indentSelection(textarea.value, selectionStart, selectionEnd);
+
+    textarea.value = nextEdit.value;
+    textarea.selectionStart = nextEdit.selectionStart;
+    textarea.selectionEnd = nextEdit.selectionEnd;
+
+    this.value.set(nextEdit.value);
+    this.onChange(nextEdit.value);
+  }
+
   protected handleBlur(): void {
     this.onTouched();
   }
@@ -146,12 +179,14 @@ export class CodeEditor implements AfterViewInit, OnChanges, OnDestroy, ControlV
       model: this.model,
       automaticLayout: true,
       fontSize: 14,
+      insertSpaces: true,
       lineNumbers: 'on',
       minimap: { enabled: false },
       padding: { top: 16, bottom: 16 },
       readOnly: this.isDisabled(),
       roundedSelection: true,
       scrollBeyondLastLine: false,
+      tabFocusMode: false,
       tabSize: 2,
       wordWrap: 'on',
     });
@@ -284,5 +319,81 @@ export class CodeEditor implements AfterViewInit, OnChanges, OnDestroy, ControlV
 
   private shouldUseFallbackEditor(): boolean {
     return typeof window === 'undefined' || /jsdom/i.test(window.navigator.userAgent);
+  }
+
+  private indentSelection(value: string, selectionStart: number, selectionEnd: number): TextEditResult {
+    const indent = CodeEditor.fallbackIndent;
+
+    if (selectionStart === selectionEnd) {
+      return {
+        value: `${value.slice(0, selectionStart)}${indent}${value.slice(selectionEnd)}`,
+        selectionStart: selectionStart + indent.length,
+        selectionEnd: selectionEnd + indent.length,
+      };
+    }
+
+    const blockStart = this.getLineStart(value, selectionStart);
+    const block = value.slice(blockStart, selectionEnd);
+    const lines = block.split('\n');
+    const indentedBlock = lines.map(line => `${indent}${line}`).join('\n');
+    const totalInsertedCharacters = lines.length * indent.length;
+
+    return {
+      value: `${value.slice(0, blockStart)}${indentedBlock}${value.slice(selectionEnd)}`,
+      selectionStart: selectionStart + indent.length,
+      selectionEnd: selectionEnd + totalInsertedCharacters,
+    };
+  }
+
+  private outdentSelection(value: string, selectionStart: number, selectionEnd: number): TextEditResult {
+    const blockStart = this.getLineStart(value, selectionStart);
+    const block = value.slice(blockStart, selectionEnd);
+    const lines = block.split('\n');
+    let firstLineRemovedCharacters = 0;
+    let totalRemovedCharacters = 0;
+
+    const outdentedBlock = lines
+      .map((line, index) => {
+        const { trimmedLine, removedCharacters } = this.removeLeadingIndent(line);
+
+        if (index === 0) {
+          firstLineRemovedCharacters = removedCharacters;
+        }
+
+        totalRemovedCharacters += removedCharacters;
+        return trimmedLine;
+      })
+      .join('\n');
+
+    return {
+      value: `${value.slice(0, blockStart)}${outdentedBlock}${value.slice(selectionEnd)}`,
+      selectionStart: Math.max(blockStart, selectionStart - firstLineRemovedCharacters),
+      selectionEnd: Math.max(blockStart, selectionEnd - totalRemovedCharacters),
+    };
+  }
+
+  private removeLeadingIndent(line: string): { trimmedLine: string; removedCharacters: number } {
+    if (line.startsWith(CodeEditor.fallbackIndent)) {
+      return {
+        trimmedLine: line.slice(CodeEditor.fallbackIndent.length),
+        removedCharacters: CodeEditor.fallbackIndent.length,
+      };
+    }
+
+    if (line.startsWith('\t') || line.startsWith(' ')) {
+      return {
+        trimmedLine: line.slice(1),
+        removedCharacters: 1,
+      };
+    }
+
+    return {
+      trimmedLine: line,
+      removedCharacters: 0,
+    };
+  }
+
+  private getLineStart(value: string, index: number): number {
+    return value.lastIndexOf('\n', Math.max(0, index - 1)) + 1;
   }
 }

@@ -21,9 +21,12 @@ describe('InterviewSolvePage', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    localStorage.clear();
   });
 
   beforeEach(async () => {
+    localStorage.clear();
+
     submissionApiMock = {
       getByInterviewSession: vi.fn().mockReturnValue(of([
         {
@@ -173,6 +176,65 @@ describe('InterviewSolvePage', () => {
 
     expect(component.form.controls.sourceCode.value).toContain('import sys');
     expect(component.getLanguageHelperText()).toContain('Python 3');
+  });
+
+  it('should preserve separate drafts when switching languages', () => {
+    component.form.controls.sourceCode.setValue('Console.WriteLine("csharp draft");');
+    component.form.controls.language.setValue('python');
+
+    expect(component.form.controls.sourceCode.value).toContain('import sys');
+
+    component.form.controls.sourceCode.setValue('print("python draft")');
+    component.form.controls.language.setValue('csharp');
+
+    expect(component.form.controls.sourceCode.value).toBe('Console.WriteLine("csharp draft");');
+
+    component.form.controls.language.setValue('python');
+
+    expect(component.form.controls.sourceCode.value).toBe('print("python draft")');
+  });
+
+  it('should ignore a legacy mismatched draft when the saved Python draft contains the C# starter', () => {
+    const problemOne = component.interview()!.problems[0];
+    const problemTwo = component.interview()!.problems[1];
+
+    problemTwo.executionMode = 'function';
+    problemTwo.csharpStarterCode = `public class Solution
+{
+    public int MaxProfit(int[] prices)
+    {
+        return 0;
+    }
+}`;
+    problemTwo.pythonStarterCode = `from typing import List
+
+
+class Solution:
+    def maxProfit(self, prices: List[int]) -> int:
+        return 0`;
+    const legacyCsharpStarter = `public class Solution
+{
+    public int MaxProfit(int[] prices)
+    {
+        
+    }
+}`;
+
+    component.selectProblem(problemOne);
+
+    localStorage.setItem(
+      'candidate_workspace_draft:interview:session-1:problem-2',
+      JSON.stringify({
+        language: 'python',
+        sourceCode: legacyCsharpStarter,
+        updatedAt: new Date().toISOString(),
+      })
+    );
+
+    component.selectProblem(problemTwo);
+
+    expect(component.form.controls.language.value).toBe('python');
+    expect(component.form.controls.sourceCode.value).toBe(problemTwo.pythonStarterCode);
   });
 
   it('should reset all interview problems back to the first one', () => {
