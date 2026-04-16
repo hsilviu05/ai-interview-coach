@@ -83,18 +83,27 @@
             </div>
 
             <div class="signature-card-actions">
-              <button type="button" class="secondary-btn" (click)="loadGenericFunctionScaffold()">
-                Load Generic Example
-              </button>
-              <button type="button" class="secondary-btn" (click)="loadTwoSumScaffold()">
-                Load Two Sum Example
+              <button
+                *ngFor="let template of problemTemplates"
+                type="button"
+                class="secondary-btn"
+                (click)="loadTemplate(template)">
+                Load {{ template.name }}
               </button>
             </div>
           </div>
 
           <p class="helper-text">
-            The generic example is the all-purpose starting point. It sends the full raw input string into a single method, so you can adapt it to arrays, strings, JSON payloads, or custom parsing.
+            These templates come from the shared backend catalog, so the admin creator and starter problem seeding stay in sync.
           </p>
+
+          <p class="helper-text" *ngIf="loadingTemplates">Loading shared templates...</p>
+          <p class="error" *ngIf="templateErrorMessage">{{ templateErrorMessage }}</p>
+
+          <div class="field" *ngIf="selectedTemplateKey">
+            <label>Loaded Template</label>
+            <input type="text" [value]="selectedTemplateKey" readonly />
+          </div>
 
           <div class="language-grid">
             <div class="field">

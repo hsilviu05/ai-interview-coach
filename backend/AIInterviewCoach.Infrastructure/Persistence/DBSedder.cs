@@ -3,6 +3,7 @@ using AIInterviewCoach.Domain.Enums;
 using AIInterviewCoach.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace AIInterviewCoach.Infrastructure.Persistence
 {
@@ -10,8 +11,18 @@ namespace AIInterviewCoach.Infrastructure.Persistence
     {
         private const string DemoPassword = "Password123!";
 
-        public static async Task SeedAsync(AppDbContext context, IConfiguration configuration)
+        public static async Task SeedAsync(
+            AppDbContext context,
+            IConfiguration configuration,
+            IHostEnvironment environment)
         {
+            EnsureSafeStartupConfiguration(configuration, environment);
+
+            if (!environment.IsDevelopment())
+            {
+                return;
+            }
+
             var passwordHasher = new PasswordHasherService();
 
             var recruiter = EnsureDemoUser(
@@ -33,6 +44,28 @@ namespace AIInterviewCoach.Infrastructure.Persistence
             BackfillLegacyProblemMetadata(context);
 
             await context.SaveChangesAsync();
+        }
+
+        public static void EnsureSafeStartupConfiguration(
+            IConfiguration configuration,
+            IHostEnvironment environment)
+        {
+            if (environment.IsDevelopment())
+            {
+                return;
+            }
+
+            var bootstrapAdminEmail = configuration["BootstrapAdmin:Email"]?.Trim();
+            var bootstrapAdminPassword = configuration["BootstrapAdmin:Password"];
+            var bootstrapAdminFullName = configuration["BootstrapAdmin:FullName"]?.Trim();
+
+            if (!string.IsNullOrWhiteSpace(bootstrapAdminEmail) ||
+                !string.IsNullOrWhiteSpace(bootstrapAdminPassword) ||
+                !string.IsNullOrWhiteSpace(bootstrapAdminFullName))
+            {
+                throw new InvalidOperationException(
+                    "BootstrapAdmin configuration is only supported in the Development environment.");
+            }
         }
 
         private static User EnsureDemoUser(

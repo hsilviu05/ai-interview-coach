@@ -1,9 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Navbar } from '../../../../shared/components/navbar/navbar';
-import { CreateProblemRequest, ProblemListItem } from '../../models/interviewer.models';
+import { CreateProblemRequest, ProblemListItem, ProblemTemplateItem } from '../../models/interviewer.models';
 import { TestCaseForm } from '../..//pages/test-case-form/test-case-form';
 import { InterviewerApi } from '../../services/interviewer-api.service';
 import { finalize } from 'rxjs';
@@ -14,193 +14,22 @@ import { finalize } from 'rxjs';
   templateUrl: './create-problem-page.html',
   styleUrl: './create-problem-page.scss',
 })
-export class CreateProblemPage {
+export class CreateProblemPage implements OnInit {
   private static readonly stdinExecutionMode = 'stdin';
   private static readonly functionExecutionMode = 'function';
-  private static readonly genericFunctionScaffold = {
-    csharpStarterCode: `public class Solution
-{
-    public string Solve(string rawInput)
-    {
-        
-    }
-}`,
-    pythonStarterCode: `class Solution:
-    def solve(self, raw_input: str) -> str:
-        
-`,
-    cppStarterCode: `#include <string>
-using namespace std;
-
-class Solution {
-public:
-    string solve(const string& rawInput) {
-        
-    }
-};`,
-    csharpHarnessTemplate: `using System;
-
-{{candidate_code}}
-
-var rawInput = Console.In.ReadToEnd();
-var result = new Solution().Solve(rawInput);
-Console.WriteLine(result);`,
-    pythonHarnessTemplate: `import sys
-
-{{candidate_code}}
-
-raw_input = sys.stdin.read()
-result = Solution().solve(raw_input)
-print(result)`,
-    cppHarnessTemplate: `#include <iostream>
-#include <iterator>
-#include <string>
-
-{{candidate_code}}
-
-int main() {
-    string input(
-        (istreambuf_iterator<char>(cin)),
-        istreambuf_iterator<char>());
-
-    Solution solution;
-    auto result = solution.solve(input);
-    cout << result;
-    return 0;
-}`,
-  };
-  private static readonly twoSumScaffold = {
-    csharpStarterCode: `public class Solution
-{
-    public int[] TwoSum(int[] nums, int target)
-    {
-        
-    }
-}`,
-    pythonStarterCode: `from typing import List
-
-
-class Solution:
-    def twoSum(self, nums: List[int], target: int) -> List[int]:
-        
-`,
-    cppStarterCode: `#include <vector>
-using namespace std;
-
-class Solution {
-public:
-    vector<int> twoSum(vector<int>& nums, int target) {
-        
-    }
-};`,
-    csharpHarnessTemplate: `using System;
-using System.Text.Json;
-
-{{candidate_code}}
-
-var payload = JsonSerializer.Deserialize<TwoSumInput>(Console.In.ReadToEnd());
-
-if (payload is null)
-{
-    throw new InvalidOperationException("Invalid input.");
-}
-
-var result = new Solution().TwoSum(payload.nums ?? Array.Empty<int>(), payload.target);
-Console.WriteLine(JsonSerializer.Serialize(result));
-
-public sealed class TwoSumInput
-{
-    public int[] nums { get; set; } = Array.Empty<int>();
-    public int target { get; set; }
-}`,
-    pythonHarnessTemplate: `import json
-import sys
-from typing import List
-
-{{candidate_code}}
-
-payload = json.loads(sys.stdin.read() or "{}")
-result = Solution().twoSum(payload.get("nums", []), payload.get("target", 0))
-print(json.dumps(result))`,
-    cppHarnessTemplate: `#include <iostream>
-#include <iterator>
-#include <sstream>
-#include <string>
-#include <vector>
-
-{{candidate_code}}
-
-vector<int> ParseNums(const string& input) {
-    const auto open = input.find('[');
-    const auto close = input.find(']', open == string::npos ? 0 : open);
-
-    if (open == string::npos || close == string::npos || close <= open) {
-        return {};
-    }
-
-    vector<int> values;
-    string content = input.substr(open + 1, close - open - 1);
-    string token;
-    stringstream stream(content);
-
-    while (getline(stream, token, ',')) {
-        if (!token.empty()) {
-            values.push_back(stoi(token));
-        }
-    }
-
-    return values;
-}
-
-int ParseTarget(const string& input) {
-    const auto targetKey = input.find("\"target\"");
-    const auto colon = input.find(':', targetKey == string::npos ? 0 : targetKey);
-
-    if (colon == string::npos) {
-        return 0;
-    }
-
-    string value = input.substr(colon + 1);
-    return stoi(value);
-}
-
-string FormatResult(const vector<int>& values) {
-    string output = "[";
-
-    for (size_t index = 0; index < values.size(); index++) {
-        if (index > 0) {
-            output += ",";
-        }
-
-        output += to_string(values[index]);
-    }
-
-    output += "]";
-    return output;
-}
-
-int main() {
-    string input(
-        (istreambuf_iterator<char>(cin)),
-        istreambuf_iterator<char>());
-
-    auto nums = ParseNums(input);
-    auto target = ParseTarget(input);
-    Solution solution;
-    auto result = solution.twoSum(nums, target);
-    cout << FormatResult(result);
-    return 0;
-}`,
-  };
 
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly interviewerApi = inject(InterviewerApi);
 
   loading = false;
+  loadingTemplates = false;
   errorMessage = '';
   successMessage = '';
+  templateErrorMessage = '';
   createdProblem: ProblemListItem | null = null;
+  problemTemplates: ProblemTemplateItem[] = [];
+  selectedTemplateKey = '';
 
   form = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(200)]],
@@ -220,8 +49,32 @@ int main() {
     isPublic: [true, [Validators.required]],
   });
 
+  ngOnInit(): void {
+    this.loadProblemTemplates();
+  }
+
   isFunctionSignatureMode(): boolean {
     return this.form.controls.executionMode.value === CreateProblemPage.functionExecutionMode;
+  }
+
+  loadTemplate(template: ProblemTemplateItem): void {
+    this.selectedTemplateKey = template.key;
+    this.form.patchValue({
+      title: this.form.controls.title.value || template.title,
+      description: this.form.controls.description.value || template.description,
+      difficulty: this.form.controls.difficulty.value || template.difficulty,
+      topic: this.form.controls.topic.value || template.topic,
+      constraintsText: this.form.controls.constraintsText.value || template.constraintsText,
+      exampleInput: this.form.controls.exampleInput.value || template.exampleInput,
+      exampleOutput: this.form.controls.exampleOutput.value || template.exampleOutput,
+      executionMode: template.executionMode,
+      csharpStarterCode: template.csharpStarterCode,
+      pythonStarterCode: template.pythonStarterCode,
+      cppStarterCode: template.cppStarterCode,
+      csharpHarnessTemplate: template.csharpHarnessTemplate,
+      pythonHarnessTemplate: template.pythonHarnessTemplate,
+      cppHarnessTemplate: template.cppHarnessTemplate,
+    });
   }
 
   submit(): void {
@@ -262,6 +115,7 @@ int main() {
     this.createdProblem = null;
     this.errorMessage = '';
     this.successMessage = '';
+    this.selectedTemplateKey = '';
     this.form.reset({
       title: '',
       description: '',
@@ -281,32 +135,21 @@ int main() {
     });
   }
 
-  loadTwoSumScaffold(): void {
-    this.form.patchValue({
-      title: this.form.controls.title.value || 'Two Sum',
-      description: this.form.controls.description.value || 'Return the indices of the two numbers such that they add up to the target.',
-      difficulty: this.form.controls.difficulty.value || 'Easy',
-      topic: this.form.controls.topic.value || 'Arrays',
-      constraintsText: this.form.controls.constraintsText.value || 'Use the hidden harness with JSON input like {"nums":[2,7,11,15],"target":9}.',
-      exampleInput: this.form.controls.exampleInput.value || '{"nums":[2,7,11,15],"target":9}',
-      exampleOutput: this.form.controls.exampleOutput.value || '[0,1]',
-      executionMode: CreateProblemPage.functionExecutionMode,
-      ...CreateProblemPage.twoSumScaffold,
-    });
-  }
+  private loadProblemTemplates(): void {
+    this.loadingTemplates = true;
+    this.templateErrorMessage = '';
 
-  loadGenericFunctionScaffold(): void {
-    this.form.patchValue({
-      title: this.form.controls.title.value || 'Generic Function Problem',
-      description: this.form.controls.description.value || 'Customize the starter signature and hidden runner for your specific problem.',
-      difficulty: this.form.controls.difficulty.value || 'Easy',
-      topic: this.form.controls.topic.value || 'General',
-      constraintsText: this.form.controls.constraintsText.value ||
-        'Generic starter template: the hidden runner passes the full raw input string into Solution.Solve(...). Replace the method name, parameters, return type, and parsing logic if you want a typed function-signature problem.',
-      exampleInput: this.form.controls.exampleInput.value || 'line 1 of input\nline 2 of input',
-      exampleOutput: this.form.controls.exampleOutput.value || 'single expected output value',
-      executionMode: CreateProblemPage.functionExecutionMode,
-      ...CreateProblemPage.genericFunctionScaffold,
-    });
+    this.interviewerApi.getProblemTemplates()
+      .pipe(finalize(() => {
+        this.loadingTemplates = false;
+      }))
+      .subscribe({
+        next: templates => {
+          this.problemTemplates = templates;
+        },
+        error: err => {
+          this.templateErrorMessage = err?.error?.message ?? 'Failed to load shared problem templates.';
+        },
+      });
   }
 }

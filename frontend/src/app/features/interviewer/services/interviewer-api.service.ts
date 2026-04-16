@@ -10,6 +10,7 @@ import {
     CreateTestCaseRequest,
     InterviewResponse,
     ProblemListItem,
+    ProblemTemplateItem,
     ReplaceProblemCatalogResponse,
     TestCaseListItem,
 } from '../models/interviewer.models';
@@ -32,6 +33,10 @@ export class InterviewerApi {
 
     getProblems(): Observable<ProblemListItem[]> {
         return this.http.get<ProblemListItem[]>(this.problemsBaseUrl);
+    }
+
+    getProblemTemplates(): Observable<ProblemTemplateItem[]> {
+        return this.http.get<ProblemTemplateItem[]>(`${this.problemsBaseUrl}/templates`);
     }
 
     addProblemToInterview(

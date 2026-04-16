@@ -41,6 +41,26 @@ export interface ProblemListItem {
   updatedAt: string;
 }
 
+export interface ProblemTemplateItem {
+  key: string;
+  name: string;
+  summary: string;
+  title: string;
+  description: string;
+  difficulty: string;
+  topic: string;
+  constraintsText: string;
+  exampleInput: string;
+  exampleOutput: string;
+  executionMode: string;
+  csharpStarterCode: string;
+  pythonStarterCode: string;
+  cppStarterCode: string;
+  csharpHarnessTemplate: string;
+  pythonHarnessTemplate: string;
+  cppHarnessTemplate: string;
+}
+
 export interface ReplaceProblemCatalogResponse {
   deletedProblemCount: number;
   deletedInterviewCount: number;
