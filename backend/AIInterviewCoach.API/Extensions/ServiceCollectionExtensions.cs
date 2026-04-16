@@ -1,9 +1,12 @@
 using System.Text;
+using AIInterviewCoach.API.Authorization;
+using AIInterviewCoach.API.RateLimiting;
 using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Infrastructure.Configuration;
 using AIInterviewCoach.Infrastructure.Persistence;
 using AIInterviewCoach.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using AIInterviewCoach.Application.Services;
@@ -15,6 +18,7 @@ namespace AIInterviewCoach.API.Extensions
         public static IServiceCollection AddApplicationServices(
         this IServiceCollection services)
         {
+            services.AddScoped<IAdminAuditService, AdminAuditService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProblemService, ProblemService>();
             services.AddScoped<IInterviewService, InterviewService>();
@@ -65,7 +69,15 @@ namespace AIInterviewCoach.API.Extensions
                     };
                 });
 
-            services.AddAuthorization();
+            services.AddAuthorization(AuthorizationPolicies.Register);
+
+            return services;
+        }
+
+        public static IServiceCollection AddApplicationRateLimiting(
+            this IServiceCollection services)
+        {
+            services.AddRateLimiter(RateLimitingPolicies.Register);
 
             return services;
         }

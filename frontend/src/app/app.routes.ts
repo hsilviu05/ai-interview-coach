@@ -12,6 +12,7 @@ import { PracticeProblemsPage } from './features/candidate/pages/practice-proble
 import { InterviewsListPage } from './features/interviewer/pages/interviews-list-page/interviews-list-page';
 import { InterviewerProblemsListPage } from './features/interviewer/pages/interviewer-problems-list-page/interviewer-problems-list-page';
 import { CreateProblemPage } from './features/interviewer/pages/create-problem-page/create-problem-page';
+import { routeAccessPolicies } from './core/auth/access-policies';
 import { authGuard } from './core/guards/auth-guard';
 import { roleGuard } from './core/guards/role-guard';
 
@@ -24,7 +25,7 @@ export const routes: Routes = [
   {
     path: 'interviewer',
     canActivate: [authGuard, roleGuard],
-    data: { roles: ['Interviewer', 'Admin'] },
+    data: { accessPolicy: routeAccessPolicies.interviewerWorkspace },
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       { path: 'dashboard', component: DashboardPage },
@@ -37,7 +38,7 @@ export const routes: Routes = [
         path: 'create-problem',
         component: CreateProblemPage,
         canActivate: [roleGuard],
-        data: { roles: ['Admin'] },
+        data: { accessPolicy: routeAccessPolicies.adminProblemManagement },
       },
     ],
   },
@@ -45,7 +46,7 @@ export const routes: Routes = [
   {
     path: 'candidate',
     canActivate: [authGuard, roleGuard],
-    data: { roles: ['Candidate', 'Admin'] },
+    data: { accessPolicy: routeAccessPolicies.candidateWorkspace },
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'access' },
       { path: 'access', component: InterviewAccessPage },

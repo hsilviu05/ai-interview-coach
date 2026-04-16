@@ -1,4 +1,6 @@
+using AIInterviewCoach.Application.DTOs.AdminAuditLogs;
 using AIInterviewCoach.Application.DTOs.Problems;
+using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Application.Services;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
@@ -20,7 +22,7 @@ namespace AIInterviewCoach.Tests.Services
             var publicProblem = TestDataSeeder.CreateProblem(db, interviewer.Id, title: "Public", isPublic: true);
             TestDataSeeder.CreateProblem(db, interviewer.Id, title: "Private", isPublic: false);
 
-            var service = new ProblemService(db);
+            var service = CreateService(db);
 
             var results = (await service.GetAllProblemsAsync(candidate.Id, UserRole.Candidate)).ToList();
 
@@ -37,7 +39,7 @@ namespace AIInterviewCoach.Tests.Services
             var candidate = TestDataSeeder.CreateCandidate(db);
             var privateProblem = TestDataSeeder.CreateProblem(db, interviewer.Id, isPublic: false);
 
-            var service = new ProblemService(db);
+            var service = CreateService(db);
 
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
                 service.GetProblemByIdAsync(privateProblem.Id, candidate.Id, UserRole.Candidate));
@@ -52,7 +54,7 @@ namespace AIInterviewCoach.Tests.Services
             var otherInterviewer = TestDataSeeder.CreateInterviewer(db);
             var problem = TestDataSeeder.CreateProblem(db, owner.Id, isPublic: false);
 
-            var service = new ProblemService(db);
+            var service = CreateService(db);
 
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
                 service.GetTestCasesAsync(problem.Id, otherInterviewer.Id, isAdmin: false, includeHidden: true));
@@ -67,7 +69,7 @@ namespace AIInterviewCoach.Tests.Services
             var otherInterviewer = TestDataSeeder.CreateInterviewer(db);
             var problem = TestDataSeeder.CreateProblem(db, owner.Id, isPublic: false);
 
-            var service = new ProblemService(db);
+            var service = CreateService(db);
 
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
                 service.AddTestCaseAsync(
@@ -93,10 +95,99 @@ namespace AIInterviewCoach.Tests.Services
             var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
             TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id);
 
-            var service = new ProblemService(db);
+            var service = CreateService(db);
 
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 service.DeleteProblemAsync(problem.Id, interviewer.Id, isAdmin: false));
+        }
+
+        [Fact]
+        public async Task CreateProblemAsync_ShouldWriteAdminAuditLog()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var admin = TestDataSeeder.CreateAdmin(db);
+            var service = CreateService(db);
+
+            var result = await service.CreateProblemAsync(admin.Id, BuildCreateRequest());
+
+            var auditLog = await db.AdminAuditLogs.SingleAsync();
+            Assert.Equal(admin.Id, auditLog.AdminUserId);
+            Assert.Equal("problem.created", auditLog.ActionType);
+            Assert.Equal(result.Id, auditLog.TargetId);
+            Assert.Contains("Created problem", auditLog.Summary);
+            Assert.Contains("function", auditLog.DetailsJson);
+        }
+
+        [Fact]
+        public async Task UpdateProblemAsync_ShouldWriteAdminAuditLog()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var admin = TestDataSeeder.CreateAdmin(db);
+            var problem = TestDataSeeder.CreateProblem(db, admin.Id, title: "Old Title");
+            var service = CreateService(db);
+
+            var updatedProblem = await service.UpdateProblemAsync(problem.Id, admin.Id, BuildUpdateRequest());
+
+            Assert.NotNull(updatedProblem);
+
+            var auditLog = await db.AdminAuditLogs.SingleAsync();
+            Assert.Equal("problem.updated", auditLog.ActionType);
+            Assert.Equal(problem.Id, auditLog.TargetId);
+            Assert.Contains("Updated problem", auditLog.Summary);
+            Assert.Contains("previousTitle", auditLog.DetailsJson);
+            Assert.Contains("Old Title", auditLog.DetailsJson);
+            Assert.Contains("Updated Title", auditLog.DetailsJson);
+        }
+
+        [Fact]
+        public async Task AddTestCaseAsync_ShouldWriteAdminAuditLog_WhenAdminAddsTestCase()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var admin = TestDataSeeder.CreateAdmin(db);
+            var problem = TestDataSeeder.CreateProblem(db, admin.Id, testCaseCount: 0, title: "Arrays Warmup");
+            var service = CreateService(db);
+
+            var created = await service.AddTestCaseAsync(
+                problem.Id,
+                admin.Id,
+                isAdmin: true,
+                new CreateTestCaseRequestDto
+                {
+                    Input = "1 2",
+                    ExpectedOutput = "3",
+                    IsHidden = true,
+                    OrderIndex = 3
+                });
+
+            Assert.Equal(3, created.OrderIndex);
+
+            var auditLog = await db.AdminAuditLogs.SingleAsync();
+            Assert.Equal("testcase.created", auditLog.ActionType);
+            Assert.Equal(created.Id, auditLog.TargetId);
+            Assert.Contains("Added test case #3", auditLog.Summary);
+            Assert.Contains("Arrays Warmup", auditLog.Summary);
+        }
+
+        [Fact]
+        public async Task DeleteProblemAsync_ShouldWriteAdminAuditLog_WhenAdminDeletesProblem()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var admin = TestDataSeeder.CreateAdmin(db);
+            var problem = TestDataSeeder.CreateProblem(db, admin.Id, title: "Delete Me");
+            var service = CreateService(db);
+
+            var deleted = await service.DeleteProblemAsync(problem.Id, admin.Id, isAdmin: true);
+
+            Assert.True(deleted);
+
+            var auditLog = await db.AdminAuditLogs.SingleAsync();
+            Assert.Equal("problem.deleted", auditLog.ActionType);
+            Assert.Equal(problem.Id, auditLog.TargetId);
+            Assert.Contains("Delete Me", auditLog.Summary);
         }
 
         [Fact]
@@ -124,7 +215,7 @@ namespace AIInterviewCoach.Tests.Services
             });
             db.SaveChanges();
 
-            var service = new ProblemService(db);
+            var service = CreateService(db);
 
             var result = await service.ReplaceCatalogWithStarterSetAsync(interviewer.Id);
 
@@ -158,6 +249,127 @@ namespace AIInterviewCoach.Tests.Services
             Assert.Equal(0, candidateStatistic.TotalSubmissions);
             Assert.Equal(0, candidateStatistic.AccuracyRate);
             Assert.Equal(0, candidateStatistic.AverageExecutionTimeMs);
+
+            var auditLog = await db.AdminAuditLogs.SingleAsync();
+            Assert.Equal("catalog.replaced", auditLog.ActionType);
+            Assert.Contains("starter set", auditLog.Summary);
+            Assert.Contains("Two Sum", auditLog.DetailsJson);
+        }
+
+        [Fact]
+        public async Task ReplaceCatalogWithStarterSetAsync_ShouldRollback_WhenFinalStepFails()
+        {
+            using var sqliteScope = TestDbContextFactory.CreateSqliteContext();
+            var db = sqliteScope.Context;
+
+            var admin = TestDataSeeder.CreateAdmin(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var originalProblem = TestDataSeeder.CreateProblem(db, admin.Id, title: "Original Problem");
+            var originalInterview = TestDataSeeder.CreateInterview(db, admin.Id);
+            var originalSession = TestDataSeeder.CreateInterviewSession(db, originalInterview.Id, candidate.Id);
+            TestDataSeeder.AddProblemToInterview(db, originalInterview.Id, originalProblem.Id);
+            TestDataSeeder.CreateSubmission(db, candidate.Id, originalProblem.Id, originalSession.Id, SubmissionStatus.Accepted);
+
+            db.CandidateStatistics.Add(new CandidateStatistic
+            {
+                Id = Guid.NewGuid(),
+                CandidateId = candidate.Id,
+                ProblemsSolved = 5,
+                TotalSubmissions = 9,
+                AccuracyRate = 88.8m,
+                AverageExecutionTimeMs = 123,
+                UpdatedAt = DateTime.UtcNow
+            });
+            db.SaveChanges();
+
+            var service = new ProblemService(db, new ThrowingAdminAuditService("catalog.replaced"));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.ReplaceCatalogWithStarterSetAsync(admin.Id));
+
+            using var verificationDb = sqliteScope.CreateAdditionalContext();
+
+            Assert.Equal(1, await verificationDb.Problems.CountAsync());
+            Assert.Equal("Original Problem", (await verificationDb.Problems.SingleAsync()).Title);
+            Assert.Equal(1, await verificationDb.Interviews.CountAsync());
+            Assert.Equal(1, await verificationDb.InterviewSessions.CountAsync());
+            Assert.Equal(1, await verificationDb.Submissions.CountAsync());
+            Assert.Equal(2, await verificationDb.TestCases.CountAsync());
+            Assert.Empty(await verificationDb.AdminAuditLogs.ToListAsync());
+
+            var statistics = await verificationDb.CandidateStatistics.SingleAsync();
+            Assert.Equal(5, statistics.ProblemsSolved);
+            Assert.Equal(9, statistics.TotalSubmissions);
+            Assert.Equal(88.8m, statistics.AccuracyRate);
+            Assert.Equal(123, statistics.AverageExecutionTimeMs);
+        }
+
+        private static ProblemService CreateService(Infrastructure.Persistence.AppDbContext db) =>
+            new(db, new AdminAuditService(db));
+
+        private static CreateProblemRequestDto BuildCreateRequest() =>
+            new()
+            {
+                Title = "Graph Traversal",
+                Description = "Traverse a graph safely.",
+                Difficulty = "Medium",
+                Topic = "Graphs",
+                ConstraintsText = "1 <= n <= 1000",
+                ExampleInput = "{\"nodes\":[]}",
+                ExampleOutput = "[]",
+                ExecutionMode = ProblemExecutionModes.FunctionSignature,
+                CsharpStarterCode = "public class Solution { public int Solve() { return 0; } }",
+                PythonStarterCode = "class Solution:\n    def solve(self):\n        return 0",
+                CppStarterCode = "#include <vector>\nclass Solution { public: int solve() { return 0; } };",
+                CsharpHarnessTemplate = "{{candidate_code}}",
+                PythonHarnessTemplate = "{{candidate_code}}",
+                CppHarnessTemplate = "{{candidate_code}}",
+                IsPublic = true
+            };
+
+        private static UpdateProblemRequestDto BuildUpdateRequest() =>
+            new()
+            {
+                Title = "Updated Title",
+                Description = "Updated description",
+                Difficulty = "Hard",
+                Topic = "Dynamic Programming",
+                ConstraintsText = "1 <= n <= 5000",
+                ExampleInput = "{\"items\":[1,2,3]}",
+                ExampleOutput = "42",
+                ExecutionMode = ProblemExecutionModes.FunctionSignature,
+                CsharpStarterCode = "public class Solution { public int Solve() { return 1; } }",
+                PythonStarterCode = "class Solution:\n    def solve(self):\n        return 1",
+                CppStarterCode = "#include <vector>\nclass Solution { public: int solve() { return 1; } };",
+                CsharpHarnessTemplate = "{{candidate_code}}",
+                PythonHarnessTemplate = "{{candidate_code}}",
+                CppHarnessTemplate = "{{candidate_code}}",
+                IsPublic = false
+            };
+
+        private sealed class ThrowingAdminAuditService : IAdminAuditService
+        {
+            private readonly string _actionTypeToThrow;
+
+            public ThrowingAdminAuditService(string actionTypeToThrow)
+            {
+                _actionTypeToThrow = actionTypeToThrow;
+            }
+
+            public Task RecordAsync(AdminAuditLogWriteRequestDto request, CancellationToken cancellationToken = default)
+            {
+                if (request.ActionType == _actionTypeToThrow)
+                {
+                    throw new InvalidOperationException("Simulated audit write failure.");
+                }
+
+                return Task.CompletedTask;
+            }
+
+            public Task<IReadOnlyList<AdminAuditLogResponseDto>> GetRecentLogsAsync(int take = 25, CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult<IReadOnlyList<AdminAuditLogResponseDto>>(Array.Empty<AdminAuditLogResponseDto>());
+            }
         }
     }
 }

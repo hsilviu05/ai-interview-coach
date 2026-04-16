@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { isAdminRole } from '../../../../core/auth/access-policies';
 import { AuthService } from '../../../../core/services/auth.service';
 import { Navbar } from '../../../../shared/components/navbar/navbar';
-import { ProblemListItem } from '../../models/interviewer.models';
+import { AdminAuditLogListItem, ProblemListItem } from '../../models/interviewer.models';
 import { InterviewerApi } from '../../services/interviewer-api.service';
 
 @Component({
@@ -24,10 +25,17 @@ export class InterviewerProblemsListPage implements OnInit {
   readonly errorMessage = signal('');
   readonly successMessage = signal('');
   readonly problems = signal<ProblemListItem[]>([]);
-  readonly isAdmin = computed(() => this.authService.getRole() === 'Admin');
+  readonly auditLogs = signal<AdminAuditLogListItem[]>([]);
+  readonly auditLogError = signal('');
+  readonly loadingAuditLogs = signal(false);
+  readonly isAdmin = computed(() => isAdminRole(this.authService.getRole()));
 
   ngOnInit(): void {
     this.loadProblems();
+
+    if (this.isAdmin()) {
+      this.loadAuditLogs();
+    }
   }
 
   private loadProblems(showLoading = true): void {
@@ -47,6 +55,30 @@ export class InterviewerProblemsListPage implements OnInit {
       },
       complete: () => {
         this.loading.set(false);
+      },
+    });
+  }
+
+  private loadAuditLogs(showLoading = true): void {
+    if (!this.isAdmin()) {
+      return;
+    }
+
+    if (showLoading) {
+      this.loadingAuditLogs.set(true);
+    }
+
+    this.auditLogError.set('');
+
+    this.interviewerApi.getRecentAdminAuditLogs().subscribe({
+      next: logs => {
+        this.auditLogs.set(logs);
+      },
+      error: err => {
+        this.auditLogError.set(err?.error?.message ?? 'Failed to load recent admin activity.');
+      },
+      complete: () => {
+        this.loadingAuditLogs.set(false);
       },
     });
   }
@@ -84,6 +116,7 @@ export class InterviewerProblemsListPage implements OnInit {
       next: () => {
         this.problems.set(this.problems().filter(existingProblem => existingProblem.id !== problem.id));
         this.successMessage.set(`Deleted "${problem.title}".`);
+        this.loadAuditLogs(false);
       },
       error: err => {
         this.errorMessage.set(err?.error?.message ?? 'Failed to delete the problem.');
@@ -122,6 +155,7 @@ export class InterviewerProblemsListPage implements OnInit {
           `Catalog replaced. Removed ${result.deletedProblemCount} problems, ${result.deletedInterviewCount} interviews, and ${result.deletedSubmissionCount} submissions. Added ${result.createdProblemCount} starter problems: ${titles}.`
         );
         this.loadProblems(false);
+        this.loadAuditLogs(false);
       },
       error: err => {
         this.errorMessage.set(err?.error?.message ?? 'Failed to replace the problem catalog.');
@@ -136,5 +170,12 @@ export class InterviewerProblemsListPage implements OnInit {
     return problem.executionMode === 'function'
       ? 'Function Signature'
       : 'Full Program';
+  }
+
+  getActionLabel(log: AdminAuditLogListItem): string {
+    return log.actionType
+      .split('.')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
   }
 }

@@ -1,8 +1,12 @@
 using System.Security.Claims;
+using AIInterviewCoach.API.Authorization;
+using AIInterviewCoach.API.RateLimiting;
 using AIInterviewCoach.Application.DTOs.Interviews;
 using AIInterviewCoach.Application.Interfaces.Services;
+using AIInterviewCoach.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace AIInterviewCoach.API.Controllers
 {
@@ -19,7 +23,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Interviewer,Admin")]
+        [Authorize(Policy = AuthorizationPolicies.InterviewerWorkspaceAccess)]
         public async Task<IActionResult> CreateInterview([FromBody] CreateInterviewRequestDto request)
         {
             if (!ModelState.IsValid)
@@ -32,7 +36,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpPost("{id:guid}/problems")]
-        [Authorize(Roles = "Interviewer,Admin")]
+        [Authorize(Policy = AuthorizationPolicies.InterviewerWorkspaceAccess)]
         public async Task<IActionResult> AddProblemToInterview(Guid id, [FromBody] AddProblemToInterviewRequestDto request)
         {
             if (!ModelState.IsValid)
@@ -48,11 +52,11 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet("{id:guid}")]
-        [Authorize(Roles = "Interviewer,Admin")]
+        [Authorize(Policy = AuthorizationPolicies.InterviewerWorkspaceAccess)]
         public async Task<IActionResult> GetInterviewById(Guid id)
         {
             var interviewerId = GetCurrentUserId();
-            var interview = await _interviewService.GetByIdAsync(id, interviewerId, User.IsInRole("Admin"));
+            var interview = await _interviewService.GetByIdAsync(id, interviewerId, User.IsInRole(UserRole.Admin.ToString()));
 
             if (interview is null)
                 return NotFound(new { message = "Interview not found." });
@@ -61,6 +65,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet("token/{token}")]
+        [EnableRateLimiting(RateLimitingPolicies.PublicInterviewTokenAccess)]
         public async Task<IActionResult> GetInterviewByToken(string token)
         {
             var interview = await _interviewService.GetByTokenAsync(token);
@@ -72,7 +77,8 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpPost("token/{token}/start")]
-        [Authorize(Roles = "Candidate,Admin")]
+        [Authorize(Policy = AuthorizationPolicies.CandidateWorkspaceAccess)]
+        [EnableRateLimiting(RateLimitingPolicies.PublicInterviewTokenAccess)]
         public async Task<IActionResult> StartInterviewSession(string token)
         {
             var candidateId = GetCurrentUserId();
@@ -82,7 +88,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpPost("sessions/{sessionId:guid}/complete")]
-        [Authorize(Roles = "Candidate,Admin")]
+        [Authorize(Policy = AuthorizationPolicies.CandidateWorkspaceAccess)]
         public async Task<IActionResult> CompleteInterviewSession(Guid sessionId)
         {
             var candidateId = GetCurrentUserId();
@@ -103,7 +109,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet("{interviewId:guid}/sessions")]
-        [Authorize(Roles = "Interviewer,Admin")]
+        [Authorize(Policy = AuthorizationPolicies.InterviewerWorkspaceAccess)]
         public async Task<IActionResult> GetInterviewSessions(Guid interviewId)
         {
             var interviewerId = GetCurrentUserId();
@@ -113,7 +119,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet("sessions/{sessionId:guid}")]
-        [Authorize(Roles = "Interviewer,Admin")]
+        [Authorize(Policy = AuthorizationPolicies.InterviewerWorkspaceAccess)]
         public async Task<IActionResult> GetInterviewSessionDetails(Guid sessionId)
         {
             var interviewerId = GetCurrentUserId();
@@ -123,7 +129,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Interviewer,Admin")]
+        [Authorize(Policy = AuthorizationPolicies.InterviewerWorkspaceAccess)]
         public async Task<IActionResult> GetMyInterviews()
         {
             var interviewerId = GetCurrentUserId();

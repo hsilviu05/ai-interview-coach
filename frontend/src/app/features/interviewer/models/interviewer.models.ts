@@ -49,6 +49,20 @@ export interface ReplaceProblemCatalogResponse {
   createdProblemTitles: string[];
 }
 
+export interface AdminAuditLogListItem {
+  id: string;
+  adminUserId: string;
+  adminEmail: string;
+  adminFullName: string;
+  actionType: string;
+  targetType: string;
+  targetId?: string | null;
+  targetDisplayName?: string | null;
+  summary: string;
+  detailsJson?: string | null;
+  createdAt: string;
+}
+
 export interface AddProblemToInterviewRequest {
   problemId: string;
   orderIndex: number;

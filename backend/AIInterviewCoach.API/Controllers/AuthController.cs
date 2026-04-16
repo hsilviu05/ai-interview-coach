@@ -2,6 +2,8 @@ using AIInterviewCoach.Application.DTOs.Auth;
 using AIInterviewCoach.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using AIInterviewCoach.API.RateLimiting;
 
 namespace AIInterviewCoach.API.Controllers
 {
@@ -17,6 +19,7 @@ namespace AIInterviewCoach.API.Controllers
         }
         [HttpPost("register")]
         [AllowAnonymous]
+        [EnableRateLimiting(RateLimitingPolicies.AuthLogin)]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
         {
             var result = await _authService.RegisterAsync(request);
@@ -25,6 +28,7 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpPost("login")]
         [AllowAnonymous]
+        [EnableRateLimiting(RateLimitingPolicies.AuthLogin)]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
         {
             var result = await _authService.LoginAsync(request);

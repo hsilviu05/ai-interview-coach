@@ -1,15 +1,16 @@
 import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, Router } from '@angular/router';
+import { canAccessPolicy, getDefaultRouteForRole, RouteAccessPolicy } from '../auth/access-policies';
 import { AuthService } from '../services/auth.service';
 
 export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  const allowedRoles = route.data['roles'] as string[] | undefined;
+  const accessPolicy = route.data['accessPolicy'] as RouteAccessPolicy | undefined;
   const currentRole = authService.getRole();
 
-  if (allowedRoles?.includes(currentRole ?? '')) {
+  if (!accessPolicy || canAccessPolicy(currentRole, accessPolicy)) {
     return true;
   }
 
@@ -17,7 +18,5 @@ export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
     return router.createUrlTree(['/login']);
   }
 
-  return currentRole === 'Candidate'
-    ? router.createUrlTree(['/candidate/access'])
-    : router.createUrlTree(['/interviewer/dashboard']);
+  return router.createUrlTree([getDefaultRouteForRole(currentRole)]);
 };

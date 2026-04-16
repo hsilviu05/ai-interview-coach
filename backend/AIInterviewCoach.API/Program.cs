@@ -23,6 +23,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddApplicationDatabase(builder.Configuration);
 builder.Services.AddApplicationServices();
 builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddApplicationRateLimiting();
 
 builder.Services.AddCors(options =>
 {
@@ -59,6 +60,7 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("FrontendPolicy");
 
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();

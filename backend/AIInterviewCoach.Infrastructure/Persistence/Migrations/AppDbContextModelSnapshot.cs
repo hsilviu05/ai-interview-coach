@@ -22,6 +22,62 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("AIInterviewCoach.Domain.Entities.AdminAuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("AdminEmail")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("AdminFullName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("AdminUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DetailsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("TargetDisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdminUserId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("AdminAuditLogs");
+                });
+
             modelBuilder.Entity("AIInterviewCoach.Domain.Entities.CandidateStatistic", b =>
                 {
                     b.Property<Guid>("Id")
@@ -373,6 +429,17 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("AIInterviewCoach.Domain.Entities.AdminAuditLog", b =>
+                {
+                    b.HasOne("AIInterviewCoach.Domain.Entities.User", "AdminUser")
+                        .WithMany("AdminAuditLogs")
+                        .HasForeignKey("AdminUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AdminUser");
+                });
+
             modelBuilder.Entity("AIInterviewCoach.Domain.Entities.CandidateStatistic", b =>
                 {
                     b.HasOne("AIInterviewCoach.Domain.Entities.User", "Candidate")
@@ -489,6 +556,8 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("AIInterviewCoach.Domain.Entities.User", b =>
                 {
+                    b.Navigation("AdminAuditLogs");
+
                     b.Navigation("CandidateStatistics");
 
                     b.Navigation("Problems");

@@ -1,9 +1,12 @@
 using System.Security.Claims;
+using AIInterviewCoach.API.Authorization;
+using AIInterviewCoach.API.RateLimiting;
 using AIInterviewCoach.Application.DTOs.Problems;
 using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace AIInterviewCoach.API.Controllers
 {
@@ -41,7 +44,8 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
+        [EnableRateLimiting(RateLimitingPolicies.AdminMutation)]
         public async Task<IActionResult> CreateProblem([FromBody] CreateProblemRequestDto createRequest)
         {
             if (!ModelState.IsValid)
@@ -57,7 +61,8 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpPut("{id:guid}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
+        [EnableRateLimiting(RateLimitingPolicies.AdminMutation)]
         public async Task<IActionResult> UpdateProblem(Guid id, [FromBody] UpdateProblemRequestDto updateRequest)
         {
             if (!ModelState.IsValid)
@@ -73,7 +78,8 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpDelete("{id:guid}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
+        [EnableRateLimiting(RateLimitingPolicies.AdminMutation)]
         public async Task<IActionResult> DeleteProblem(Guid id)
         {
             var currentUserId = GetCurrentUserId();
@@ -86,7 +92,8 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpPost("catalog/replace-with-starter-set")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
+        [EnableRateLimiting(RateLimitingPolicies.AdminMutation)]
         public async Task<IActionResult> ReplaceCatalogWithStarterSet()
         {
             var currentUserId = GetCurrentUserId();
@@ -95,7 +102,8 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpPost("{problemId:guid}/testcases")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
+        [EnableRateLimiting(RateLimitingPolicies.AdminMutation)]
         public async Task<IActionResult> AddTestCase(Guid problemId, [FromBody] CreateTestCaseRequestDto createTestCaseRequest)
         {
             if (!ModelState.IsValid)
@@ -111,7 +119,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet("{problemId:guid}/testcases")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
         public async Task<IActionResult> GetTestCases(Guid problemId, [FromQuery] bool includeHidden = false)
         {
             var currentUserId = GetCurrentUserId();
