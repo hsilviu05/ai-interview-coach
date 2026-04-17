@@ -69,6 +69,7 @@ export class CodeEditor implements AfterViewInit, OnChanges, OnDestroy, ControlV
   protected readonly useTextareaFallback = signal(false);
   protected readonly isDisabled = signal(false);
   protected readonly value = signal('');
+  protected readonly isMonacoReady = signal(false);
 
   private monaco?: Monaco;
   private editor?: MonacoEditorInstance;
@@ -191,6 +192,8 @@ export class CodeEditor implements AfterViewInit, OnChanges, OnDestroy, ControlV
       wordWrap: 'on',
     });
 
+    this.isMonacoReady.set(true);
+
     this.editor.onDidBlurEditorWidget(() => {
       this.ngZone.run(() => {
         this.onTouched();
@@ -311,6 +314,7 @@ export class CodeEditor implements AfterViewInit, OnChanges, OnDestroy, ControlV
 
   private activateFallback(): void {
     this.useTextareaFallback.set(true);
+    this.isMonacoReady.set(false);
     this.editor?.dispose();
     this.editor = undefined;
     this.model?.dispose();
