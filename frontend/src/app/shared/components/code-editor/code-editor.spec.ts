@@ -1,5 +1,6 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { afterEach, vi } from 'vitest';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { afterEach, vi, describe, it, expect, beforeEach } from 'vitest';
 
 import { CodeEditor } from './code-editor';
 
@@ -28,7 +29,7 @@ describe('CodeEditor', () => {
     await fixture.whenStable();
   });
 
-  it('should insert indentation when tab is pressed in the fallback editor', () => {
+  it('should insert indentation when tab is pressed in the fallback editor', async () => {
     component.writeValue('answer');
     fixture.detectChanges();
 
@@ -44,13 +45,16 @@ describe('CodeEditor', () => {
       })
     );
 
+    fixture.detectChanges();
+    await fixture.whenStable(); 
+
     expect(textarea.value).toBe('  answer');
     expect(textarea.selectionStart).toBe(2);
     expect(textarea.selectionEnd).toBe(2);
     expect(changedValues.at(-1)).toBe('  answer');
   });
 
-  it('should outdent selected lines when shift tab is pressed in the fallback editor', () => {
+  it('should outdent selected lines when shift tab is pressed in the fallback editor', async () => {
     component.writeValue('  first\n  second');
     fixture.detectChanges();
 
@@ -67,12 +71,15 @@ describe('CodeEditor', () => {
       })
     );
 
+    fixture.detectChanges();
+    await fixture.whenStable();
+
     expect(textarea.value).toBe('first\nsecond');
     expect(changedValues.at(-1)).toBe('first\nsecond');
   });
 
   function getTextarea(): HTMLTextAreaElement {
-    const textarea = fixture.nativeElement.querySelector('textarea') as HTMLTextAreaElement | null;
+    const textarea = fixture.nativeElement.querySelector('[data-testid="code-editor-textarea"]') as HTMLTextAreaElement | null;
 
     if (!textarea) {
       throw new Error('Expected the fallback textarea editor to be rendered in tests.');

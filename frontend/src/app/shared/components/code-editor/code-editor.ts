@@ -153,12 +153,13 @@ export class CodeEditor implements AfterViewInit, OnChanges, OnDestroy, ControlV
       ? this.outdentSelection(textarea.value, selectionStart, selectionEnd)
       : this.indentSelection(textarea.value, selectionStart, selectionEnd);
 
-    textarea.value = nextEdit.value;
-    textarea.selectionStart = nextEdit.selectionStart;
-    textarea.selectionEnd = nextEdit.selectionEnd;
-
     this.value.set(nextEdit.value);
     this.onChange(nextEdit.value);
+
+    queueMicrotask(() => {
+      textarea.value = nextEdit.value; 
+      textarea.setSelectionRange(nextEdit.selectionStart, nextEdit.selectionEnd);
+    });
   }
 
   protected handleBlur(): void {
