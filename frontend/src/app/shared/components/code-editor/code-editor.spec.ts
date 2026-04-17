@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { afterEach, vi, describe, it, expect, beforeEach } from 'vitest';
 import { CodeEditor } from './code-editor';
 
@@ -23,6 +24,8 @@ describe('CodeEditor', () => {
     onChange = value => changedValues.push(value);
     component.registerOnChange(onChange);
 
+    component['useTextareaFallback'].set(true);
+
     fixture.detectChanges();
     await fixture.whenStable();
   });
@@ -31,17 +34,18 @@ describe('CodeEditor', () => {
     component.writeValue('answer');
     fixture.detectChanges();
 
-    const textarea = getTextarea();
+    const textareaDebug = fixture.debugElement.query(By.css('[data-testid="code-editor-textarea"]'));
+    const textarea = textareaDebug.nativeElement as HTMLTextAreaElement;
+    
     textarea.focus();
     textarea.setSelectionRange(0, 0);
 
-    textarea.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'Tab',
-        bubbles: true,
-        cancelable: true,
-      })
-    );
+    textareaDebug.triggerEventHandler('keydown', {
+      key: 'Tab',
+      shiftKey: false,
+      preventDefault: vi.fn(),
+      target: textarea
+    });
 
     fixture.detectChanges();
     await fixture.whenStable();
@@ -56,18 +60,18 @@ describe('CodeEditor', () => {
     component.writeValue('  first\n  second');
     fixture.detectChanges();
 
-    const textarea = getTextarea();
+    const textareaDebug = fixture.debugElement.query(By.css('[data-testid="code-editor-textarea"]'));
+    const textarea = textareaDebug.nativeElement as HTMLTextAreaElement;
+    
     textarea.focus();
     textarea.setSelectionRange(0, textarea.value.length);
 
-    textarea.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'Tab',
-        shiftKey: true,
-        bubbles: true,
-        cancelable: true,
-      })
-    );
+    textareaDebug.triggerEventHandler('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      preventDefault: vi.fn(),
+      target: textarea
+    });
 
     fixture.detectChanges();
     await fixture.whenStable();
