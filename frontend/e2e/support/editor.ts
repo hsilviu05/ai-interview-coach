@@ -1,5 +1,10 @@
 import { expect, type Page } from '@playwright/test';
 
+export async function getEditorValue(page: Page): Promise<string> {
+  const hiddenTextarea = page.getByTestId('code-editor-value');
+  return hiddenTextarea.inputValue();
+}
+
 export async function replaceEditorValue(
   page: Page,
   nextValue: string
