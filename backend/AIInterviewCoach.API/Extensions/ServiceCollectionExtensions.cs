@@ -37,9 +37,18 @@ namespace AIInterviewCoach.API.Extensions
             IConfiguration configuration)
         {
             var connectionString = configuration.GetConnectionString("DefaultConnection");
+            var databaseProvider = configuration["DatabaseProvider"]?.Trim();
 
             services.AddDbContext<AppDbContext>(options =>
-                options.UseNpgsql(connectionString));
+            {
+                if (string.Equals(databaseProvider, "sqlite", StringComparison.OrdinalIgnoreCase))
+                {
+                    options.UseSqlite(connectionString);
+                    return;
+                }
+
+                options.UseNpgsql(connectionString);
+            });
 
             services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
 

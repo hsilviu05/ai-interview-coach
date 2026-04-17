@@ -83,3 +83,65 @@ jobs:
 
       - name: Build production frontend bundle
         run: npm run build
+
+  playwright-e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs:
+      - backend-tests
+      - frontend-checks
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('backend/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Restore backend API project
+        run: dotnet restore backend/AIInterviewCoach.API/AIInterviewCoach.API.csproj
+
+      - name: Build backend API project
+        run: dotnet build backend/AIInterviewCoach.API/AIInterviewCoach.API.csproj --no-restore
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright end-to-end tests
+        working-directory: frontend
+        run: npx playwright test
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: ignore

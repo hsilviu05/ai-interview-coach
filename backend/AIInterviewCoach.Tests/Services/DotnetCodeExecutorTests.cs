@@ -8,6 +8,101 @@ namespace AIInterviewCoach.Tests.Services
     public class DotnetCodeExecutorTests
     {
         [Fact]
+        public async Task ExecuteAsync_ShouldRejectRestrictedPythonApis()
+        {
+            var executor = new DotnetCodeExecutor();
+            var result = await executor.ExecuteAsync(
+                new Problem(),
+                """
+                import os
+
+                print(os.listdir("."))
+                """,
+                "python",
+                [
+                    new TestCase
+                    {
+                        Input = string.Empty,
+                        ExpectedOutput = string.Empty,
+                        OrderIndex = 1
+                    }
+                ]);
+
+            Assert.Equal(SubmissionStatus.CompilationError, result.Status);
+            Assert.Contains("restricted API 'import os'", result.Output);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_ShouldRejectRestrictedCSharpApis()
+        {
+            var executor = new DotnetCodeExecutor();
+            var result = await executor.ExecuteAsync(
+                new Problem(),
+                """
+                using System.IO;
+
+                Console.WriteLine(File.ReadAllText("secret.txt"));
+                """,
+                "csharp",
+                [
+                    new TestCase
+                    {
+                        Input = string.Empty,
+                        ExpectedOutput = string.Empty,
+                        OrderIndex = 1
+                    }
+                ]);
+
+            Assert.Equal(SubmissionStatus.CompilationError, result.Status);
+            Assert.Contains("restricted API 'System.IO'", result.Output);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_ShouldRejectOversizedSourceCode()
+        {
+            var executor = new DotnetCodeExecutor();
+            var oversizedSource = new string('a', 100_001);
+            var result = await executor.ExecuteAsync(
+                new Problem(),
+                oversizedSource,
+                "python",
+                [
+                    new TestCase
+                    {
+                        Input = string.Empty,
+                        ExpectedOutput = string.Empty,
+                        OrderIndex = 1
+                    }
+                ]);
+
+            Assert.Equal(SubmissionStatus.CompilationError, result.Status);
+            Assert.Contains("100,000-character limit", result.Output);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_ShouldRejectOversizedTestInput()
+        {
+            var executor = new DotnetCodeExecutor();
+            var result = await executor.ExecuteAsync(
+                new Problem(),
+                """
+                print("ok")
+                """,
+                "python",
+                [
+                    new TestCase
+                    {
+                        Input = new string('x', 64_001),
+                        ExpectedOutput = "ok",
+                        OrderIndex = 1
+                    }
+                ]);
+
+            Assert.Equal(SubmissionStatus.CompilationError, result.Status);
+            Assert.Contains("64,000-character input limit", result.Output);
+        }
+
+        [Fact]
         public async Task ExecuteAsync_ShouldRunPythonSubmission_WhenInterpreterIsAvailable()
         {
             if (!CommandExists("python3") && !CommandExists("python"))
@@ -34,6 +129,33 @@ namespace AIInterviewCoach.Tests.Services
             Assert.Equal(SubmissionStatus.Accepted, result.Status);
             Assert.Equal(1, result.PassedTests);
             Assert.Equal(1, result.TotalTests);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_ShouldStopRunawayConsoleOutput()
+        {
+            var executor = new DotnetCodeExecutor();
+            var result = await executor.ExecuteAsync(
+                new Problem(),
+                """
+                var chunk = new string('x', 8192);
+                for (var index = 0; index < 20; index++)
+                {
+                    Console.Write(chunk);
+                }
+                """,
+                "csharp",
+                [
+                    new TestCase
+                    {
+                        Input = string.Empty,
+                        ExpectedOutput = string.Empty,
+                        OrderIndex = 1
+                    }
+                ]);
+
+            Assert.Equal(SubmissionStatus.RuntimeError, result.Status);
+            Assert.Contains("64,000-character safety limit", result.Output);
         }
 
         [Fact]
