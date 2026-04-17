@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.Diagnostics;
+using System.Text;
 using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
@@ -8,9 +10,71 @@ namespace AIInterviewCoach.Infrastructure.Services
     public sealed class DotnetCodeExecutor : ICodeExecutor
     {
         private const string DefaultLanguage = "csharp";
+        private const int MaxSourceCodeCharacters = 100_000;
+        private const int MaxTestCaseCount = 128;
+        private const int MaxStandardInputCharacters = 64_000;
+        private const int MaxProcessStreamCharacters = 64_000;
+
         private static readonly TimeSpan RestoreTimeout = TimeSpan.FromSeconds(15);
         private static readonly TimeSpan BuildTimeout = TimeSpan.FromSeconds(15);
         private static readonly TimeSpan ExecutionTimeout = TimeSpan.FromSeconds(2);
+        private static readonly TimeSpan WorkspaceCleanupAge = TimeSpan.FromHours(12);
+
+        private static readonly IReadOnlyDictionary<string, string[]> RestrictedApiPatterns =
+            new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                [DefaultLanguage] =
+                [
+                    "System.IO",
+                    "File.",
+                    "Directory.",
+                    "Environment.",
+                    "System.Diagnostics",
+                    "Process.",
+                    "HttpClient",
+                    "WebRequest",
+                    "Socket",
+                    "TcpClient",
+                    "UdpClient",
+                    "DllImport"
+                ],
+                ["python"] =
+                [
+                    "import os",
+                    "from os",
+                    "import subprocess",
+                    "from subprocess",
+                    "import socket",
+                    "from socket",
+                    "import pathlib",
+                    "from pathlib",
+                    "import shutil",
+                    "from shutil",
+                    "import requests",
+                    "from requests",
+                    "import urllib",
+                    "from urllib",
+                    "open(",
+                    "__import__(\"os\"",
+                    "__import__('os'",
+                    "eval(",
+                    "exec("
+                ],
+                ["cpp"] =
+                [
+                    "#include <fstream>",
+                    "#include <filesystem>",
+                    "std::filesystem",
+                    "#include <thread>",
+                    "#include <future>",
+                    "#include <sys/socket.h>",
+                    "#include <netdb.h>",
+                    "#include <curl/",
+                    "system(",
+                    "popen(",
+                    "fork("
+                ]
+            };
 
         private readonly string _workspaceRoot;
 
@@ -18,6 +82,7 @@ namespace AIInterviewCoach.Infrastructure.Services
         {
             _workspaceRoot = Path.Combine(Path.GetTempPath(), "ai-interview-coach-executor");
             Directory.CreateDirectory(_workspaceRoot);
+            CleanupStaleWorkspaces();
         }
 
         public async Task<ExecutionResult> ExecuteAsync(
@@ -34,13 +99,23 @@ namespace AIInterviewCoach.Infrastructure.Services
 
             if (normalizedLanguage is null)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     "Unsupported language. Supported languages are C#, Python, and C++.",
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
+            }
+
+            var validationError = ValidateExecutionRequest(
+                code,
+                normalizedLanguage,
+                orderedTests);
+
+            if (validationError is not null)
+            {
+                return BuildRejectedResult(
+                    SubmissionStatus.CompilationError,
+                    validationError,
+                    orderedTests.Count);
             }
 
             if (orderedTests.Count == 0)
@@ -56,34 +131,39 @@ namespace AIInterviewCoach.Infrastructure.Services
 
             var workspacePath = Path.Combine(_workspaceRoot, Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(workspacePath);
+            var sandbox = CreateSandboxContext(workspacePath);
 
             try
             {
                 return normalizedLanguage switch
                 {
-                    DefaultLanguage => await ExecuteCSharpAsync(problem, normalizedExecutionMode, code, orderedTests, workspacePath),
-                    "python" => await ExecutePythonAsync(problem, normalizedExecutionMode, code, orderedTests, workspacePath),
-                    "cpp" => await ExecuteCppAsync(problem, normalizedExecutionMode, code, orderedTests, workspacePath),
-                    _ => new ExecutionResult(
+                    DefaultLanguage => await ExecuteCSharpAsync(
+                        problem,
+                        normalizedExecutionMode,
+                        code,
+                        orderedTests,
+                        sandbox),
+                    "python" => await ExecutePythonAsync(
+                        problem,
+                        normalizedExecutionMode,
+                        code,
+                        orderedTests,
+                        sandbox),
+                    "cpp" => await ExecuteCppAsync(
+                        problem,
+                        normalizedExecutionMode,
+                        code,
+                        orderedTests,
+                        sandbox),
+                    _ => BuildRejectedResult(
                         SubmissionStatus.CompilationError,
                         "Unsupported language. Supported languages are C#, Python, and C++.",
-                        0,
-                        orderedTests.Count,
-                        null,
-                        null)
+                        orderedTests.Count)
                 };
             }
             finally
             {
-                try
-                {
-                    if (Directory.Exists(workspacePath))
-                        Directory.Delete(workspacePath, recursive: true);
-                }
-                catch
-                {
-                    // Best-effort cleanup; stale temp folders are less harmful than failing the request.
-                }
+                TryDeleteDirectory(workspacePath);
             }
         }
 
@@ -105,92 +185,134 @@ namespace AIInterviewCoach.Infrastructure.Services
             };
         }
 
+        private static string? ValidateExecutionRequest(
+            string code,
+            string language,
+            IReadOnlyList<TestCase> orderedTests)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                return "Submission source code is empty.";
+            }
+
+            if (code.Length > MaxSourceCodeCharacters)
+            {
+                return
+                    $"Submission source code exceeds the {MaxSourceCodeCharacters:N0}-character limit.";
+            }
+
+            if (orderedTests.Count > MaxTestCaseCount)
+            {
+                return
+                    $"This problem has too many test cases configured. The execution layer supports up to {MaxTestCaseCount} test cases per run.";
+            }
+
+            if (orderedTests.Any(testCase => (testCase.Input?.Length ?? 0) > MaxStandardInputCharacters))
+            {
+                return
+                    $"A configured test case exceeds the {MaxStandardInputCharacters:N0}-character input limit.";
+            }
+
+            var restrictedPattern = FindRestrictedPattern(code, language);
+
+            if (restrictedPattern is not null)
+            {
+                return
+                    $"Submission uses restricted API '{restrictedPattern}'. Only in-memory computation with stdin/stdout is allowed.";
+            }
+
+            return null;
+        }
+
+        private static string? FindRestrictedPattern(string code, string language)
+        {
+            if (!RestrictedApiPatterns.TryGetValue(language, out var patterns))
+            {
+                return null;
+            }
+
+            foreach (var pattern in patterns)
+            {
+                if (code.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return pattern;
+                }
+            }
+
+            return null;
+        }
+
         private static async Task<ExecutionResult> ExecuteCSharpAsync(
             Problem problem,
             string executionMode,
             string code,
             IReadOnlyList<TestCase> orderedTests,
-            string workspacePath)
+            ExecutionSandboxContext sandbox)
         {
             var sourceCodeResult = BuildSourceCode(problem, executionMode, DefaultLanguage, code);
             if (sourceCodeResult.ErrorMessage is not null)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     sourceCodeResult.ErrorMessage,
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
             }
 
             await File.WriteAllTextAsync(
-                Path.Combine(workspacePath, "SubmissionRunner.csproj"),
+                Path.Combine(sandbox.WorkspacePath, "SubmissionRunner.csproj"),
                 SubmissionProjectTemplate);
             await File.WriteAllTextAsync(
-                Path.Combine(workspacePath, "Program.cs"),
+                Path.Combine(sandbox.WorkspacePath, "Program.cs"),
                 sourceCodeResult.SourceCode);
 
             var restoreResult = await RunProcessAsync(
                 "dotnet",
-                ["restore", "--nologo", "--ignore-failed-sources"],
-                workspacePath,
+                ["restore", "--nologo", "--ignore-failed-sources", "--packages", sandbox.NugetPackagesDirectory],
+                sandbox,
                 null,
                 RestoreTimeout);
 
             if (restoreResult.TimedOut)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     "Dependency restore timed out.",
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
             }
 
             if (restoreResult.ExitCode != 0)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     BuildOutputMessage(restoreResult),
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
             }
 
             var buildResult = await RunProcessAsync(
                 "dotnet",
-                ["build", "--no-restore", "--nologo", "--verbosity", "quiet"],
-                workspacePath,
+                ["build", "--no-restore", "--nologo", "--verbosity", "quiet", "-p:UseSharedCompilation=false"],
+                sandbox,
                 null,
                 BuildTimeout);
 
             if (buildResult.TimedOut)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     "Compilation timed out.",
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
             }
 
             if (buildResult.ExitCode != 0)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     BuildOutputMessage(buildResult),
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
             }
 
             var assemblyPath = Path.Combine(
-                workspacePath,
+                sandbox.WorkspacePath,
                 "bin",
                 "Debug",
                 "net10.0",
@@ -199,7 +321,7 @@ namespace AIInterviewCoach.Infrastructure.Services
             return await RunAgainstTestsAsync(
                 "dotnet",
                 [assemblyPath],
-                workspacePath,
+                sandbox,
                 orderedTests);
         }
 
@@ -208,69 +330,57 @@ namespace AIInterviewCoach.Infrastructure.Services
             string executionMode,
             string code,
             IReadOnlyList<TestCase> orderedTests,
-            string workspacePath)
+            ExecutionSandboxContext sandbox)
         {
             var pythonCommand = ResolveAvailableCommand("python3", "python");
 
             if (pythonCommand is null)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     "Python is not available on the server.",
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
             }
 
             var sourceCodeResult = BuildSourceCode(problem, executionMode, "python", code);
             if (sourceCodeResult.ErrorMessage is not null)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     sourceCodeResult.ErrorMessage,
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
             }
 
-            var scriptPath = Path.Combine(workspacePath, "main.py");
+            var scriptPath = Path.Combine(sandbox.WorkspacePath, "main.py");
             await File.WriteAllTextAsync(scriptPath, sourceCodeResult.SourceCode);
 
             var syntaxCheckResult = await RunProcessAsync(
                 pythonCommand,
-                ["-m", "py_compile", scriptPath],
-                workspacePath,
+                ["-I", "-m", "py_compile", scriptPath],
+                sandbox,
                 null,
                 BuildTimeout);
 
             if (syntaxCheckResult.TimedOut)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     "Compilation timed out.",
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
             }
 
             if (syntaxCheckResult.ExitCode != 0)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     BuildOutputMessage(syntaxCheckResult),
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
             }
 
             return await RunAgainstTestsAsync(
                 pythonCommand,
-                [scriptPath],
-                workspacePath,
+                ["-I", scriptPath],
+                sandbox,
                 orderedTests);
         }
 
@@ -279,78 +389,66 @@ namespace AIInterviewCoach.Infrastructure.Services
             string executionMode,
             string code,
             IReadOnlyList<TestCase> orderedTests,
-            string workspacePath)
+            ExecutionSandboxContext sandbox)
         {
             var compilerCommand = ResolveAvailableCommand("c++", "clang++", "g++");
 
             if (compilerCommand is null)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     "A C++ compiler is not available on the server.",
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
             }
 
             var sourceCodeResult = BuildSourceCode(problem, executionMode, "cpp", code);
             if (sourceCodeResult.ErrorMessage is not null)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     sourceCodeResult.ErrorMessage,
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
             }
 
-            var sourcePath = Path.Combine(workspacePath, "main.cpp");
-            var binaryPath = Path.Combine(workspacePath, "SubmissionRunner");
+            var sourcePath = Path.Combine(sandbox.WorkspacePath, "main.cpp");
+            var binaryPath = Path.Combine(sandbox.WorkspacePath, "SubmissionRunner");
 
             await File.WriteAllTextAsync(sourcePath, sourceCodeResult.SourceCode);
 
             var buildResult = await RunProcessAsync(
                 compilerCommand,
                 ["-std=c++17", "-O2", sourcePath, "-o", binaryPath],
-                workspacePath,
+                sandbox,
                 null,
                 BuildTimeout);
 
             if (buildResult.TimedOut)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     "Compilation timed out.",
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
             }
 
             if (buildResult.ExitCode != 0)
             {
-                return new ExecutionResult(
+                return BuildRejectedResult(
                     SubmissionStatus.CompilationError,
                     BuildOutputMessage(buildResult),
-                    0,
-                    orderedTests.Count,
-                    null,
-                    null);
+                    orderedTests.Count);
             }
 
             return await RunAgainstTestsAsync(
                 binaryPath,
                 [],
-                workspacePath,
+                sandbox,
                 orderedTests);
         }
 
         private static async Task<ExecutionResult> RunAgainstTestsAsync(
             string fileName,
             IReadOnlyList<string> arguments,
-            string workingDirectory,
+            ExecutionSandboxContext sandbox,
             IReadOnlyList<TestCase> orderedTests)
         {
             var totalExecutionTimeMs = 0;
@@ -361,7 +459,7 @@ namespace AIInterviewCoach.Infrastructure.Services
                 var executionResult = await RunProcessAsync(
                     fileName,
                     arguments,
-                    workingDirectory,
+                    sandbox,
                     testCase.Input,
                     ExecutionTimeout);
 
@@ -370,6 +468,17 @@ namespace AIInterviewCoach.Infrastructure.Services
                     return new ExecutionResult(
                         SubmissionStatus.TimeLimitExceeded,
                         "Execution timed out.",
+                        passedTests,
+                        orderedTests.Count,
+                        totalExecutionTimeMs,
+                        null);
+                }
+
+                if (executionResult.StreamLimitExceeded)
+                {
+                    return new ExecutionResult(
+                        SubmissionStatus.RuntimeError,
+                        $"Execution output exceeded the {MaxProcessStreamCharacters:N0}-character safety limit.",
                         passedTests,
                         orderedTests.Count,
                         totalExecutionTimeMs,
@@ -418,20 +527,22 @@ namespace AIInterviewCoach.Infrastructure.Services
         private static async Task<ProcessExecutionResult> RunProcessAsync(
             string fileName,
             IReadOnlyList<string> arguments,
-            string workingDirectory,
+            ExecutionSandboxContext sandbox,
             string? standardInput,
             TimeSpan timeout)
         {
             var startInfo = new ProcessStartInfo
             {
                 FileName = fileName,
-                WorkingDirectory = workingDirectory,
+                WorkingDirectory = sandbox.WorkspacePath,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+
+            ConfigureSandboxEnvironment(startInfo, sandbox);
 
             foreach (var argument in arguments)
             {
@@ -445,11 +556,17 @@ namespace AIInterviewCoach.Infrastructure.Services
 
             process.Start();
 
-            var outputTask = process.StandardOutput.ReadToEndAsync();
-            var errorTask = process.StandardError.ReadToEndAsync();
+            var outputTask = ReadStreamWithLimitAsync(
+                process.StandardOutput,
+                MaxProcessStreamCharacters);
+            var errorTask = ReadStreamWithLimitAsync(
+                process.StandardError,
+                MaxProcessStreamCharacters);
 
             if (!string.IsNullOrEmpty(standardInput))
+            {
                 await process.StandardInput.WriteAsync(standardInput);
+            }
 
             process.StandardInput.Close();
 
@@ -466,28 +583,122 @@ namespace AIInterviewCoach.Infrastructure.Services
                 await process.WaitForExitAsync();
 
                 stopwatch.Stop();
+
+                var timedOutOutput = await outputTask;
+                var timedOutError = await errorTask;
+
                 return new ProcessExecutionResult(
                     ExitCode: null,
-                    StandardOutput: await outputTask,
-                    StandardError: await errorTask,
+                    StandardOutput: timedOutOutput.Content,
+                    StandardError: timedOutError.Content,
                     TimedOut: true,
-                    ElapsedMilliseconds: (int)stopwatch.ElapsedMilliseconds);
+                    ElapsedMilliseconds: (int)stopwatch.ElapsedMilliseconds,
+                    StreamLimitExceeded: timedOutOutput.WasTruncated || timedOutError.WasTruncated);
             }
 
             stopwatch.Stop();
 
+            var output = await outputTask;
+            var error = await errorTask;
+
             return new ProcessExecutionResult(
                 ExitCode: process.ExitCode,
-                StandardOutput: await outputTask,
-                StandardError: await errorTask,
+                StandardOutput: output.Content,
+                StandardError: error.Content,
                 TimedOut: false,
-                ElapsedMilliseconds: (int)stopwatch.ElapsedMilliseconds);
+                ElapsedMilliseconds: (int)stopwatch.ElapsedMilliseconds,
+                StreamLimitExceeded: output.WasTruncated || error.WasTruncated);
+        }
+
+        private static async Task<BoundedReadResult> ReadStreamWithLimitAsync(
+            StreamReader reader,
+            int characterLimit)
+        {
+            var buffer = ArrayPool<char>.Shared.Rent(1024);
+            var builder = new StringBuilder(Math.Min(characterLimit, 4096));
+            var wasTruncated = false;
+
+            try
+            {
+                while (true)
+                {
+                    var read = await reader.ReadAsync(buffer.AsMemory(0, buffer.Length));
+                    if (read == 0)
+                    {
+                        break;
+                    }
+
+                    if (builder.Length < characterLimit)
+                    {
+                        var remaining = characterLimit - builder.Length;
+                        var toAppend = Math.Min(remaining, read);
+                        builder.Append(buffer, 0, toAppend);
+
+                        if (toAppend < read)
+                        {
+                            wasTruncated = true;
+                        }
+                    }
+                    else
+                    {
+                        wasTruncated = true;
+                    }
+                }
+            }
+            finally
+            {
+                ArrayPool<char>.Shared.Return(buffer);
+            }
+
+            return new BoundedReadResult(builder.ToString(), wasTruncated);
+        }
+
+        private static void ConfigureSandboxEnvironment(
+            ProcessStartInfo startInfo,
+            ExecutionSandboxContext sandbox)
+        {
+            startInfo.Environment.Clear();
+
+            CopyEnvironmentVariableIfPresent(startInfo, "PATH");
+            CopyEnvironmentVariableIfPresent(startInfo, "PATHEXT");
+            CopyEnvironmentVariableIfPresent(startInfo, "SystemRoot");
+            CopyEnvironmentVariableIfPresent(startInfo, "WINDIR");
+            CopyEnvironmentVariableIfPresent(startInfo, "COMSPEC");
+
+            startInfo.Environment["HOME"] = sandbox.HomeDirectory;
+            startInfo.Environment["USERPROFILE"] = sandbox.HomeDirectory;
+            startInfo.Environment["TMPDIR"] = sandbox.TempDirectory;
+            startInfo.Environment["TMP"] = sandbox.TempDirectory;
+            startInfo.Environment["TEMP"] = sandbox.TempDirectory;
+            startInfo.Environment["DOTNET_CLI_HOME"] = sandbox.HomeDirectory;
+            startInfo.Environment["DOTNET_SKIP_FIRST_TIME_EXPERIENCE"] = "1";
+            startInfo.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+            startInfo.Environment["DOTNET_NOLOGO"] = "1";
+            startInfo.Environment["DOTNET_EnableDiagnostics"] = "0";
+            startInfo.Environment["NUGET_PACKAGES"] = sandbox.NugetPackagesDirectory;
+            startInfo.Environment["PYTHONDONTWRITEBYTECODE"] = "1";
+            startInfo.Environment["PYTHONNOUSERSITE"] = "1";
+            startInfo.Environment["PIP_DISABLE_PIP_VERSION_CHECK"] = "1";
+        }
+
+        private static void CopyEnvironmentVariableIfPresent(
+            ProcessStartInfo startInfo,
+            string key)
+        {
+            var value = Environment.GetEnvironmentVariable(key);
+
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                startInfo.Environment[key] = value;
+            }
         }
 
         private static void TryKillProcess(Process process)
         {
             if (!process.HasExited)
+            {
                 process.Kill(entireProcessTree: true);
+            }
         }
 
         private static string BuildOutputMessage(ProcessExecutionResult result)
@@ -496,9 +707,21 @@ namespace AIInterviewCoach.Infrastructure.Services
                 ? result.StandardOutput
                 : result.StandardError;
 
-            return string.IsNullOrWhiteSpace(message)
-                ? "The submission did not produce any diagnostic output."
-                : message.Trim();
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                message = "The submission did not produce any diagnostic output.";
+            }
+            else
+            {
+                message = message.Trim();
+            }
+
+            if (result.StreamLimitExceeded)
+            {
+                message = $"{message}{Environment.NewLine}{Environment.NewLine}Diagnostic output was truncated for safety.";
+            }
+
+            return message;
         }
 
         private static string NormalizeOutput(string value) =>
@@ -547,25 +770,99 @@ namespace AIInterviewCoach.Infrastructure.Services
             var pathValue = Environment.GetEnvironmentVariable("PATH");
 
             if (string.IsNullOrWhiteSpace(pathValue))
+            {
                 return null;
+            }
 
-            var pathEntries = pathValue.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+            var pathEntries = pathValue.Split(
+                Path.PathSeparator,
+                StringSplitOptions.RemoveEmptyEntries);
 
             foreach (var commandName in commandNames)
             {
                 if (Path.IsPathRooted(commandName) && File.Exists(commandName))
+                {
                     return commandName;
+                }
 
                 foreach (var pathEntry in pathEntries)
                 {
                     var fullPath = Path.Combine(pathEntry, commandName);
 
                     if (File.Exists(fullPath))
+                    {
                         return fullPath;
+                    }
                 }
             }
 
             return null;
+        }
+
+        private static ExecutionResult BuildRejectedResult(
+            SubmissionStatus status,
+            string message,
+            int totalTests)
+        {
+            return new ExecutionResult(
+                status,
+                message,
+                0,
+                totalTests,
+                null,
+                null);
+        }
+
+        private static ExecutionSandboxContext CreateSandboxContext(string workspacePath)
+        {
+            var homeDirectory = Path.Combine(workspacePath, "home");
+            var tempDirectory = Path.Combine(workspacePath, "tmp");
+            var nugetPackagesDirectory = Path.Combine(workspacePath, "nuget-packages");
+
+            Directory.CreateDirectory(homeDirectory);
+            Directory.CreateDirectory(tempDirectory);
+            Directory.CreateDirectory(nugetPackagesDirectory);
+
+            return new ExecutionSandboxContext(
+                workspacePath,
+                homeDirectory,
+                tempDirectory,
+                nugetPackagesDirectory);
+        }
+
+        private void CleanupStaleWorkspaces()
+        {
+            try
+            {
+                foreach (var directory in Directory.EnumerateDirectories(_workspaceRoot))
+                {
+                    var createdAtUtc = Directory.GetCreationTimeUtc(directory);
+
+                    if (createdAtUtc < DateTime.UtcNow.Subtract(WorkspaceCleanupAge))
+                    {
+                        TryDeleteDirectory(directory);
+                    }
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup only.
+            }
+        }
+
+        private static void TryDeleteDirectory(string directoryPath)
+        {
+            try
+            {
+                if (Directory.Exists(directoryPath))
+                {
+                    Directory.Delete(directoryPath, recursive: true);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup; stale temp folders are less harmful than failing the request.
+            }
         }
 
         private const string SubmissionProjectTemplate =
@@ -589,12 +886,23 @@ namespace AIInterviewCoach.Infrastructure.Services
                 _ => "C#"
             };
 
+        private sealed record ExecutionSandboxContext(
+            string WorkspacePath,
+            string HomeDirectory,
+            string TempDirectory,
+            string NugetPackagesDirectory);
+
         private sealed record ProcessExecutionResult(
             int? ExitCode,
             string StandardOutput,
             string StandardError,
             bool TimedOut,
-            int ElapsedMilliseconds);
+            int ElapsedMilliseconds,
+            bool StreamLimitExceeded);
+
+        private sealed record BoundedReadResult(
+            string Content,
+            bool WasTruncated);
 
         private sealed record SourceCodeBuildResult(
             string SourceCode,

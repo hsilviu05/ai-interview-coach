@@ -13,6 +13,7 @@ namespace AIInterviewCoach.Infrastructure.Persistence
                 .SetBasePath(apiProjectPath)
                 .AddJsonFile("appsettings.json", optional: true)
                 .AddJsonFile("appsettings.Development.json", optional: true)
+                .AddJsonFile("appsettings.IntegrationTesting.json", optional: true)
                 .AddJsonFile("appsettings.Local.json", optional: true)
                 .AddJsonFile("appsettings.Development.Local.json", optional: true)
                 .AddEnvironmentVariables()
@@ -20,9 +21,18 @@ namespace AIInterviewCoach.Infrastructure.Persistence
 
             var connectionString = configuration.GetConnectionString("DefaultConnection")
                 ?? "Host=localhost;Database=ai_interview_coach;Username=postgres;Password=postgres";
+            var databaseProvider = configuration["DatabaseProvider"]?.Trim();
 
             var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-            optionsBuilder.UseNpgsql(connectionString);
+
+            if (string.Equals(databaseProvider, "sqlite", StringComparison.OrdinalIgnoreCase))
+            {
+                optionsBuilder.UseSqlite(connectionString);
+            }
+            else
+            {
+                optionsBuilder.UseNpgsql(connectionString);
+            }
 
             return new AppDbContext(optionsBuilder.Options);
         }

@@ -1,14 +1,28 @@
-<div class="editor-shell" [style.height.px]="height">
+<div
+  class="editor-shell"
+  [class.is-loading]="!useTextareaFallback() && !isMonacoReady()"
+  data-testid="code-editor"
+  [attr.data-editor-language]="language"
+  [style.height.px]="height">
+  
   <div #editorHost class="editor-host" *ngIf="!useTextareaFallback(); else fallbackEditor"></div>
+
+  <textarea
+    data-testid="code-editor-value"
+    [value]="value()"
+    readonly
+    aria-hidden="true"
+    tabindex="-1"
+    hidden></textarea>
 
   <ng-template #fallbackEditor>
     <textarea
       class="editor-fallback"
+      data-testid="code-editor-textarea"
       [disabled]="isDisabled()"
       [value]="value()"
       spellcheck="false"
-      (blur)="handleBlur()"
-      (keydown)="handleFallbackKeydown($event)"
-      (input)="handleFallbackInput($event)"></textarea>
+      (input)="handleFallbackInput($event)"
+      (keydown)="handleFallbackKeydown($event)"></textarea>
   </ng-template>
 </div>

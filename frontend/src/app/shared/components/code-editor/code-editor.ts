@@ -69,6 +69,7 @@ export class CodeEditor implements AfterViewInit, OnChanges, OnDestroy, ControlV
   protected readonly useTextareaFallback = signal(false);
   protected readonly isDisabled = signal(false);
   protected readonly value = signal('');
+  protected readonly isMonacoReady = signal(false);
 
   private monaco?: Monaco;
   private editor?: MonacoEditorInstance;
@@ -152,12 +153,13 @@ export class CodeEditor implements AfterViewInit, OnChanges, OnDestroy, ControlV
       ? this.outdentSelection(textarea.value, selectionStart, selectionEnd)
       : this.indentSelection(textarea.value, selectionStart, selectionEnd);
 
-    textarea.value = nextEdit.value;
-    textarea.selectionStart = nextEdit.selectionStart;
-    textarea.selectionEnd = nextEdit.selectionEnd;
-
     this.value.set(nextEdit.value);
     this.onChange(nextEdit.value);
+
+    queueMicrotask(() => {
+      textarea.value = nextEdit.value; 
+      textarea.setSelectionRange(nextEdit.selectionStart, nextEdit.selectionEnd);
+    });
   }
 
   protected handleBlur(): void {
@@ -190,6 +192,8 @@ export class CodeEditor implements AfterViewInit, OnChanges, OnDestroy, ControlV
       tabSize: 2,
       wordWrap: 'on',
     });
+
+    this.isMonacoReady.set(true);
 
     this.editor.onDidBlurEditorWidget(() => {
       this.ngZone.run(() => {
@@ -311,6 +315,7 @@ export class CodeEditor implements AfterViewInit, OnChanges, OnDestroy, ControlV
 
   private activateFallback(): void {
     this.useTextareaFallback.set(true);
+    this.isMonacoReady.set(false);
     this.editor?.dispose();
     this.editor = undefined;
     this.model?.dispose();

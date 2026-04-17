@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { afterEach, vi } from 'vitest';
-
+import { By } from '@angular/platform-browser';
+import { afterEach, vi, describe, it, expect, beforeEach } from 'vitest';
 import { CodeEditor } from './code-editor';
 
 describe('CodeEditor', () => {
@@ -24,25 +24,31 @@ describe('CodeEditor', () => {
     onChange = value => changedValues.push(value);
     component.registerOnChange(onChange);
 
+    component['useTextareaFallback'].set(true);
+
     fixture.detectChanges();
     await fixture.whenStable();
   });
 
-  it('should insert indentation when tab is pressed in the fallback editor', () => {
+  it('should insert indentation when tab is pressed in the fallback editor', async () => {
     component.writeValue('answer');
     fixture.detectChanges();
 
-    const textarea = getTextarea();
-    textarea.selectionStart = 0;
-    textarea.selectionEnd = 0;
+    const textareaDebug = fixture.debugElement.query(By.css('[data-testid="code-editor-textarea"]'));
+    const textarea = textareaDebug.nativeElement as HTMLTextAreaElement;
+    
+    textarea.focus();
+    textarea.setSelectionRange(0, 0);
 
-    textarea.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'Tab',
-        bubbles: true,
-        cancelable: true,
-      })
-    );
+    textareaDebug.triggerEventHandler('keydown', {
+      key: 'Tab',
+      shiftKey: false,
+      preventDefault: vi.fn(),
+      target: textarea
+    });
+
+    fixture.detectChanges();
+    await fixture.whenStable();
 
     expect(textarea.value).toBe('  answer');
     expect(textarea.selectionStart).toBe(2);
@@ -50,34 +56,35 @@ describe('CodeEditor', () => {
     expect(changedValues.at(-1)).toBe('  answer');
   });
 
-  it('should outdent selected lines when shift tab is pressed in the fallback editor', () => {
+  it('should outdent selected lines when shift tab is pressed in the fallback editor', async () => {
     component.writeValue('  first\n  second');
     fixture.detectChanges();
 
-    const textarea = getTextarea();
-    textarea.selectionStart = 0;
-    textarea.selectionEnd = textarea.value.length;
+    const textareaDebug = fixture.debugElement.query(By.css('[data-testid="code-editor-textarea"]'));
+    const textarea = textareaDebug.nativeElement as HTMLTextAreaElement;
+    
+    textarea.focus();
+    textarea.setSelectionRange(0, textarea.value.length);
 
-    textarea.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'Tab',
-        shiftKey: true,
-        bubbles: true,
-        cancelable: true,
-      })
-    );
+    textareaDebug.triggerEventHandler('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      preventDefault: vi.fn(),
+      target: textarea
+    });
+
+    fixture.detectChanges();
+    await fixture.whenStable();
 
     expect(textarea.value).toBe('first\nsecond');
     expect(changedValues.at(-1)).toBe('first\nsecond');
   });
 
   function getTextarea(): HTMLTextAreaElement {
-    const textarea = fixture.nativeElement.querySelector('textarea') as HTMLTextAreaElement | null;
-
+    const textarea = fixture.nativeElement.querySelector('[data-testid="code-editor-textarea"]') as HTMLTextAreaElement | null;
     if (!textarea) {
       throw new Error('Expected the fallback textarea editor to be rendered in tests.');
     }
-
     return textarea;
   }
 });

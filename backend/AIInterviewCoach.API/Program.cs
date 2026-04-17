@@ -4,6 +4,7 @@ using AIInterviewCoach.API.Middleware;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+var isIntegrationTesting = builder.Environment.IsEnvironment("IntegrationTesting");
 
 if (string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Key"]))
 {
@@ -30,7 +31,11 @@ builder.Services.AddCors(options =>
     options.AddPolicy("FrontendPolicy", policy =>
     {
         policy
-            .WithOrigins("http://localhost:4200")
+            .WithOrigins(
+                "http://localhost:4200",
+                "http://127.0.0.1:4200",
+                "http://localhost:4201",
+                "http://127.0.0.1:4201")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -38,7 +43,7 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || isIntegrationTesting)
 {
     app.UseSwagger();
     app.UseSwaggerUI();
@@ -51,8 +56,13 @@ else
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    if (app.Environment.IsEnvironment("IntegrationTesting"))
+    if (isIntegrationTesting)
     {
+        if (builder.Configuration.GetValue<bool>("ResetDatabaseOnStartup"))
+        {
+            await dbContext.Database.EnsureDeletedAsync();
+        }
+
         await dbContext.Database.EnsureCreatedAsync();
     }
     else
@@ -72,6 +82,7 @@ app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Run();
 
