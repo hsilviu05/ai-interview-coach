@@ -1,7 +1,5 @@
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { By } from '@angular/platform-browser';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { afterEach, vi, describe, it, expect, beforeEach } from 'vitest';
-
 import { CodeEditor } from './code-editor';
 
 describe('CodeEditor', () => {
@@ -34,8 +32,8 @@ describe('CodeEditor', () => {
     fixture.detectChanges();
 
     const textarea = getTextarea();
-    textarea.selectionStart = 0;
-    textarea.selectionEnd = 0;
+    textarea.focus();
+    textarea.setSelectionRange(0, 0);
 
     textarea.dispatchEvent(
       new KeyboardEvent('keydown', {
@@ -46,7 +44,7 @@ describe('CodeEditor', () => {
     );
 
     fixture.detectChanges();
-    await fixture.whenStable(); 
+    await fixture.whenStable();
 
     expect(textarea.value).toBe('  answer');
     expect(textarea.selectionStart).toBe(2);
@@ -59,8 +57,8 @@ describe('CodeEditor', () => {
     fixture.detectChanges();
 
     const textarea = getTextarea();
-    textarea.selectionStart = 0;
-    textarea.selectionEnd = textarea.value.length;
+    textarea.focus();
+    textarea.setSelectionRange(0, textarea.value.length);
 
     textarea.dispatchEvent(
       new KeyboardEvent('keydown', {
@@ -80,11 +78,9 @@ describe('CodeEditor', () => {
 
   function getTextarea(): HTMLTextAreaElement {
     const textarea = fixture.nativeElement.querySelector('[data-testid="code-editor-textarea"]') as HTMLTextAreaElement | null;
-
     if (!textarea) {
       throw new Error('Expected the fallback textarea editor to be rendered in tests.');
     }
-
     return textarea;
   }
 });
