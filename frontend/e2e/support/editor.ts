@@ -13,14 +13,18 @@ export async function replaceEditorValue(
   await expect(editorShell).toBeAttached();
 
   const fallbackEditor = page.getByTestId('code-editor-textarea');
-  if (await fallbackEditor.isVisible()) {
+  const monacoEditor = page.locator('.monaco-editor').first();
+
+  const winner = await Promise.race([
+    fallbackEditor.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'fallback' as const),
+    monacoEditor.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'monaco' as const),
+  ]);
+
+  if (winner === 'fallback') {
     await fallbackEditor.fill(nextValue);
     return;
   }
 
-  const monacoEditor = page.locator('.monaco-editor').first();
-  await expect(monacoEditor).toBeVisible({ timeout: 15000 }); 
-  
   await monacoEditor.click();
   await page.keyboard.press('ControlOrMeta+A');
   await page.keyboard.press('Backspace');
