@@ -1,8 +1,32 @@
 # ai-interview-coach
 
-## Local setup
+## Toolchain
 
-### Backend JWT secret
+This repo is pinned to:
+
+- `.NET SDK 10.0.103` in `global.json`
+- `Node.js 22.20.0` in `.nvmrc`
+- `npm 10.9.3` in `frontend/package.json`
+
+Use those exact versions for local development and CI. The frontend also disables Angular's persistent disk cache in `frontend/angular.json` because the local cache path was causing native `node` crashes during `ng build` on macOS.
+
+## Clean local setup
+
+1. Install the pinned SDKs.
+2. Restore backend packages:
+
+```bash
+dotnet restore backend/AIInterviewCoach.Tests/AIInterviewCoach.Tests.csproj
+```
+
+3. Install frontend packages:
+
+```bash
+cd frontend
+npm ci
+```
+
+## Backend JWT secret
 
 The API no longer stores a JWT signing key in source control. Set `Jwt:Key` locally before starting the backend.
 
@@ -30,4 +54,15 @@ Or use an ignored local config file:
 }
 ```
 
-The issuer and audience still come from [backend/AIInterviewCoach.API/appsettings.json](/Users/silviu/ai-interview-coach/backend/AIInterviewCoach.API/appsettings.json).
+The issuer and audience still come from `backend/AIInterviewCoach.API/appsettings.json`.
+
+## Reproducible verification
+
+Run these from a clean checkout after `npm ci` and `dotnet restore`:
+
+```bash
+dotnet test backend/AIInterviewCoach.Tests/AIInterviewCoach.Tests.csproj
+cd frontend && npm run build
+cd frontend && npx ng test --watch=false
+cd frontend && npx playwright test
+```

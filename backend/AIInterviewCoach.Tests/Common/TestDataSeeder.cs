@@ -1,5 +1,6 @@
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
+using AIInterviewCoach.Domain.Constants;
 using AIInterviewCoach.Infrastructure.Persistence;
 
 namespace AIInterviewCoach.Tests.Common
@@ -162,7 +163,8 @@ namespace AIInterviewCoach.Tests.Common
             SubmissionStatus status,
             int passedTests = 0,
             int totalTests = 0,
-            string? aiFeedback = null)
+            string? aiFeedback = null,
+            string? aiFeedbackStatus = null)
         {
             var submission = new Submission
             {
@@ -178,6 +180,7 @@ namespace AIInterviewCoach.Tests.Common
                 ExecutionTimeMs = 100,
                 MemoryKb = 1024,
                 AiFeedback = aiFeedback,
+                AiFeedbackStatus = aiFeedbackStatus ?? SubmissionFeedbackStatuses.Ready,
                 SubmittedAt = DateTime.UtcNow
             };
 

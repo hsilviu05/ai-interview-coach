@@ -312,6 +312,12 @@ namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
                     b.Property<string>("AiFeedback")
                         .HasColumnType("text");
 
+                    b.Property<string>("AiFeedbackStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasDefaultValue("Pending")
+                        .HasColumnType("character varying(20)");
+
                     b.Property<Guid>("CandidateId")
                         .HasColumnType("uuid");
 
