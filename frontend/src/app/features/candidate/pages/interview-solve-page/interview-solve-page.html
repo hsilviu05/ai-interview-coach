@@ -209,13 +209,23 @@
         </div>
       </div>
 
-      <div class="workspace-card feedback-card" *ngIf="latestFeedbackSubmission() as feedbackSubmission">
+      <div
+        class="workspace-card feedback-card"
+        *ngIf="latestFeedbackSubmission() as feedbackSubmission">
         <div class="feedback-header">
           <div>
             <div class="feedback-badge-row">
               <div class="feedback-badge">AI Coach Feedback</div>
-              <div class="feedback-source-chip" *ngIf="feedbackSubmission.aiFeedbackSource">
+              <div
+                class="feedback-source-chip"
+                *ngIf="feedbackSubmission.aiFeedbackSource && isAiFeedbackReady(feedbackSubmission)">
                 {{ feedbackSubmission.aiFeedbackSource }}
+              </div>
+              <div class="feedback-source-chip" *ngIf="isAiFeedbackPending(feedbackSubmission)">
+                Pending
+              </div>
+              <div class="feedback-source-chip" *ngIf="isAiFeedbackFailed(feedbackSubmission)">
+                Unavailable
               </div>
             </div>
             <h3>{{ getProblemTitle(feedbackSubmission.problemId) }}</h3>
@@ -225,7 +235,15 @@
           <span class="status-chip">{{ feedbackSubmission.status }}</span>
         </div>
 
-        <pre>{{ feedbackSubmission.aiFeedback }}</pre>
+        <p *ngIf="isAiFeedbackPending(feedbackSubmission)">
+          Generating coaching feedback for this submission. It should appear here automatically in a moment.
+        </p>
+
+        <p *ngIf="isAiFeedbackFailed(feedbackSubmission)">
+          AI feedback could not be prepared for this submission.
+        </p>
+
+        <pre *ngIf="isAiFeedbackReady(feedbackSubmission)">{{ feedbackSubmission.aiFeedback }}</pre>
       </div>
     </div>
   </div>
