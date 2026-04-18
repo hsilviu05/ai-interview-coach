@@ -11,8 +11,10 @@ namespace AIInterviewCoach.Infrastructure.Services
     {
         private const string DefaultLanguage = "csharp";
         private const int MaxSourceCodeCharacters = 100_000;
+        private const int MaxWrappedSourceCodeCharacters = 150_000;
         private const int MaxTestCaseCount = 128;
         private const int MaxStandardInputCharacters = 64_000;
+        private const int MaxExpectedOutputCharacters = 64_000;
         private const int MaxProcessStreamCharacters = 64_000;
 
         private static readonly TimeSpan RestoreTimeout = TimeSpan.FromSeconds(15);
@@ -33,10 +35,14 @@ namespace AIInterviewCoach.Infrastructure.Services
                     "Process.",
                     "HttpClient",
                     "WebRequest",
+                    "System.Net",
                     "Socket",
+                    "Dns.",
                     "TcpClient",
                     "UdpClient",
-                    "DllImport"
+                    "DllImport",
+                    "Marshal.",
+                    "Registry."
                 ],
                 ["python"] =
                 [
@@ -54,11 +60,16 @@ namespace AIInterviewCoach.Infrastructure.Services
                     "from requests",
                     "import urllib",
                     "from urllib",
+                    "import ctypes",
+                    "from ctypes",
+                    "import multiprocessing",
+                    "from multiprocessing",
                     "open(",
                     "__import__(\"os\"",
                     "__import__('os'",
                     "eval(",
-                    "exec("
+                    "exec(",
+                    "compile("
                 ],
                 ["cpp"] =
                 [
@@ -67,9 +78,12 @@ namespace AIInterviewCoach.Infrastructure.Services
                     "std::filesystem",
                     "#include <thread>",
                     "#include <future>",
+                    "#include <unistd.h>",
+                    "#include <windows.h>",
                     "#include <sys/socket.h>",
                     "#include <netdb.h>",
                     "#include <curl/",
+                    "CreateFile(",
                     "system(",
                     "popen(",
                     "fork("
@@ -213,6 +227,12 @@ namespace AIInterviewCoach.Infrastructure.Services
                     $"A configured test case exceeds the {MaxStandardInputCharacters:N0}-character input limit.";
             }
 
+            if (orderedTests.Any(testCase => (testCase.ExpectedOutput?.Length ?? 0) > MaxExpectedOutputCharacters))
+            {
+                return
+                    $"A configured test case exceeds the {MaxExpectedOutputCharacters:N0}-character expected output limit.";
+            }
+
             var restrictedPattern = FindRestrictedPattern(code, language);
 
             if (restrictedPattern is not null)
@@ -258,10 +278,10 @@ namespace AIInterviewCoach.Infrastructure.Services
                     orderedTests.Count);
             }
 
-            await File.WriteAllTextAsync(
+            await WriteSandboxFileAsync(
                 Path.Combine(sandbox.WorkspacePath, "SubmissionRunner.csproj"),
                 SubmissionProjectTemplate);
-            await File.WriteAllTextAsync(
+            await WriteSandboxFileAsync(
                 Path.Combine(sandbox.WorkspacePath, "Program.cs"),
                 sourceCodeResult.SourceCode);
 
@@ -352,7 +372,7 @@ namespace AIInterviewCoach.Infrastructure.Services
             }
 
             var scriptPath = Path.Combine(sandbox.WorkspacePath, "main.py");
-            await File.WriteAllTextAsync(scriptPath, sourceCodeResult.SourceCode);
+            await WriteSandboxFileAsync(scriptPath, sourceCodeResult.SourceCode);
 
             var syntaxCheckResult = await RunProcessAsync(
                 pythonCommand,
@@ -413,7 +433,7 @@ namespace AIInterviewCoach.Infrastructure.Services
             var sourcePath = Path.Combine(sandbox.WorkspacePath, "main.cpp");
             var binaryPath = Path.Combine(sandbox.WorkspacePath, "SubmissionRunner");
 
-            await File.WriteAllTextAsync(sourcePath, sourceCodeResult.SourceCode);
+            await WriteSandboxFileAsync(sourcePath, sourceCodeResult.SourceCode);
 
             var buildResult = await RunProcessAsync(
                 compilerCommand,
@@ -675,7 +695,11 @@ namespace AIInterviewCoach.Infrastructure.Services
             startInfo.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
             startInfo.Environment["DOTNET_NOLOGO"] = "1";
             startInfo.Environment["DOTNET_EnableDiagnostics"] = "0";
+            startInfo.Environment["DOTNET_MULTILEVEL_LOOKUP"] = "0";
+            startInfo.Environment["MSBUILDNOINPROCNODE"] = "1";
             startInfo.Environment["NUGET_PACKAGES"] = sandbox.NugetPackagesDirectory;
+            startInfo.Environment["NUGET_HTTP_CACHE_PATH"] = sandbox.NugetHttpCacheDirectory;
+            startInfo.Environment["NUGET_PLUGINS_CACHE_PATH"] = sandbox.NugetPluginsCacheDirectory;
             startInfo.Environment["PYTHONDONTWRITEBYTECODE"] = "1";
             startInfo.Environment["PYTHONNOUSERSITE"] = "1";
             startInfo.Environment["PIP_DISABLE_PIP_VERSION_CHECK"] = "1";
@@ -760,9 +784,19 @@ namespace AIInterviewCoach.Infrastructure.Services
                     $"The hidden {FormatLanguage(language)} harness template is invalid because it does not contain the {{candidate_code}} placeholder.");
             }
 
-            return new SourceCodeBuildResult(
-                harnessTemplate.Replace("{{candidate_code}}", candidateCode, StringComparison.Ordinal),
-                null);
+            var wrappedSource = harnessTemplate.Replace(
+                "{{candidate_code}}",
+                candidateCode,
+                StringComparison.Ordinal);
+
+            if (wrappedSource.Length > MaxWrappedSourceCodeCharacters)
+            {
+                return new SourceCodeBuildResult(
+                    string.Empty,
+                    $"Wrapped submission source exceeds the {MaxWrappedSourceCodeCharacters:N0}-character limit.");
+            }
+
+            return new SourceCodeBuildResult(wrappedSource, null);
         }
 
         private static string? ResolveAvailableCommand(params string[] commandNames)
@@ -818,16 +852,22 @@ namespace AIInterviewCoach.Infrastructure.Services
             var homeDirectory = Path.Combine(workspacePath, "home");
             var tempDirectory = Path.Combine(workspacePath, "tmp");
             var nugetPackagesDirectory = Path.Combine(workspacePath, "nuget-packages");
+            var nugetHttpCacheDirectory = Path.Combine(workspacePath, "nuget-http-cache");
+            var nugetPluginsCacheDirectory = Path.Combine(workspacePath, "nuget-plugins-cache");
 
-            Directory.CreateDirectory(homeDirectory);
-            Directory.CreateDirectory(tempDirectory);
-            Directory.CreateDirectory(nugetPackagesDirectory);
+            CreateSandboxDirectory(homeDirectory);
+            CreateSandboxDirectory(tempDirectory);
+            CreateSandboxDirectory(nugetPackagesDirectory);
+            CreateSandboxDirectory(nugetHttpCacheDirectory);
+            CreateSandboxDirectory(nugetPluginsCacheDirectory);
 
             return new ExecutionSandboxContext(
                 workspacePath,
                 homeDirectory,
                 tempDirectory,
-                nugetPackagesDirectory);
+                nugetPackagesDirectory,
+                nugetHttpCacheDirectory,
+                nugetPluginsCacheDirectory);
         }
 
         private void CleanupStaleWorkspaces()
@@ -865,6 +905,42 @@ namespace AIInterviewCoach.Infrastructure.Services
             }
         }
 
+        private static void CreateSandboxDirectory(string directoryPath)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                Directory.CreateDirectory(directoryPath);
+                return;
+            }
+
+            Directory.CreateDirectory(
+                directoryPath,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        private static async Task WriteSandboxFileAsync(string filePath, string content)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                await File.WriteAllTextAsync(filePath, content);
+                return;
+            }
+
+            await using var stream = new FileStream(
+                filePath,
+                new FileStreamOptions
+                {
+                    Mode = FileMode.Create,
+                    Access = FileAccess.Write,
+                    Share = FileShare.None,
+                    Options = FileOptions.Asynchronous,
+                    UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+                });
+
+            await using var writer = new StreamWriter(stream);
+            await writer.WriteAsync(content);
+        }
+
         private const string SubmissionProjectTemplate =
             """
             <Project Sdk="Microsoft.NET.Sdk">
@@ -890,7 +966,9 @@ namespace AIInterviewCoach.Infrastructure.Services
             string WorkspacePath,
             string HomeDirectory,
             string TempDirectory,
-            string NugetPackagesDirectory);
+            string NugetPackagesDirectory,
+            string NugetHttpCacheDirectory,
+            string NugetPluginsCacheDirectory);
 
         private sealed record ProcessExecutionResult(
             int? ExitCode,

@@ -103,6 +103,107 @@ namespace AIInterviewCoach.Tests.Services
         }
 
         [Fact]
+        public async Task ExecuteAsync_ShouldRejectOversizedExpectedOutput()
+        {
+            var executor = new DotnetCodeExecutor();
+            var result = await executor.ExecuteAsync(
+                new Problem(),
+                """
+                print("ok")
+                """,
+                "python",
+                [
+                    new TestCase
+                    {
+                        Input = string.Empty,
+                        ExpectedOutput = new string('x', 64_001),
+                        OrderIndex = 1
+                    }
+                ]);
+
+            Assert.Equal(SubmissionStatus.CompilationError, result.Status);
+            Assert.Contains("64,000-character expected output limit", result.Output);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_ShouldRejectTooManyTestCases()
+        {
+            var executor = new DotnetCodeExecutor();
+            var result = await executor.ExecuteAsync(
+                new Problem(),
+                """
+                print("ok")
+                """,
+                "python",
+                Enumerable.Range(0, 129).Select(index => new TestCase
+                {
+                    Input = string.Empty,
+                    ExpectedOutput = "ok",
+                    OrderIndex = index + 1
+                }));
+
+            Assert.Equal(SubmissionStatus.CompilationError, result.Status);
+            Assert.Contains("supports up to 128 test cases", result.Output);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_ShouldRejectRestrictedCppApis()
+        {
+            var executor = new DotnetCodeExecutor();
+            var result = await executor.ExecuteAsync(
+                new Problem(),
+                """
+                #include <fstream>
+                #include <iostream>
+
+                int main() {
+                    std::ifstream input("secret.txt");
+                    std::cout << "nope";
+                    return 0;
+                }
+                """,
+                "cpp",
+                [
+                    new TestCase
+                    {
+                        Input = string.Empty,
+                        ExpectedOutput = string.Empty,
+                        OrderIndex = 1
+                    }
+                ]);
+
+            Assert.Equal(SubmissionStatus.CompilationError, result.Status);
+            Assert.Contains("restricted API '#include <fstream>'", result.Output);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_ShouldRejectOversizedWrappedFunctionSignatureSource()
+        {
+            var executor = new DotnetCodeExecutor();
+            var harnessPadding = new string('x', 60_000);
+            var candidateCode = new string('a', 95_000);
+            var result = await executor.ExecuteAsync(
+                new Problem
+                {
+                    ExecutionMode = ProblemExecutionModes.FunctionSignature,
+                    PythonHarnessTemplate = $"# {harnessPadding}\n{{{{candidate_code}}}}\nprint('done')"
+                },
+                candidateCode,
+                "python",
+                [
+                    new TestCase
+                    {
+                        Input = string.Empty,
+                        ExpectedOutput = "done",
+                        OrderIndex = 1
+                    }
+                ]);
+
+            Assert.Equal(SubmissionStatus.CompilationError, result.Status);
+            Assert.Contains("150,000-character limit", result.Output);
+        }
+
+        [Fact]
         public async Task ExecuteAsync_ShouldRunPythonSubmission_WhenInterpreterIsAvailable()
         {
             if (!CommandExists("python3") && !CommandExists("python"))

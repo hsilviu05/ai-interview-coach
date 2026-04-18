@@ -52,6 +52,9 @@ export class InterviewSolvePage implements OnInit {
   getProblemTitle = this.workspace.getProblemTitle.bind(this.workspace);
   getLanguageHelperText =
     this.workspace.getLanguageHelperText.bind(this.workspace);
+  isAiFeedbackReady = this.workspace.isAiFeedbackReady.bind(this.workspace);
+  isAiFeedbackPending = this.workspace.isAiFeedbackPending.bind(this.workspace);
+  isAiFeedbackFailed = this.workspace.isAiFeedbackFailed.bind(this.workspace);
   goToPracticeProblems =
     this.workspace.goToPracticeProblems.bind(this.workspace);
 }

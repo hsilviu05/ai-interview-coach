@@ -40,6 +40,7 @@ describe('InterviewSolvePage', () => {
           passedTests: 3,
           totalTests: 3,
           executionOutput: '',
+          aiFeedbackStatus: 'Ready',
           submittedAt: new Date().toISOString(),
         },
       ])),
@@ -54,6 +55,7 @@ describe('InterviewSolvePage', () => {
         passedTests: 4,
         totalTests: 4,
         executionOutput: '',
+        aiFeedbackStatus: 'Ready',
         submittedAt: new Date().toISOString(),
       })),
       resetProblem: vi.fn().mockReturnValue(of(void 0)),
@@ -295,6 +297,7 @@ class Solution:
         passedTests: 1,
         totalTests: 1,
         executionOutput: '',
+        aiFeedbackStatus: 'Ready',
         submittedAt: new Date().toISOString(),
       },
     ]);

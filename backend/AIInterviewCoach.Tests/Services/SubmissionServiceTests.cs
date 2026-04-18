@@ -1,7 +1,9 @@
 using AIInterviewCoach.Application.DTOs.Submissions;
 using AIInterviewCoach.Application.Services;
+using AIInterviewCoach.Domain.Constants;
 using AIInterviewCoach.Domain.Enums;
 using AIInterviewCoach.Tests.Common;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AIInterviewCoach.Tests.Services
 {
@@ -25,6 +27,7 @@ namespace AIInterviewCoach.Tests.Services
                 interview.Id,
                 candidate.Id,
                 InterviewSessionStatus.InProgress);
+            var feedbackQueue = new FakeSubmissionFeedbackQueue();
 
             var service = new SubmissionService(
                 db,
@@ -39,7 +42,8 @@ namespace AIInterviewCoach.Tests.Services
                         40,
                         1024);
                 }),
-                new FakeSubmissionFeedbackService());
+                feedbackQueue,
+                NullLogger<SubmissionService>.Instance);
 
             var request = new CreateSubmissionRequestDto
             {
@@ -55,6 +59,8 @@ namespace AIInterviewCoach.Tests.Services
             Assert.Equal(problem.Id, result.ProblemId);
             Assert.Equal(session.Id, result.InterviewSessionId);
             Assert.Equal("Accepted", result.Status);
+            Assert.Equal(SubmissionFeedbackStatuses.Pending, result.AiFeedbackStatus);
+            Assert.Single(feedbackQueue.QueuedSubmissionIds, result.Id);
             Assert.Equal(1, db.Submissions.Count());
         }
 
@@ -81,7 +87,8 @@ namespace AIInterviewCoach.Tests.Services
             var service = new SubmissionService(
                 db,
                 new FakeCodeExecutor(),
-                new FakeSubmissionFeedbackService());
+                new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
 
             var request = new CreateSubmissionRequestDto
             {
@@ -118,7 +125,8 @@ namespace AIInterviewCoach.Tests.Services
             var service = new SubmissionService(
                 db,
                 new FakeCodeExecutor(),
-                new FakeSubmissionFeedbackService());
+                new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
 
             var request = new CreateSubmissionRequestDto
             {
@@ -174,7 +182,8 @@ namespace AIInterviewCoach.Tests.Services
             var service = new SubmissionService(
                 db,
                 new FakeCodeExecutor(),
-                new FakeSubmissionFeedbackService());
+                new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
 
             var result = (await service.GetMySubmissionsAsync(candidate1.Id)).ToList();
 
@@ -191,6 +200,7 @@ namespace AIInterviewCoach.Tests.Services
             var candidate = TestDataSeeder.CreateCandidate(db);
 
             var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 2);
+            var feedbackQueue = new FakeSubmissionFeedbackQueue();
             var service = new SubmissionService(
                 db,
                 new FakeCodeExecutor((_, _, __) => new(
@@ -200,7 +210,8 @@ namespace AIInterviewCoach.Tests.Services
                     2,
                     null,
                     null)),
-                new FakeSubmissionFeedbackService());
+                feedbackQueue,
+                NullLogger<SubmissionService>.Instance);
 
             var result = await service.CreateSubmissionAsync(candidate.Id, new CreateSubmissionRequestDto
             {
@@ -210,6 +221,8 @@ namespace AIInterviewCoach.Tests.Services
             });
 
             Assert.Equal("CompilationError", result.Status);
+            Assert.Equal(SubmissionFeedbackStatuses.Pending, result.AiFeedbackStatus);
+            Assert.Single(feedbackQueue.QueuedSubmissionIds, result.Id);
 
             var storedSubmission = db.Submissions.Single(x => x.Id == result.Id);
             Assert.Equal("Missing Main method.", storedSubmission.ExecutionOutput);
@@ -217,22 +230,20 @@ namespace AIInterviewCoach.Tests.Services
         }
 
         [Fact]
-        public async Task CreateSubmissionAsync_ShouldPersistAiFeedback()
+        public async Task CreateSubmissionAsync_ShouldPersistSubmissionAndQueueAsyncFeedback()
         {
             using var db = TestDbContextFactory.CreateContext();
 
             var interviewer = TestDataSeeder.CreateInterviewer(db);
             var candidate = TestDataSeeder.CreateCandidate(db);
             var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            var feedbackQueue = new FakeSubmissionFeedbackQueue();
 
             var service = new SubmissionService(
                 db,
                 new FakeCodeExecutor(),
-                new FakeSubmissionFeedbackService(context => new SubmissionFeedbackResultDto
-                {
-                    Content = $"Overall{Environment.NewLine}{context.ProblemTitle} feedback",
-                    Source = SubmissionFeedbackSources.OpenAI
-                }));
+                feedbackQueue,
+                NullLogger<SubmissionService>.Instance);
 
             var result = await service.CreateSubmissionAsync(candidate.Id, new CreateSubmissionRequestDto
             {
@@ -241,11 +252,13 @@ namespace AIInterviewCoach.Tests.Services
                 SourceCode = "public class Solution { }"
             });
 
-            Assert.Contains(problem.Title, result.AiFeedback);
-            Assert.Equal(SubmissionFeedbackSources.OpenAI, result.AiFeedbackSource);
+            Assert.Null(result.AiFeedback);
+            Assert.Null(result.AiFeedbackSource);
+            Assert.Equal(SubmissionFeedbackStatuses.Pending, result.AiFeedbackStatus);
+            Assert.Single(feedbackQueue.QueuedSubmissionIds, result.Id);
 
             var storedSubmission = db.Submissions.Single(x => x.Id == result.Id);
-            Assert.Equal(result.AiFeedback, storedSubmission.AiFeedback);
+            Assert.Equal(SubmissionFeedbackStatuses.Pending, storedSubmission.AiFeedbackStatus);
         }
 
         [Fact]
@@ -282,11 +295,13 @@ namespace AIInterviewCoach.Tests.Services
             var service = new SubmissionService(
                 db,
                 new FakeCodeExecutor(),
-                new FakeSubmissionFeedbackService());
+                new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
 
             var result = (await service.GetMySubmissionsAsync(candidate.Id)).Single();
 
             Assert.Equal(SubmissionFeedbackSources.LocalFallback, result.AiFeedbackSource);
+            Assert.Equal(SubmissionFeedbackStatuses.Ready, result.AiFeedbackStatus);
         }
 
         [Fact]
@@ -307,7 +322,8 @@ namespace AIInterviewCoach.Tests.Services
             var service = new SubmissionService(
                 db,
                 new FakeCodeExecutor(),
-                new FakeSubmissionFeedbackService());
+                new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
 
             await service.ResetProblemAsync(candidate.Id, problem.Id, null);
 
@@ -343,7 +359,8 @@ namespace AIInterviewCoach.Tests.Services
             var service = new SubmissionService(
                 db,
                 new FakeCodeExecutor(),
-                new FakeSubmissionFeedbackService());
+                new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
 
             await service.ResetInterviewSessionAsync(candidate.Id, session.Id);
 

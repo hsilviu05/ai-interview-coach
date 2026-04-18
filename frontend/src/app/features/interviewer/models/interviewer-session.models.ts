@@ -1,3 +1,5 @@
+import { SubmissionFeedbackStatus } from '../../candidate/models/candidate-submission.models';
+
 export interface InterviewSessionSummary {
   id: string;
   candidateId: string;
@@ -21,6 +23,7 @@ export interface InterviewSubmissionDetails {
   memoryKb?: number | null;
   aiFeedback?: string | null;
   aiFeedbackSource?: string | null;
+  aiFeedbackStatus: SubmissionFeedbackStatus;
   submittedAt: string;
 }
 

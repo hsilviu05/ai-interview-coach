@@ -1,3 +1,4 @@
+using AIInterviewCoach.Domain.Constants;
 using AIInterviewCoach.Domain.Enums;
 
 namespace AIInterviewCoach.Domain.Entities
@@ -21,6 +22,7 @@ namespace AIInterviewCoach.Domain.Entities
         public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
         public string? ExecutionOutput { get; set; }
         public string? AiFeedback { get; set; }
+        public string AiFeedbackStatus { get; set; } = SubmissionFeedbackStatuses.Pending;
     }
 
 }

@@ -1,4 +1,6 @@
 
+export type SubmissionFeedbackStatus = 'Pending' | 'Ready' | 'Failed';
+
 export interface CreateSubmissionRequest {
   problemId: string;
   interviewSessionId?: string | null;
@@ -21,5 +23,6 @@ export interface SubmissionResponse {
   executionOutput?: string | null;
   aiFeedback?: string | null;
   aiFeedbackSource?: string | null;
+  aiFeedbackStatus: SubmissionFeedbackStatus;
   submittedAt: string;
 }

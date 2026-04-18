@@ -1,8 +1,10 @@
 using AIInterviewCoach.Application.DTOs.Submissions;
 using AIInterviewCoach.Application.Interfaces.Services;
+using AIInterviewCoach.Domain.Constants;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AIInterviewCoach.Application.Services
 {
@@ -10,16 +12,19 @@ namespace AIInterviewCoach.Application.Services
     {
         private readonly IAppDbContext _dbContext;
         private readonly ICodeExecutor _codeExecutor;
-        private readonly ISubmissionFeedbackService _submissionFeedbackService;
+        private readonly ISubmissionFeedbackQueue _submissionFeedbackQueue;
+        private readonly ILogger<SubmissionService> _logger;
 
         public SubmissionService(
             IAppDbContext dbContext,
             ICodeExecutor codeExecutor,
-            ISubmissionFeedbackService submissionFeedbackService)
+            ISubmissionFeedbackQueue submissionFeedbackQueue,
+            ILogger<SubmissionService> logger)
         {
             _dbContext = dbContext;
             _codeExecutor = codeExecutor;
-            _submissionFeedbackService = submissionFeedbackService;
+            _submissionFeedbackQueue = submissionFeedbackQueue;
+            _logger = logger;
         }
 
         public async Task<SubmissionResponseDto> CreateSubmissionAsync(Guid candidateId, CreateSubmissionRequestDto request)
@@ -61,9 +66,6 @@ namespace AIInterviewCoach.Application.Services
                 request.SourceCode,
                 request.Language,
                 problem.TestCases);
-            var aiFeedbackResult = await _submissionFeedbackService.GenerateFeedbackAsync(
-                BuildFeedbackContext(problem, request, executionResult),
-                CancellationToken.None);
 
             var submission = new Submission
             {
@@ -79,14 +81,26 @@ namespace AIInterviewCoach.Application.Services
                 ExecutionTimeMs = executionResult.TimeMs,
                 MemoryKb = executionResult.MemoryKb,
                 ExecutionOutput = executionResult.Output,
-                AiFeedback = aiFeedbackResult.Content,
+                AiFeedbackStatus = SubmissionFeedbackStatuses.Pending,
                 Status = executionResult.Status
             };
 
             _dbContext.Submissions.Add(submission);
             await _dbContext.SaveChangesAsync();
 
-            return MapToDto(submission, aiFeedbackResult.Source);
+            try
+            {
+                await _submissionFeedbackQueue.QueueAsync(submission.Id);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Failed to queue asynchronous AI feedback generation for submission {SubmissionId}.",
+                    submission.Id);
+            }
+
+            return MapToDto(submission);
         }
 
         public async Task<IEnumerable<SubmissionResponseDto>> GetMySubmissionsAsync(Guid candidateId)
@@ -110,7 +124,8 @@ namespace AIInterviewCoach.Application.Services
                     MemoryKb = s.MemoryKb,
                     ExecutionOutput = s.ExecutionOutput,
                     AiFeedback = s.AiFeedback,
-                    AiFeedbackSource = SubmissionFeedbackSourceResolver.ResolveSource(s.AiFeedback),
+                    AiFeedbackSource = ResolveAiFeedbackSource(s.AiFeedbackStatus, s.AiFeedback),
+                    AiFeedbackStatus = s.AiFeedbackStatus,
                     SubmittedAt = s.SubmittedAt
                 })
                 .ToListAsync();
@@ -143,7 +158,8 @@ namespace AIInterviewCoach.Application.Services
                     MemoryKb = s.MemoryKb,
                     ExecutionOutput = s.ExecutionOutput,
                     AiFeedback = s.AiFeedback,
-                    AiFeedbackSource = SubmissionFeedbackSourceResolver.ResolveSource(s.AiFeedback),
+                    AiFeedbackSource = ResolveAiFeedbackSource(s.AiFeedbackStatus, s.AiFeedback),
+                    AiFeedbackStatus = s.AiFeedbackStatus,
                     SubmittedAt = s.SubmittedAt
                 })
                 .ToListAsync();
@@ -221,31 +237,7 @@ namespace AIInterviewCoach.Application.Services
             await _dbContext.SaveChangesAsync();
         }
 
-        private static SubmissionFeedbackContextDto BuildFeedbackContext(
-            Problem problem,
-            CreateSubmissionRequestDto request,
-            ExecutionResult executionResult)
-        {
-            return new SubmissionFeedbackContextDto
-            {
-                ProblemTitle = problem.Title,
-                ProblemDescription = problem.Description,
-                Difficulty = problem.Difficulty,
-                Topic = problem.Topic,
-                ConstraintsText = problem.ConstraintsText,
-                ExampleInput = problem.ExampleInput,
-                ExampleOutput = problem.ExampleOutput,
-                Language = request.Language.Trim(),
-                SourceCode = request.SourceCode,
-                Status = executionResult.Status.ToString(),
-                PassedTests = executionResult.PassedTests,
-                TotalTests = executionResult.TotalTests,
-                ExecutionOutput = executionResult.Output,
-                IsPracticeMode = !request.InterviewSessionId.HasValue
-            };
-        }
-
-        private static SubmissionResponseDto MapToDto(Submission submission, string? aiFeedbackSource = null)
+        private static SubmissionResponseDto MapToDto(Submission submission)
         {
             return new SubmissionResponseDto
             {
@@ -262,9 +254,17 @@ namespace AIInterviewCoach.Application.Services
                 MemoryKb = submission.MemoryKb,
                 ExecutionOutput = submission.ExecutionOutput,
                 AiFeedback = submission.AiFeedback,
-                AiFeedbackSource = aiFeedbackSource ?? SubmissionFeedbackSourceResolver.ResolveSource(submission.AiFeedback),
+                AiFeedbackSource = ResolveAiFeedbackSource(submission.AiFeedbackStatus, submission.AiFeedback),
+                AiFeedbackStatus = submission.AiFeedbackStatus,
                 SubmittedAt = submission.SubmittedAt
             };
+        }
+
+        private static string? ResolveAiFeedbackSource(string aiFeedbackStatus, string? aiFeedback)
+        {
+            return string.Equals(aiFeedbackStatus, SubmissionFeedbackStatuses.Ready, StringComparison.Ordinal)
+                ? SubmissionFeedbackSourceResolver.ResolveSource(aiFeedback)
+                : null;
         }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AIInterviewCoach.Domain.Constants;
 
 namespace AIInterviewCoach.Application.DTOs.Submissions
 {
@@ -21,6 +22,7 @@ namespace AIInterviewCoach.Application.DTOs.Submissions
         public string? ExecutionOutput { get; set; }
         public string? AiFeedback { get; set; }
         public string? AiFeedbackSource { get; set; }
+        public string AiFeedbackStatus { get; set; } = SubmissionFeedbackStatuses.Pending;
         public DateTime SubmittedAt { get; set; }
     }
 }

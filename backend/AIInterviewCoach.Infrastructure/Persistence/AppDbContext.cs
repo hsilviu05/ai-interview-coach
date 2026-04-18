@@ -1,4 +1,5 @@
 using AIInterviewCoach.Application.Interfaces.Services;
+using AIInterviewCoach.Domain.Constants;
 using AIInterviewCoach.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -202,6 +203,11 @@ namespace AIInterviewCoach.Infrastructure.Persistence
                     .IsRequired();
 
                 entity.Property(x => x.SourceCode)
+                    .IsRequired();
+
+                entity.Property(x => x.AiFeedbackStatus)
+                    .HasMaxLength(20)
+                    .HasDefaultValue(SubmissionFeedbackStatuses.Pending)
                     .IsRequired();
 
                 entity.HasOne(x => x.Candidate)

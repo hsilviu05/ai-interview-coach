@@ -8,7 +8,10 @@ import {
   CandidateInterviewResponse,
   InterviewSessionResponse,
 } from '../models/candidate-interview.models';
-import { SubmissionResponse } from '../models/candidate-submission.models';
+import {
+  SubmissionFeedbackStatus,
+  SubmissionResponse,
+} from '../models/candidate-submission.models';
 import { CandidateApi } from './candidate-api.service';
 import { CodeDraftStorageService } from './code-draft-storage.service';
 import { SubmissionApi } from './submission-api.service';
@@ -100,6 +103,7 @@ int main() {
   private isHydratingDraft = false;
   private activeDraftLanguage: SubmissionLanguage =
     CandidateWorkspaceFacade.defaultLanguage;
+  private feedbackRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   readonly loading = signal(true);
   readonly startingSession = signal(false);
@@ -138,9 +142,19 @@ int main() {
     );
   });
   readonly latestFeedbackSubmission = computed(
-    () =>
-      this.submissions().find(submission => !!submission.aiFeedback?.trim()) ??
-      null
+    () => {
+      const selectedProblemId = this.selectedProblemId();
+      const submissions = this.submissions();
+
+      if (selectedProblemId) {
+        return (
+          submissions.find(submission => submission.problemId === selectedProblemId) ??
+          null
+        );
+      }
+
+      return submissions[0] ?? null;
+    }
   );
 
   readonly autosaveStatus = computed(() => {
@@ -271,6 +285,7 @@ int main() {
 
     this.destroyRef.onDestroy(() => {
       this.persistCurrentDraft();
+      this.stopFeedbackPolling();
     });
   }
 
@@ -337,7 +352,7 @@ int main() {
       })
       .subscribe({
         next: submission => {
-          this.submissions.set([submission, ...this.submissions()]);
+          this.setSubmissions([submission, ...this.submissions()]);
           this.persistCurrentDraft();
 
           if (submission.status === 'Accepted') {
@@ -423,7 +438,7 @@ int main() {
       .subscribe({
         next: () => {
           this.codeDraftStorage.clearDraft(this.buildDraftScope(problem.problemId));
-          this.submissions.set(
+          this.setSubmissions(
             this.submissions().filter(submission => {
               if (submission.problemId !== problem.problemId) {
                 return true;
@@ -485,7 +500,7 @@ int main() {
           this.codeDraftStorage.clearDraft(this.buildDraftScope(problem.problemId));
         }
 
-        this.submissions.set(
+        this.setSubmissions(
           this.submissions().filter(
             submission => submission.interviewSessionId !== session.id
           )
@@ -545,6 +560,21 @@ int main() {
     this.router.navigateByUrl('/candidate/practice');
   }
 
+  isAiFeedbackReady(submission: SubmissionResponse | null): boolean {
+    return (
+      submission?.aiFeedbackStatus === 'Ready' &&
+      !!submission.aiFeedback?.trim()
+    );
+  }
+
+  isAiFeedbackPending(submission: SubmissionResponse | null): boolean {
+    return submission?.aiFeedbackStatus === 'Pending';
+  }
+
+  isAiFeedbackFailed(submission: SubmissionResponse | null): boolean {
+    return submission?.aiFeedbackStatus === 'Failed';
+  }
+
   private loadPracticeProblem(problemId: string): void {
     this.loading.set(true);
     this.errorMessage.set('');
@@ -590,7 +620,7 @@ int main() {
   private loadPracticeSubmissions(problemId: string): void {
     this.submissionApi.getMySubmissions().subscribe({
       next: submissions => {
-        this.submissions.set(
+        this.setSubmissions(
           submissions.filter(
             submission =>
               submission.problemId === problemId &&
@@ -599,7 +629,7 @@ int main() {
         );
       },
       error: () => {
-        this.submissions.set([]);
+        this.setSubmissions([]);
         this.focusFirstOpenProblem();
         this.loading.set(false);
       },
@@ -634,10 +664,10 @@ int main() {
   private loadSessionSubmissions(sessionId: string): void {
     this.submissionApi.getByInterviewSession(sessionId).subscribe({
       next: submissions => {
-        this.submissions.set(submissions);
+        this.setSubmissions(submissions);
       },
       error: () => {
-        this.submissions.set([]);
+        this.setSubmissions([]);
         this.focusFirstOpenProblem();
         this.loading.set(false);
       },
@@ -758,6 +788,97 @@ int main() {
     }
 
     return this.interview()?.problems[0] ?? null;
+  }
+
+  private setSubmissions(submissions: SubmissionResponse[]): void {
+    this.submissions.set(submissions);
+
+    if (this.hasPendingAiFeedback(submissions)) {
+      this.ensureFeedbackPolling();
+      return;
+    }
+
+    this.stopFeedbackPolling();
+  }
+
+  private hasPendingAiFeedback(submissions: SubmissionResponse[]): boolean {
+    return submissions.some(
+      submission => submission.aiFeedbackStatus === 'Pending'
+    );
+  }
+
+  private ensureFeedbackPolling(delayMs = 1500): void {
+    if (!this.hasPendingAiFeedback(this.submissions())) {
+      this.stopFeedbackPolling();
+      return;
+    }
+
+    if (this.feedbackRefreshTimeoutId !== null) {
+      return;
+    }
+
+    this.feedbackRefreshTimeoutId = setTimeout(() => {
+      this.feedbackRefreshTimeoutId = null;
+      this.refreshPendingFeedback();
+    }, delayMs);
+  }
+
+  private stopFeedbackPolling(): void {
+    if (this.feedbackRefreshTimeoutId === null) {
+      return;
+    }
+
+    clearTimeout(this.feedbackRefreshTimeoutId);
+    this.feedbackRefreshTimeoutId = null;
+  }
+
+  private refreshPendingFeedback(): void {
+    if (!this.hasPendingAiFeedback(this.submissions())) {
+      this.stopFeedbackPolling();
+      return;
+    }
+
+    if (this.isPracticeMode()) {
+      const practiceProblemId =
+        this.interview()?.problems[0]?.problemId ?? this.selectedProblemId();
+
+      if (!practiceProblemId) {
+        this.stopFeedbackPolling();
+        return;
+      }
+
+      this.submissionApi.getMySubmissions().subscribe({
+        next: submissions => {
+          this.setSubmissions(
+            submissions.filter(
+              submission =>
+                submission.problemId === practiceProblemId &&
+                !submission.interviewSessionId
+            )
+          );
+        },
+        error: () => {
+          this.ensureFeedbackPolling(4000);
+        },
+      });
+      return;
+    }
+
+    const sessionId = this.session()?.id;
+
+    if (!sessionId) {
+      this.stopFeedbackPolling();
+      return;
+    }
+
+    this.submissionApi.getByInterviewSession(sessionId).subscribe({
+      next: submissions => {
+        this.setSubmissions(submissions);
+      },
+      error: () => {
+        this.ensureFeedbackPolling(4000);
+      },
+    });
   }
 
   private focusFirstOpenProblem(): void {

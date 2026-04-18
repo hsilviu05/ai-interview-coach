@@ -1,6 +1,7 @@
 using AIInterviewCoach.Application.DTOs.Interviews;
 using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Application.DTOs.Submissions;
+using AIInterviewCoach.Domain.Constants;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -328,7 +329,13 @@ namespace AIInterviewCoach.Application.Services
                         MemoryKb = s.MemoryKb,
                         ExecutionOutput = s.ExecutionOutput,
                         AiFeedback = s.AiFeedback,
-                        AiFeedbackSource = SubmissionFeedbackSourceResolver.ResolveSource(s.AiFeedback),
+                        AiFeedbackSource = string.Equals(
+                            s.AiFeedbackStatus,
+                            SubmissionFeedbackStatuses.Ready,
+                            StringComparison.Ordinal)
+                            ? SubmissionFeedbackSourceResolver.ResolveSource(s.AiFeedback)
+                            : null,
+                        AiFeedbackStatus = s.AiFeedbackStatus,
                         SubmittedAt = s.SubmittedAt
                     })
                     .ToList()

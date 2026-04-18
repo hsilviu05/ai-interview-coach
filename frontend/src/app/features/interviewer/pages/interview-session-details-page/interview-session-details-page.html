@@ -55,14 +55,28 @@
             <pre>{{ submission.sourceCode }}</pre>
           </div>
 
-          <div class="feedback-block" *ngIf="submission.aiFeedback">
+          <div
+            class="feedback-block"
+            *ngIf="submission.aiFeedback || isAiFeedbackPending(submission) || isAiFeedbackFailed(submission)">
             <div class="feedback-label-row">
               <div class="feedback-label">AI Coach Feedback</div>
-              <div class="feedback-source-chip" *ngIf="submission.aiFeedbackSource">
+              <div class="feedback-source-chip" *ngIf="submission.aiFeedbackSource && isAiFeedbackReady(submission)">
                 {{ submission.aiFeedbackSource }}
               </div>
+              <div class="feedback-source-chip" *ngIf="isAiFeedbackPending(submission)">
+                Pending
+              </div>
+              <div class="feedback-source-chip" *ngIf="isAiFeedbackFailed(submission)">
+                Unavailable
+              </div>
             </div>
-            <pre>{{ submission.aiFeedback }}</pre>
+            <p *ngIf="isAiFeedbackPending(submission)">
+              Generating coaching feedback for this submission. This view refreshes automatically while it is pending.
+            </p>
+            <p *ngIf="isAiFeedbackFailed(submission)">
+              AI feedback could not be prepared for this submission.
+            </p>
+            <pre *ngIf="isAiFeedbackReady(submission)">{{ submission.aiFeedback }}</pre>
           </div>
         </div>
       </div>
