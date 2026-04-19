@@ -4,6 +4,7 @@ using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Application.Services;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
+using AIInterviewCoach.Infrastructure.Services;
 using AIInterviewCoach.Tests.Common;
 using Microsoft.EntityFrameworkCore;
 
@@ -328,7 +329,7 @@ namespace AIInterviewCoach.Tests.Services
         }
 
         private static ProblemService CreateService(Infrastructure.Persistence.AppDbContext db) =>
-            new(db, new AdminAuditService(db));
+            new(db, new AdminAuditService(db, new ApplicationObservabilityService()));
 
         private static CreateProblemRequestDto BuildCreateRequest() =>
             new()

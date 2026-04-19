@@ -2,6 +2,7 @@ using AIInterviewCoach.Application.DTOs.Submissions;
 using AIInterviewCoach.Application.Services;
 using AIInterviewCoach.Domain.Constants;
 using AIInterviewCoach.Domain.Enums;
+using AIInterviewCoach.Infrastructure.Services;
 using AIInterviewCoach.Tests.Common;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -34,6 +35,7 @@ namespace AIInterviewCoach.Tests.Services
                     Content = "Overall\nSpecific feedback",
                     Source = SubmissionFeedbackSources.OpenAI
                 }),
+                new ApplicationObservabilityService(),
                 NullLogger<SubmissionFeedbackProcessor>.Instance);
 
             await processor.ProcessAsync(submission.Id);
@@ -65,6 +67,7 @@ namespace AIInterviewCoach.Tests.Services
                 db,
                 new FakeSubmissionFeedbackService(_ =>
                     throw new InvalidOperationException("AI service unavailable.")),
+                new ApplicationObservabilityService(),
                 NullLogger<SubmissionFeedbackProcessor>.Instance);
 
             await processor.ProcessAsync(submission.Id);

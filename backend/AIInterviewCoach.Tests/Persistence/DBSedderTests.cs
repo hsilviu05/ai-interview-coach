@@ -124,8 +124,10 @@ namespace AIInterviewCoach.Tests.Persistence
 
             var updatedProblem = db.Problems.Single(existingProblem => existingProblem.Id == problem.Id);
             Assert.Contains("return []", updatedProblem.PythonStarterCode);
-            Assert.Contains("Array.Empty<int>()", updatedProblem.CsharpStarterCode);
+            Assert.Contains("new int[0]", updatedProblem.CsharpStarterCode);
             Assert.Contains("return {};", updatedProblem.CppStarterCode);
+            Assert.DoesNotContain("Use JSON input like", updatedProblem.ConstraintsText, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("nums = [2,7,11,15], target = 9", updatedProblem.ExampleInput);
         }
 
         private static IConfiguration BuildConfiguration(Dictionary<string, string?>? values = null)

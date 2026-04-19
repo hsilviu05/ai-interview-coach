@@ -9,6 +9,7 @@ namespace AIInterviewCoach.API.Authorization
         public const string CandidateWorkspaceAccess = "CandidateWorkspaceAccess";
         public const string AdminProblemManagement = "AdminProblemManagement";
         public const string AdminAuditLogAccess = "AdminAuditLogAccess";
+        public const string AdminObservabilityAccess = "AdminObservabilityAccess";
 
         public static void Register(AuthorizationOptions options)
         {
@@ -22,6 +23,9 @@ namespace AIInterviewCoach.API.Authorization
                 policy.RequireRole(UserRole.Admin.ToString()));
 
             options.AddPolicy(AdminAuditLogAccess, policy =>
+                policy.RequireRole(UserRole.Admin.ToString()));
+
+            options.AddPolicy(AdminObservabilityAccess, policy =>
                 policy.RequireRole(UserRole.Admin.ToString()));
         }
     }

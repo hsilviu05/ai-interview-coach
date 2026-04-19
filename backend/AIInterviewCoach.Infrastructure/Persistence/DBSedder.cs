@@ -1,4 +1,5 @@
 using AIInterviewCoach.Application.Services;
+using AIInterviewCoach.Application.DTOs.Problems;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
 using AIInterviewCoach.Infrastructure.Services;
@@ -269,14 +270,41 @@ namespace AIInterviewCoach.Infrastructure.Persistence
                 var currentPythonStarter = problem.PythonStarterCode?.Trim() ?? string.Empty;
                 if (!ShouldUpgradeLegacyFunctionStarter(problem.Title, currentPythonStarter))
                 {
-                    continue;
+                    if (!ShouldUpgradeLegacyStarterMetadata(problem, template))
+                    {
+                        continue;
+                    }
                 }
 
                 problem.CsharpStarterCode = template.CsharpStarterCode.Trim();
                 problem.PythonStarterCode = template.PythonStarterCode.Trim();
                 problem.CppStarterCode = template.CppStarterCode.Trim();
+                if (ShouldUpgradeLegacyStarterMetadata(problem, template))
+                {
+                    problem.Description = template.Description;
+                    problem.Difficulty = template.Difficulty;
+                    problem.Topic = template.Topic;
+                    problem.ConstraintsText = template.ConstraintsText;
+                    problem.ExampleInput = template.ExampleInput;
+                    problem.ExampleOutput = template.ExampleOutput;
+                }
                 problem.UpdatedAt = DateTime.UtcNow;
             }
+        }
+
+        private static bool ShouldUpgradeLegacyStarterMetadata(Problem problem, ProblemTemplateResponseDto template)
+        {
+            if (problem.ExecutionMode != ProblemExecutionModes.FunctionSignature)
+            {
+                return false;
+            }
+
+            return !string.Equals(problem.Description?.Trim(), template.Description.Trim(), StringComparison.Ordinal) ||
+                !string.Equals(problem.Difficulty?.Trim(), template.Difficulty.Trim(), StringComparison.Ordinal) ||
+                !string.Equals(problem.Topic?.Trim(), template.Topic.Trim(), StringComparison.Ordinal) ||
+                !string.Equals(problem.ConstraintsText?.Trim(), template.ConstraintsText.Trim(), StringComparison.Ordinal) ||
+                !string.Equals(problem.ExampleInput?.Trim(), template.ExampleInput.Trim(), StringComparison.Ordinal) ||
+                !string.Equals(problem.ExampleOutput?.Trim(), template.ExampleOutput.Trim(), StringComparison.Ordinal);
         }
 
         private static bool ShouldUpgradeLegacyFunctionStarter(string title, string pythonStarterCode)

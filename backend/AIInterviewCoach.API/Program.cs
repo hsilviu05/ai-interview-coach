@@ -1,6 +1,8 @@
 using AIInterviewCoach.API.Extensions;
+using AIInterviewCoach.API.Health;
 using AIInterviewCoach.Infrastructure.Persistence;
 using AIInterviewCoach.API.Middleware;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -37,7 +39,8 @@ builder.Services.AddCors(options =>
                 "http://localhost:4201",
                 "http://127.0.0.1:4201")
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
@@ -73,6 +76,7 @@ using (var scope = app.Services.CreateScope())
     await DBSedder.SeedAsync(dbContext, app.Configuration, app.Environment);
 }
 
+app.UseMiddleware<RequestObservabilityMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseCors("FrontendPolicy");
@@ -82,7 +86,21 @@ app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = _ => false,
+    ResponseWriter = HealthResponseWriter.WriteAsync
+});
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+    ResponseWriter = HealthResponseWriter.WriteAsync
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready"),
+    ResponseWriter = HealthResponseWriter.WriteAsync
+});
 
 app.Run();
 

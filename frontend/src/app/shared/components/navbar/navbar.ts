@@ -23,7 +23,13 @@ export class Navbar {
   readonly isAdmin = computed(() => isAdminRole(this.role()));
 
   logout(): void {
-    this.authService.logout();
-    this.router.navigateByUrl('/login');
+    this.authService.logout().subscribe({
+      next: () => {
+        this.router.navigateByUrl('/login');
+      },
+      error: () => {
+        this.router.navigateByUrl('/login');
+      },
+    });
   }
 }

@@ -10,10 +10,14 @@ namespace AIInterviewCoach.Application.Services
     {
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
         private readonly IAppDbContext _dbContext;
+        private readonly IObservabilityService _observabilityService;
 
-        public AdminAuditService(IAppDbContext dbContext)
+        public AdminAuditService(
+            IAppDbContext dbContext,
+            IObservabilityService observabilityService)
         {
             _dbContext = dbContext;
+            _observabilityService = observabilityService;
         }
 
         public async Task RecordAsync(AdminAuditLogWriteRequestDto request, CancellationToken cancellationToken = default)
@@ -45,6 +49,7 @@ namespace AIInterviewCoach.Application.Services
             };
 
             _dbContext.AdminAuditLogs.Add(auditLog);
+            _observabilityService.RecordAdminAction(auditLog.ActionType, auditLog.TargetType);
         }
 
         public async Task<IReadOnlyList<AdminAuditLogResponseDto>> GetRecentLogsAsync(int take = 25, CancellationToken cancellationToken = default)
