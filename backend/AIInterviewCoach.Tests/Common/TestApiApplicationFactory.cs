@@ -24,9 +24,11 @@ namespace AIInterviewCoach.Tests.Common
         private const string BootstrapAdminPassword = "Password123!";
         private const string BootstrapAdminFullName = "Admin Demo";
         private readonly SqliteConnection _connection = new("Data Source=:memory:");
+        private readonly bool _useTestAuthentication;
 
-        public TestApiApplicationFactory()
+        public TestApiApplicationFactory(bool useTestAuthentication = true)
         {
+            _useTestAuthentication = useTestAuthentication;
             Environment.SetEnvironmentVariable("Jwt__Key", JwtKey);
             Environment.SetEnvironmentVariable("Jwt__Issuer", JwtIssuer);
             Environment.SetEnvironmentVariable("Jwt__Audience", JwtAudience);
@@ -69,15 +71,18 @@ namespace AIInterviewCoach.Tests.Common
 
                 services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
 
-                services
-                    .AddAuthentication(options =>
-                    {
-                        options.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName;
-                        options.DefaultChallengeScheme = TestAuthenticationHandler.SchemeName;
-                    })
-                    .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
-                        TestAuthenticationHandler.SchemeName,
-                        _ => { });
+                if (_useTestAuthentication)
+                {
+                    services
+                        .AddAuthentication(options =>
+                        {
+                            options.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName;
+                            options.DefaultChallengeScheme = TestAuthenticationHandler.SchemeName;
+                        })
+                        .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
+                            TestAuthenticationHandler.SchemeName,
+                            _ => { });
+                }
             });
         }
 

@@ -4,6 +4,8 @@ using System.Text;
 using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AIInterviewCoach.Infrastructure.Services
 {
@@ -91,9 +93,20 @@ namespace AIInterviewCoach.Infrastructure.Services
             };
 
         private readonly string _workspaceRoot;
+        private readonly IObservabilityService _observabilityService;
+        private readonly ILogger<DotnetCodeExecutor> _logger;
 
         public DotnetCodeExecutor()
+            : this(new ApplicationObservabilityService(), NullLogger<DotnetCodeExecutor>.Instance)
         {
+        }
+
+        public DotnetCodeExecutor(
+            IObservabilityService observabilityService,
+            ILogger<DotnetCodeExecutor> logger)
+        {
+            _observabilityService = observabilityService;
+            _logger = logger;
             _workspaceRoot = Path.Combine(Path.GetTempPath(), "ai-interview-coach-executor");
             Directory.CreateDirectory(_workspaceRoot);
             CleanupStaleWorkspaces();
@@ -105,43 +118,13 @@ namespace AIInterviewCoach.Infrastructure.Services
             string language,
             IEnumerable<TestCase> testCases)
         {
+            var stopwatch = Stopwatch.StartNew();
             var normalizedLanguage = NormalizeLanguage(language);
             var normalizedExecutionMode = NormalizeExecutionMode(problem.ExecutionMode);
             var orderedTests = testCases
                 .OrderBy(testCase => testCase.OrderIndex)
                 .ToList();
-
-            if (normalizedLanguage is null)
-            {
-                return BuildRejectedResult(
-                    SubmissionStatus.CompilationError,
-                    "Unsupported language. Supported languages are C#, Python, and C++.",
-                    orderedTests.Count);
-            }
-
-            var validationError = ValidateExecutionRequest(
-                code,
-                normalizedLanguage,
-                orderedTests);
-
-            if (validationError is not null)
-            {
-                return BuildRejectedResult(
-                    SubmissionStatus.CompilationError,
-                    validationError,
-                    orderedTests.Count);
-            }
-
-            if (orderedTests.Count == 0)
-            {
-                return new ExecutionResult(
-                    SubmissionStatus.Accepted,
-                    "Accepted. No test cases configured.",
-                    0,
-                    0,
-                    0,
-                    null);
-            }
+            ExecutionResult? result = null;
 
             var workspacePath = Path.Combine(_workspaceRoot, Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(workspacePath);
@@ -149,7 +132,42 @@ namespace AIInterviewCoach.Infrastructure.Services
 
             try
             {
-                return normalizedLanguage switch
+                if (normalizedLanguage is null)
+                {
+                    result = BuildRejectedResult(
+                        SubmissionStatus.CompilationError,
+                        "Unsupported language. Supported languages are C#, Python, and C++.",
+                        orderedTests.Count);
+                    return result;
+                }
+
+                var validationError = ValidateExecutionRequest(
+                    code,
+                    normalizedLanguage,
+                    orderedTests);
+
+                if (validationError is not null)
+                {
+                    result = BuildRejectedResult(
+                        SubmissionStatus.CompilationError,
+                        validationError,
+                        orderedTests.Count);
+                    return result;
+                }
+
+                if (orderedTests.Count == 0)
+                {
+                    result = new ExecutionResult(
+                        SubmissionStatus.Accepted,
+                        "Accepted. No test cases configured.",
+                        0,
+                        0,
+                        0,
+                        null);
+                    return result;
+                }
+
+                result = normalizedLanguage switch
                 {
                     DefaultLanguage => await ExecuteCSharpAsync(
                         problem,
@@ -174,9 +192,40 @@ namespace AIInterviewCoach.Infrastructure.Services
                         "Unsupported language. Supported languages are C#, Python, and C++.",
                         orderedTests.Count)
                 };
+
+                return result;
+            }
+            catch (Exception exception)
+            {
+                stopwatch.Stop();
+                _observabilityService.RecordCodeExecution(
+                    normalizedLanguage ?? "unknown",
+                    normalizedExecutionMode,
+                    "UnhandledException",
+                    stopwatch.Elapsed,
+                    orderedTests.Count);
+
+                _logger.LogError(
+                    exception,
+                    "Unhandled code execution failure for problem {ProblemId} using {Language}.",
+                    problem.Id,
+                    normalizedLanguage ?? language);
+
+                throw;
             }
             finally
             {
+                if (result is not null)
+                {
+                    stopwatch.Stop();
+                    _observabilityService.RecordCodeExecution(
+                        normalizedLanguage ?? "unknown",
+                        normalizedExecutionMode,
+                        result.Status.ToString(),
+                        stopwatch.Elapsed,
+                        orderedTests.Count);
+                }
+
                 TryDeleteDirectory(workspacePath);
             }
         }

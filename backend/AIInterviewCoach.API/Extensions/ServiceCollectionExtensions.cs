@@ -1,5 +1,7 @@
 using System.Text;
+using AIInterviewCoach.API.Authentication;
 using AIInterviewCoach.API.Authorization;
+using AIInterviewCoach.API.Health;
 using AIInterviewCoach.API.RateLimiting;
 using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Infrastructure.Configuration;
@@ -10,6 +12,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using AIInterviewCoach.Application.Services;
+using Microsoft.Net.Http.Headers;
 
 namespace AIInterviewCoach.API.Extensions
 {
@@ -18,6 +21,7 @@ namespace AIInterviewCoach.API.Extensions
         public static IServiceCollection AddApplicationServices(
         this IServiceCollection services)
         {
+            services.AddSingleton<IObservabilityService, ApplicationObservabilityService>();
             services.AddScoped<IAdminAuditService, AdminAuditService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProblemService, ProblemService>();
@@ -57,6 +61,8 @@ namespace AIInterviewCoach.API.Extensions
             });
 
             services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+            services.AddHealthChecks()
+                .AddCheck<ApplicationDatabaseHealthCheck>("database", tags: ["ready"]);
 
 
             return services;
@@ -82,6 +88,35 @@ namespace AIInterviewCoach.API.Extensions
                         ValidAudience = jwtSettings["Audience"],
                         IssuerSigningKey = new SymmetricSecurityKey(
                             Encoding.UTF8.GetBytes(key))
+                    };
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnMessageReceived = context =>
+                        {
+                            if (!string.IsNullOrWhiteSpace(context.Token))
+                            {
+                                return Task.CompletedTask;
+                            }
+
+                            if (context.Request.Cookies.TryGetValue(AuthCookieDefaults.CookieName, out var cookieToken) &&
+                                !string.IsNullOrWhiteSpace(cookieToken))
+                            {
+                                context.Token = cookieToken;
+                                return Task.CompletedTask;
+                            }
+
+                            if (context.Request.Headers.TryGetValue(HeaderNames.Authorization, out var authorizationHeader) &&
+                                authorizationHeader.Count > 0)
+                            {
+                                var bearerValue = authorizationHeader.ToString();
+                                if (bearerValue.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    context.Token = bearerValue["Bearer ".Length..].Trim();
+                                }
+                            }
+
+                            return Task.CompletedTask;
+                        }
                     };
                 });
 

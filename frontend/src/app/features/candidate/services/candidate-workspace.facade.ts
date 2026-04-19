@@ -543,10 +543,10 @@ int main() {
 
     if (isFunctionSignatureProblem) {
       return this.form.controls.language.value === 'python'
-        ? 'Implement the requested Python method only. A hidden runner handles input parsing and output formatting.'
+        ? 'Implement only the exact Python Solution method shown in the starter code. A hidden runner handles input parsing and output formatting.'
         : this.form.controls.language.value === 'cpp'
-          ? 'Implement the requested C++ method only. A hidden runner handles input parsing and output formatting.'
-          : 'Implement the requested C# method only. A hidden runner handles input parsing and output formatting.';
+          ? 'Implement only the exact C++ Solution method shown in the starter code. A hidden runner handles input parsing and output formatting.'
+          : 'Implement only the exact C# Solution method shown in the starter code. A hidden runner handles input parsing and output formatting.';
     }
 
     return this.form.controls.language.value === 'python'

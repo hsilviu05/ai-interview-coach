@@ -9,13 +9,8 @@ export interface RegisterRequest {
   password: string;
 }
 
-export interface AuthResponse {
-  token: string;
-  expiresAt?: string;
-  user?: {
-    id: string;
-    fullName: string;
-    email: string;
-    role: string;
-  };
+export interface AuthSession {
+  fullName: string;
+  email: string;
+  role: string;
 }

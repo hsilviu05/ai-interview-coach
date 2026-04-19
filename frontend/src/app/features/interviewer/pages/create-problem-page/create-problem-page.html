@@ -50,11 +50,11 @@
         <div class="field">
           <label for="executionMode">Submission Mode</label>
           <select id="executionMode" formControlName="executionMode">
-            <option value="stdin">Full Program (stdin/stdout)</option>
             <option value="function">Hidden Runner + Function Signature</option>
+            <option value="stdin">Full Program (stdin/stdout)</option>
           </select>
           <small class="helper-text">
-            Use hidden runner mode for function-signature problems where candidates only implement the requested method.
+            Hidden runner mode is the recommended default for judge-style problems where candidates implement only the exact Solution signature from the statement.
           </small>
         </div>
 
@@ -94,7 +94,7 @@
           </div>
 
           <p class="helper-text">
-            These templates come from the shared backend catalog, so the admin creator and starter problem seeding stay in sync.
+            These templates come from the shared backend catalog, so the admin creator and starter problem seeding stay in sync around exact class and method signatures.
           </p>
 
           <p class="helper-text" *ngIf="loadingTemplates">Loading shared templates...</p>
