@@ -6,6 +6,8 @@
     "start": "ng serve",
     "start:e2e": "ng serve --configuration e2e --host 127.0.0.1 --port 4201",
     "build": "ng build",
+    "refresh:openapi": "node ./scripts/refresh-openapi.mjs",
+    "generate:api-types": "node ./scripts/generate-api-types.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "e2e": "playwright test",

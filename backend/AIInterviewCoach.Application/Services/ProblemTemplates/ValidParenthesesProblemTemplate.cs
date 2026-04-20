@@ -1,4 +1,6 @@
 using AIInterviewCoach.Domain.Enums;
+using AIInterviewCoach.Application.DTOs.Problems;
+using AIInterviewCoach.Application.Services.ProblemSignatures;
 
 namespace AIInterviewCoach.Application.Services.ProblemTemplates
 {
@@ -18,99 +20,21 @@ namespace AIInterviewCoach.Application.Services.ProblemTemplates
                 ExampleInput: "s = \"()[]{}\"",
                 ExampleOutput: "true",
                 ExecutionMode: ProblemExecutionModes.FunctionSignature,
-                CsharpStarterCode:
-                """
-                public class Solution
+                Signature: new ProblemSignatureDefinitionDto
                 {
-                    public bool IsValid(string s)
-                    {
-                        return false;
-                    }
-                }
-                """,
-                PythonStarterCode:
-                """
-                class Solution:
-                    def isValid(self, s: str) -> bool:
-                        return False
-                """,
-                CppStarterCode:
-                """
-                #include <string>
-                using namespace std;
-
-                class Solution {
-                public:
-                    bool isValid(string s) {
-                        return false;
-                    }
-                };
-                """,
-                CsharpHarnessTemplate:
-                """
-                using System;
-                using System.Text.Json;
-
-                {{candidate_code}}
-
-                var payload = JsonSerializer.Deserialize<ValidParenthesesInput>(Console.In.ReadToEnd());
-
-                if (payload is null)
-                {
-                    throw new InvalidOperationException("Invalid input.");
-                }
-
-                var result = new Solution().IsValid(payload.s ?? string.Empty);
-                Console.WriteLine(result ? "true" : "false");
-
-                public sealed class ValidParenthesesInput
-                {
-                    public string? s { get; set; }
-                }
-                """,
-                PythonHarnessTemplate:
-                """
-                import json
-                import sys
-
-                {{candidate_code}}
-
-                payload = json.loads(sys.stdin.read() or "{}")
-                result = Solution().isValid(payload.get("s", ""))
-                print("true" if result else "false")
-                """,
-                CppHarnessTemplate:
-                """
-                #include <iostream>
-                #include <iterator>
-                #include <string>
-
-                {{candidate_code}}
-
-                string ExtractStringField(const string& input, const string& key) {
-                    const auto keyPos = input.find("\"" + key + "\"");
-                    const auto colon = input.find(':', keyPos == string::npos ? 0 : keyPos);
-                    const auto firstQuote = input.find('"', colon == string::npos ? 0 : colon + 1);
-                    const auto secondQuote = input.find('"', firstQuote == string::npos ? 0 : firstQuote + 1);
-
-                    if (firstQuote == string::npos || secondQuote == string::npos || secondQuote <= firstQuote) {
-                        return "";
-                    }
-
-                    return input.substr(firstQuote + 1, secondQuote - firstQuote - 1);
-                }
-
-                int main() {
-                    string input(
-                        (istreambuf_iterator<char>(cin)),
-                        istreambuf_iterator<char>());
-
-                    Solution solution;
-                    auto result = solution.isValid(ExtractStringField(input, "s"));
-                    cout << (result ? "true" : "false");
-                    return 0;
-                }
-                """,
+                    InputBindingMode = ProblemSignatureInputBindingModes.JsonObject,
+                    CsharpMethodName = "IsValid",
+                    PythonMethodName = "isValid",
+                    CppMethodName = "isValid",
+                    ReturnType = ProblemSignatureTypeKeys.Bool,
+                    Parameters =
+                    [
+                        new ProblemSignatureParameterDto { Name = "s", Type = ProblemSignatureTypeKeys.String }
+                    ]
+                },
+                CsharpStarterCode: string.Empty,
+                PythonStarterCode: string.Empty,
+                CppStarterCode: string.Empty,
                 IncludeInStarterCatalog: true,
                 TestCases:
                 [

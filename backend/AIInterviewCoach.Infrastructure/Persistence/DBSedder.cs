@@ -1,5 +1,6 @@
 using AIInterviewCoach.Application.Services;
 using AIInterviewCoach.Application.DTOs.Problems;
+using AIInterviewCoach.Application.Services.ProblemSignatures;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
 using AIInterviewCoach.Infrastructure.Services;
@@ -279,6 +280,19 @@ namespace AIInterviewCoach.Infrastructure.Persistence
                 problem.CsharpStarterCode = template.CsharpStarterCode.Trim();
                 problem.PythonStarterCode = template.PythonStarterCode.Trim();
                 problem.CppStarterCode = template.CppStarterCode.Trim();
+                problem.SignatureDefinitionJson = template.Signature is null
+                    ? null
+                    : ProblemSignatureSerializer.Serialize(
+                        ProblemSignatureValidation.ValidateAndNormalize(template.Signature));
+
+                if (template.Signature is not null)
+                {
+                    var generatedArtifacts = ProblemSignatureCodeGenerator.Generate(template.Signature);
+                    problem.CsharpHarnessTemplate = generatedArtifacts.CsharpHarnessCode;
+                    problem.PythonHarnessTemplate = generatedArtifacts.PythonHarnessCode;
+                    problem.CppHarnessTemplate = generatedArtifacts.CppHarnessCode;
+                }
+
                 if (ShouldUpgradeLegacyStarterMetadata(problem, template))
                 {
                     problem.Description = template.Description;
@@ -304,7 +318,14 @@ namespace AIInterviewCoach.Infrastructure.Persistence
                 !string.Equals(problem.Topic?.Trim(), template.Topic.Trim(), StringComparison.Ordinal) ||
                 !string.Equals(problem.ConstraintsText?.Trim(), template.ConstraintsText.Trim(), StringComparison.Ordinal) ||
                 !string.Equals(problem.ExampleInput?.Trim(), template.ExampleInput.Trim(), StringComparison.Ordinal) ||
-                !string.Equals(problem.ExampleOutput?.Trim(), template.ExampleOutput.Trim(), StringComparison.Ordinal);
+                !string.Equals(problem.ExampleOutput?.Trim(), template.ExampleOutput.Trim(), StringComparison.Ordinal) ||
+                !string.Equals(
+                    problem.SignatureDefinitionJson?.Trim(),
+                    template.Signature is null
+                        ? null
+                        : ProblemSignatureSerializer.Serialize(
+                            ProblemSignatureValidation.ValidateAndNormalize(template.Signature)),
+                    StringComparison.Ordinal);
         }
 
         private static bool ShouldUpgradeLegacyFunctionStarter(string title, string pythonStarterCode)

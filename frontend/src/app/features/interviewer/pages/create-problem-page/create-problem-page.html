@@ -4,9 +4,9 @@
   <div class="shell">
     <div class="header-card">
       <div>
-        <div class="badge">Create Problem</div>
-        <h1>Create a reusable coding problem.</h1>
-        <p>Define the problem once and reuse it in multiple interviews.</p>
+        <div class="badge">{{ pageBadge }}</div>
+        <h1>{{ pageTitle }}</h1>
+        <p>{{ pageDescription }}</p>
       </div>
 
       <button type="button" class="secondary-btn" (click)="goToProblems()">
@@ -14,7 +14,7 @@
       </button>
     </div>
 
-    <div class="form-card">
+    <div class="form-card" *ngIf="!loadingProblem; else loadingProblemBlock">
       <form [formGroup]="form" (ngSubmit)="submit()" class="form">
         <div class="field">
           <label for="title">Title</label>
@@ -79,7 +79,7 @@
           <div class="signature-card-header">
             <div>
               <h2>Function Signature Setup</h2>
-              <p>Visible starters are shown to candidates. Hidden harness templates stay server-side and must include <code>{{ '{{candidate_code}}' }}</code>.</p>
+              <p>Define the exact method contract once. The backend generates the hidden runner and starter code from this metadata.</p>
             </div>
 
             <div class="signature-card-actions">
@@ -94,7 +94,7 @@
           </div>
 
           <p class="helper-text">
-            These templates come from the shared backend catalog, so the admin creator and starter problem seeding stay in sync around exact class and method signatures.
+            These templates come from the shared backend catalog, so the admin creator, starter problem seeding, and execution layer stay in sync around the same exact signature metadata.
           </p>
 
           <p class="helper-text" *ngIf="loadingTemplates">Loading shared templates...</p>
@@ -103,6 +103,137 @@
           <div class="field" *ngIf="selectedTemplateKey">
             <label>Loaded Template</label>
             <input type="text" [value]="selectedTemplateKey" readonly />
+          </div>
+
+          <div class="two-cols" [formGroup]="form.controls.signature">
+            <div class="field">
+              <label for="inputBindingMode">Input Binding</label>
+              <select id="inputBindingMode" formControlName="inputBindingMode">
+                <option *ngFor="let option of signatureInputBindingOptions" [value]="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="returnType">Return Type</label>
+              <select id="returnType" formControlName="returnType">
+                <option *ngFor="let option of signatureTypeOptions" [value]="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="language-grid" [formGroup]="form.controls.signature">
+            <div class="field">
+              <label for="csharpMethodName">C# Method Name</label>
+              <input id="csharpMethodName" type="text" formControlName="csharpMethodName" />
+            </div>
+
+            <div class="field">
+              <label for="pythonMethodName">Python Method Name</label>
+              <input id="pythonMethodName" type="text" formControlName="pythonMethodName" />
+            </div>
+          </div>
+
+          <div class="language-grid">
+            <div class="field">
+              <label for="cppMethodName">C++ Method Name</label>
+              <input id="cppMethodName" type="text" [formControl]="form.controls.signature.controls.cppMethodName" />
+            </div>
+          </div>
+
+          <div class="parameter-list">
+            <div class="parameter-list-header">
+              <div>
+                <h3>Parameters</h3>
+                <p>For JSON object binding, each parameter becomes a named field in the hidden runner input.</p>
+              </div>
+
+              <button type="button" class="secondary-btn" (click)="addSignatureParameter()">
+                Add Parameter
+              </button>
+            </div>
+
+            <div formArrayName="parameters" class="parameter-items">
+              <div
+                class="parameter-row"
+                *ngFor="let parameter of signatureParameters.controls; let index = index"
+                [formGroupName]="index">
+                <div class="field">
+                  <label [for]="'parameter-name-' + index">Name</label>
+                  <input [id]="'parameter-name-' + index" type="text" formControlName="name" />
+                </div>
+
+                <div class="field">
+                  <label [for]="'parameter-type-' + index">Type</label>
+                  <select [id]="'parameter-type-' + index" formControlName="type">
+                    <option *ngFor="let option of signatureTypeOptions" [value]="option.value">
+                      {{ option.label }}
+                    </option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  class="secondary-btn danger-btn"
+                  (click)="removeSignatureParameter(index)"
+                  [disabled]="signatureParameters.length === 1">
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="preview-card">
+            <div class="preview-header">
+              <div>
+                <h3>Generated Starter Preview</h3>
+                <p>The backend regenerates these previews from the signature above.</p>
+              </div>
+            </div>
+
+            <p class="helper-text" *ngIf="loadingPreview">Generating starter preview...</p>
+            <p class="error" *ngIf="previewErrorMessage">{{ previewErrorMessage }}</p>
+
+            <div class="language-grid" *ngIf="signaturePreview">
+              <div class="field">
+                <label for="previewCsharpStarterCode">C# Starter Code</label>
+                <textarea
+                  id="previewCsharpStarterCode"
+                  rows="8"
+                  [value]="signaturePreview.csharpStarterCode"
+                  readonly></textarea>
+              </div>
+
+              <div class="field">
+                <label for="previewPythonStarterCode">Python Starter Code</label>
+                <textarea
+                  id="previewPythonStarterCode"
+                  rows="8"
+                  [value]="signaturePreview.pythonStarterCode"
+                  readonly></textarea>
+              </div>
+            </div>
+
+            <div class="field" *ngIf="signaturePreview">
+              <label for="previewCppStarterCode">C++ Starter Code</label>
+              <textarea
+                id="previewCppStarterCode"
+                rows="8"
+                [value]="signaturePreview.cppStarterCode"
+                readonly></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="signature-card" *ngIf="!isFunctionSignatureMode()">
+          <div class="signature-card-header">
+            <div>
+              <h2>Starter Code</h2>
+              <p>Full-program problems still use visible starter code only. Candidates are responsible for stdin/stdout handling in this mode.</p>
+            </div>
           </div>
 
           <div class="language-grid">
@@ -121,54 +252,52 @@
             <label for="cppStarterCode">C++ Starter Code</label>
             <textarea id="cppStarterCode" rows="8" formControlName="cppStarterCode"></textarea>
           </div>
-
-          <div class="language-grid">
-            <div class="field">
-              <label for="csharpHarnessTemplate">Hidden C# Harness Template</label>
-              <textarea id="csharpHarnessTemplate" rows="10" formControlName="csharpHarnessTemplate"></textarea>
-            </div>
-
-            <div class="field">
-              <label for="pythonHarnessTemplate">Hidden Python Harness Template</label>
-              <textarea id="pythonHarnessTemplate" rows="10" formControlName="pythonHarnessTemplate"></textarea>
-            </div>
-          </div>
-
-          <div class="field">
-            <label for="cppHarnessTemplate">Hidden C++ Harness Template</label>
-            <textarea id="cppHarnessTemplate" rows="12" formControlName="cppHarnessTemplate"></textarea>
-          </div>
         </div>
 
         <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
-        <button type="submit" class="primary-btn" [disabled]="loading">
-          {{ loading ? 'Creating Problem...' : 'Create Problem' }}
+        <button type="submit" class="primary-btn" [disabled]="loading || loadingProblem">
+          {{ submitButtonLabel }}
         </button>
       </form>
     </div>
 
+    <ng-template #loadingProblemBlock>
+      <div class="form-card">
+        <div class="loading-state">
+          <div class="loading-card">
+            <h2>Loading problem...</h2>
+            <p>Please wait while the problem editor is populated.</p>
+          </div>
+        </div>
+      </div>
+    </ng-template>
+
     <p class="success-banner" *ngIf="successMessage">{{ successMessage }}</p>
 
     <div class="result-card" *ngIf="createdProblem">
-      <h2>Problem Created</h2>
+      <h2>{{ resultTitle }}</h2>
       <p><strong>Title:</strong> {{ createdProblem.title }}</p>
       <p><strong>Difficulty:</strong> {{ createdProblem.difficulty }}</p>
       <p><strong>Topic:</strong> {{ createdProblem.topic }}</p>
 
       <div class="result-actions">
         <button type="button" class="primary-btn" (click)="goToProblems()">Go to My Problems</button>
-        <button type="button" class="secondary-btn" (click)="createAnother()">Create Another</button>
+        <button type="button" class="secondary-btn" (click)="createAnother()">{{ secondaryResultActionLabel }}</button>
       </div>
     </div>
 
-    <div class="follow-up-section" *ngIf="createdProblem">
+    <div class="follow-up-section" *ngIf="problemIdForTestCases">
       <div class="follow-up-header">
-        <h2>Next Step: Add Test Cases</h2>
-        <p>Now define the visible and hidden cases used to validate candidate submissions.</p>
+        <h2>{{ isEditMode() ? 'Manage Test Cases' : 'Next Step: Add Test Cases' }}</h2>
+        <p>
+          {{ isEditMode()
+            ? 'Update the visible and hidden cases used to validate candidate submissions.'
+            : 'Now define the visible and hidden cases used to validate candidate submissions.' }}
+        </p>
       </div>
 
-      <app-test-case-form [problemId]="createdProblem.id"></app-test-case-form>
+      <app-test-case-form [problemId]="problemIdForTestCases!"></app-test-case-form>
     </div>
   </div>
 </div>

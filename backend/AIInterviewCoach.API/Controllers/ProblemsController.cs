@@ -27,6 +27,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet]
+        [ProducesResponseType(typeof(IEnumerable<ProblemSummaryResponseDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAllProblems()
         {
             var currentUserId = GetCurrentUserId();
@@ -36,6 +37,8 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet("{id:guid}")]
+        [ProducesResponseType(typeof(ProblemResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetProblemById(Guid id)
         {
             var currentUserId = GetCurrentUserId();
@@ -49,15 +52,31 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpGet("templates")]
         [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
+        [ProducesResponseType(typeof(IReadOnlyList<ProblemTemplateResponseDto>), StatusCodes.Status200OK)]
         public IActionResult GetProblemTemplates()
         {
             var templates = _problemTemplateService.GetTemplates();
             return Ok(templates);
         }
 
+        [HttpPost("signature-preview")]
+        [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
+        [ProducesResponseType(typeof(ProblemSignaturePreviewResponseDto), StatusCodes.Status200OK)]
+        public IActionResult GetSignaturePreview([FromBody] ProblemSignatureDefinitionDto signature)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            var preview = _problemTemplateService.GetSignaturePreview(signature);
+            return Ok(preview);
+        }
+
         [HttpPost]
         [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
         [EnableRateLimiting(RateLimitingPolicies.AdminMutation)]
+        [ProducesResponseType(typeof(ProblemResponseDto), StatusCodes.Status201Created)]
         public async Task<IActionResult> CreateProblem([FromBody] CreateProblemRequestDto createRequest)
         {
             if (!ModelState.IsValid)
@@ -75,6 +94,8 @@ namespace AIInterviewCoach.API.Controllers
         [HttpPut("{id:guid}")]
         [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
         [EnableRateLimiting(RateLimitingPolicies.AdminMutation)]
+        [ProducesResponseType(typeof(ProblemResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateProblem(Guid id, [FromBody] UpdateProblemRequestDto updateRequest)
         {
             if (!ModelState.IsValid)
@@ -92,6 +113,8 @@ namespace AIInterviewCoach.API.Controllers
         [HttpDelete("{id:guid}")]
         [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
         [EnableRateLimiting(RateLimitingPolicies.AdminMutation)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteProblem(Guid id)
         {
             var currentUserId = GetCurrentUserId();
@@ -106,6 +129,7 @@ namespace AIInterviewCoach.API.Controllers
         [HttpPost("catalog/replace-with-starter-set")]
         [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
         [EnableRateLimiting(RateLimitingPolicies.AdminMutation)]
+        [ProducesResponseType(typeof(ReplaceProblemCatalogResponseDto), StatusCodes.Status200OK)]
         public async Task<IActionResult> ReplaceCatalogWithStarterSet()
         {
             var currentUserId = GetCurrentUserId();
@@ -116,6 +140,7 @@ namespace AIInterviewCoach.API.Controllers
         [HttpPost("{problemId:guid}/testcases")]
         [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
         [EnableRateLimiting(RateLimitingPolicies.AdminMutation)]
+        [ProducesResponseType(typeof(TestCaseResponseDto), StatusCodes.Status200OK)]
         public async Task<IActionResult> AddTestCase(Guid problemId, [FromBody] CreateTestCaseRequestDto createTestCaseRequest)
         {
             if (!ModelState.IsValid)
@@ -132,6 +157,7 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpGet("{problemId:guid}/testcases")]
         [Authorize(Policy = AuthorizationPolicies.AdminProblemManagement)]
+        [ProducesResponseType(typeof(IEnumerable<TestCaseResponseDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetTestCases(Guid problemId, [FromQuery] bool includeHidden = false)
         {
             var currentUserId = GetCurrentUserId();

@@ -1,13 +1,11 @@
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
+import type {
+  LoginRequestDto,
+  RegisterRequestDto,
+} from '../api/generated/backend-api';
 
-export interface RegisterRequest {
-  fullName: string;
-  email: string;
-  password: string;
-}
+export type LoginRequest = LoginRequestDto;
+
+export type RegisterRequest = RegisterRequestDto;
 
 export interface AuthSession {
   fullName: string;

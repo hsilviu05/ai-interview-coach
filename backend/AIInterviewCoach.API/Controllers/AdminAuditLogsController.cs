@@ -24,6 +24,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet]
+        [ProducesResponseType(typeof(IReadOnlyList<AdminAuditLogResponseDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetRecentLogs([FromQuery] int take = 20, CancellationToken cancellationToken = default)
         {
             try

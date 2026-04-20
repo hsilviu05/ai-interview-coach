@@ -2,6 +2,7 @@ using AIInterviewCoach.Application.DTOs.AdminAuditLogs;
 using AIInterviewCoach.Application.DTOs.Problems;
 using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Application.Services;
+using AIInterviewCoach.Application.Services.ProblemSignatures;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
 using AIInterviewCoach.Infrastructure.Services;
@@ -259,6 +260,7 @@ namespace AIInterviewCoach.Tests.Services
                 Assert.Equal(ProblemExecutionModes.FunctionSignature, existingProblem.ExecutionMode);
                 Assert.Equal(interviewer.Id, existingProblem.CreatedByUserId);
                 Assert.NotEmpty(existingProblem.TestCases);
+                Assert.False(string.IsNullOrWhiteSpace(existingProblem.SignatureDefinitionJson));
                 Assert.False(string.IsNullOrWhiteSpace(existingProblem.CsharpHarnessTemplate));
                 Assert.Contains("{{candidate_code}}", existingProblem.CsharpHarnessTemplate);
             });
@@ -342,12 +344,22 @@ namespace AIInterviewCoach.Tests.Services
                 ExampleInput = "{\"nodes\":[]}",
                 ExampleOutput = "[]",
                 ExecutionMode = ProblemExecutionModes.FunctionSignature,
-                CsharpStarterCode = "public class Solution { public int Solve() { return 0; } }",
-                PythonStarterCode = "class Solution:\n    def solve(self):\n        return 0",
-                CppStarterCode = "#include <vector>\nclass Solution { public: int solve() { return 0; } };",
-                CsharpHarnessTemplate = "{{candidate_code}}",
-                PythonHarnessTemplate = "{{candidate_code}}",
-                CppHarnessTemplate = "{{candidate_code}}",
+                Signature = new ProblemSignatureDefinitionDto
+                {
+                    InputBindingMode = ProblemSignatureInputBindingModes.JsonObject,
+                    CsharpMethodName = "Solve",
+                    PythonMethodName = "solve",
+                    CppMethodName = "solve",
+                    ReturnType = ProblemSignatureTypeKeys.Int,
+                    Parameters =
+                    [
+                        new ProblemSignatureParameterDto
+                        {
+                            Name = "nodeCount",
+                            Type = ProblemSignatureTypeKeys.Int
+                        }
+                    ]
+                },
                 IsPublic = true
             };
 
@@ -362,12 +374,22 @@ namespace AIInterviewCoach.Tests.Services
                 ExampleInput = "{\"items\":[1,2,3]}",
                 ExampleOutput = "42",
                 ExecutionMode = ProblemExecutionModes.FunctionSignature,
-                CsharpStarterCode = "public class Solution { public int Solve() { return 1; } }",
-                PythonStarterCode = "class Solution:\n    def solve(self):\n        return 1",
-                CppStarterCode = "#include <vector>\nclass Solution { public: int solve() { return 1; } };",
-                CsharpHarnessTemplate = "{{candidate_code}}",
-                PythonHarnessTemplate = "{{candidate_code}}",
-                CppHarnessTemplate = "{{candidate_code}}",
+                Signature = new ProblemSignatureDefinitionDto
+                {
+                    InputBindingMode = ProblemSignatureInputBindingModes.JsonObject,
+                    CsharpMethodName = "Solve",
+                    PythonMethodName = "solve",
+                    CppMethodName = "solve",
+                    ReturnType = ProblemSignatureTypeKeys.Int,
+                    Parameters =
+                    [
+                        new ProblemSignatureParameterDto
+                        {
+                            Name = "capacity",
+                            Type = ProblemSignatureTypeKeys.Int
+                        }
+                    ]
+                },
                 IsPublic = false
             };
 

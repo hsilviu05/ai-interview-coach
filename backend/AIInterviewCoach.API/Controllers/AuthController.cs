@@ -22,6 +22,7 @@ namespace AIInterviewCoach.API.Controllers
         [HttpPost("register")]
         [AllowAnonymous]
         [EnableRateLimiting(RateLimitingPolicies.AuthLogin)]
+        [ProducesResponseType(typeof(AuthSessionResponseDto), StatusCodes.Status200OK)]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
         {
             var result = await _authService.RegisterAsync(request);
@@ -31,6 +32,7 @@ namespace AIInterviewCoach.API.Controllers
         [HttpPost("login")]
         [AllowAnonymous]
         [EnableRateLimiting(RateLimitingPolicies.AuthLogin)]
+        [ProducesResponseType(typeof(AuthSessionResponseDto), StatusCodes.Status200OK)]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
         {
             var result = await _authService.LoginAsync(request);
@@ -40,6 +42,7 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpGet("me")]
         [Authorize]
+        [ProducesResponseType(typeof(AuthSessionResponseDto), StatusCodes.Status200OK)]
         public IActionResult Me()
         {
             return Ok(new AuthSessionResponseDto
@@ -52,6 +55,7 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpPost("logout")]
         [AllowAnonymous]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public IActionResult Logout()
         {
             Response.Cookies.Delete(AuthCookieDefaults.CookieName, BuildCookieOptions());

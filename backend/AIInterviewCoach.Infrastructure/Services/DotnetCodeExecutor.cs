@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Diagnostics;
 using System.Text;
 using AIInterviewCoach.Application.Interfaces.Services;
+using AIInterviewCoach.Application.Services.ProblemSignatures;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
 using Microsoft.Extensions.Logging;
@@ -811,13 +812,7 @@ namespace AIInterviewCoach.Infrastructure.Services
                 return new SourceCodeBuildResult(candidateCode, null);
             }
 
-            var harnessTemplate = language switch
-            {
-                DefaultLanguage => problem.CsharpHarnessTemplate,
-                "python" => problem.PythonHarnessTemplate,
-                "cpp" => problem.CppHarnessTemplate,
-                _ => string.Empty
-            };
+            var harnessTemplate = ProblemCodeResolver.ResolveHarnessTemplate(problem, language) ?? string.Empty;
 
             if (string.IsNullOrWhiteSpace(harnessTemplate))
             {

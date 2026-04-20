@@ -13,11 +13,9 @@ namespace AIInterviewCoach.Application.DTOs.Problems
         public string ExampleInput { get; set; } = string.Empty;
         public string ExampleOutput { get; set; } = string.Empty;
         public string ExecutionMode { get; set; } = string.Empty;
+        public ProblemSignatureDefinitionDto? Signature { get; set; }
         public string CsharpStarterCode { get; set; } = string.Empty;
         public string PythonStarterCode { get; set; } = string.Empty;
         public string CppStarterCode { get; set; } = string.Empty;
-        public string CsharpHarnessTemplate { get; set; } = string.Empty;
-        public string PythonHarnessTemplate { get; set; } = string.Empty;
-        public string CppHarnessTemplate { get; set; } = string.Empty;
     }
 }
