@@ -54,7 +54,7 @@ test('candidate can search practice problems, switch languages, and reset a draf
   await page.getByLabel('Language').selectOption('python');
   await expect(
     page.getByText(
-      'Implement the requested Python method only. A hidden runner handles input parsing and output formatting.'
+      'Implement only the exact Python Solution method shown in the starter code. A hidden runner handles input parsing and output formatting.'
     )
   ).toBeVisible();
   await expect.poll(async () => getEditorValue(page)).toContain('def maxProfit');

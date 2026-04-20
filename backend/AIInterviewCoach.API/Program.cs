@@ -26,7 +26,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddApplicationDatabase(builder.Configuration);
 builder.Services.AddApplicationServices();
 builder.Services.AddJwtAuthentication(builder.Configuration);
-builder.Services.AddApplicationRateLimiting();
+builder.Services.AddApplicationRateLimiting(builder.Environment);
 
 builder.Services.AddCors(options =>
 {
@@ -37,7 +37,9 @@ builder.Services.AddCors(options =>
                 "http://localhost:4200",
                 "http://127.0.0.1:4200",
                 "http://localhost:4201",
-                "http://127.0.0.1:4201")
+                "http://127.0.0.1:4201",
+                "http://localhost:54201",
+                "http://127.0.0.1:54201")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();

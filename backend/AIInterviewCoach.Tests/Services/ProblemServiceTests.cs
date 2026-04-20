@@ -127,6 +127,58 @@ namespace AIInterviewCoach.Tests.Services
         }
 
         [Fact]
+        public async Task CreateProblemAsync_ShouldThrow_WhenFunctionSignatureHasDuplicateParameters()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var admin = TestDataSeeder.CreateAdmin(db);
+            var service = CreateService(db);
+            var request = BuildCreateRequest();
+            request.Signature!.Parameters.Add(new ProblemSignatureParameterDto
+            {
+                Name = "NODECOUNT",
+                Type = ProblemSignatureTypeKeys.Int
+            });
+
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.CreateProblemAsync(admin.Id, request));
+
+            Assert.Contains("declared more than once", exception.Message);
+        }
+
+        [Fact]
+        public async Task UpdateProblemAsync_ShouldThrow_WhenRawTextSignatureDoesNotUseSingleStringParameter()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var admin = TestDataSeeder.CreateAdmin(db);
+            var problem = TestDataSeeder.CreateProblem(db, admin.Id, title: "Editable Problem");
+            var service = CreateService(db);
+            var request = BuildUpdateRequest();
+            request.Signature = new ProblemSignatureDefinitionDto
+            {
+                InputBindingMode = ProblemSignatureInputBindingModes.RawText,
+                CsharpMethodName = "Solve",
+                PythonMethodName = "solve",
+                CppMethodName = "solve",
+                ReturnType = ProblemSignatureTypeKeys.String,
+                Parameters =
+                [
+                    new ProblemSignatureParameterDto
+                    {
+                        Name = "rawInput",
+                        Type = ProblemSignatureTypeKeys.Int
+                    }
+                ]
+            };
+
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.UpdateProblemAsync(problem.Id, admin.Id, request));
+
+            Assert.Contains("Raw-text signatures must define exactly one string parameter.", exception.Message);
+        }
+
+        [Fact]
         public async Task CreateProblemAsync_ShouldWriteAdminAuditLog()
         {
             using var db = TestDbContextFactory.CreateContext();

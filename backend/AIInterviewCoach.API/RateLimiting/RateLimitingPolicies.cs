@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Hosting;
 
 namespace AIInterviewCoach.API.RateLimiting
 {
@@ -13,8 +14,11 @@ namespace AIInterviewCoach.API.RateLimiting
         public const string CandidateSubmissionFlow = "CandidateSubmissionFlow";
         public const string AdminMutation = "AdminMutation";
 
-        public static void Register(RateLimiterOptions options)
+        public static void Register(RateLimiterOptions options, IHostEnvironment environment)
         {
+            var isIntegrationTesting = environment.IsEnvironment("IntegrationTesting");
+            var authPermitLimit = isIntegrationTesting ? 50 : 5;
+
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.OnRejected = async (context, cancellationToken) =>
             {
@@ -40,7 +44,7 @@ namespace AIInterviewCoach.API.RateLimiting
                     BuildIpPartitionKey(httpContext, "auth"),
                     _ => new FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = 5,
+                        PermitLimit = authPermitLimit,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
                         AutoReplenishment = true

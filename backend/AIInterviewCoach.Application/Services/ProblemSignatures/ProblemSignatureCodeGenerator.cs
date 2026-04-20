@@ -166,6 +166,38 @@ namespace AIInterviewCoach.Application.Services.ProblemSignatures
 
         private static string GenerateCppHarnessTemplate(ProblemSignatureDefinitionDto signature)
         {
+            if (signature.InputBindingMode == ProblemSignatureInputBindingModes.RawText)
+            {
+                var rawTextHelpers = BuildCppOutputHelpers(signature.ReturnType);
+
+                return $$$"""
+                    #include <iostream>
+                    #include <iterator>
+                    #include <string>
+                    #include <vector>
+
+                    {{candidate_code}}
+
+                    using namespace std;
+
+                    static string ReadAllInput() {
+                        return string(
+                            (istreambuf_iterator<char>(cin)),
+                            istreambuf_iterator<char>());
+                    }
+
+                    {{{rawTextHelpers}}}
+
+                    int main() {
+                        const string input = ReadAllInput();
+                        Solution solution;
+                        auto result = solution.{{{signature.CppMethodName}}}(input);
+                        {{{BuildCppOutputStatement(signature.ReturnType, "result")}}}
+                        return 0;
+                    }
+                    """;
+            }
+
             var invocationArguments = signature.InputBindingMode == ProblemSignatureInputBindingModes.RawText
                 ? "input"
                 : string.Join(
@@ -640,6 +672,63 @@ namespace AIInterviewCoach.Application.Services.ProblemSignatures
                 ProblemSignatureTypeKeys.IntArray => $"ExtractIntArrayField(input, \"{parameter.Name}\")",
                 ProblemSignatureTypeKeys.StringArray => $"ExtractStringArrayField(input, \"{parameter.Name}\")",
                 _ => throw new InvalidOperationException($"Unsupported C++ type '{parameter.Type}'.")
+            };
+        }
+
+        private static string BuildCppOutputHelpers(string returnType)
+        {
+            return returnType switch
+            {
+                ProblemSignatureTypeKeys.IntArray => """
+                    static string FormatIntArray(const vector<int>& values) {
+                        string output = "[";
+
+                        for (size_t index = 0; index < values.size(); ++index) {
+                            if (index > 0) {
+                                output += ",";
+                            }
+
+                            output += to_string(values[index]);
+                        }
+
+                        output += "]";
+                        return output;
+                    }
+                    """,
+                ProblemSignatureTypeKeys.StringArray => """
+                    static string EscapeJsonString(const string& value) {
+                        string escaped;
+                        escaped.reserve(value.size());
+
+                        for (const auto ch : value) {
+                            if (ch == '\\' || ch == '"') {
+                                escaped += '\\';
+                            }
+
+                            escaped += ch;
+                        }
+
+                        return escaped;
+                    }
+
+                    static string FormatStringArray(const vector<string>& values) {
+                        string output = "[";
+
+                        for (size_t index = 0; index < values.size(); ++index) {
+                            if (index > 0) {
+                                output += ",";
+                            }
+
+                            output += "\"";
+                            output += EscapeJsonString(values[index]);
+                            output += "\"";
+                        }
+
+                        output += "]";
+                        return output;
+                    }
+                    """,
+                _ => string.Empty
             };
         }
 

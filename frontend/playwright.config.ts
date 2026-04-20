@@ -28,8 +28,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command:
-        'dotnet run --no-launch-profile --no-restore --urls http://127.0.0.1:5292',
+      command: `dotnet run --no-launch-profile --no-restore --urls ${E2E_BACKEND_URL}`,
       cwd: path.resolve(__dirname, '../backend/AIInterviewCoach.API'),
       url: `${E2E_BACKEND_URL}/health`,
       timeout: 120_000,

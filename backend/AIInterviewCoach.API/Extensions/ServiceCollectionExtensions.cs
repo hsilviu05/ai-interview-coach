@@ -126,9 +126,10 @@ namespace AIInterviewCoach.API.Extensions
         }
 
         public static IServiceCollection AddApplicationRateLimiting(
-            this IServiceCollection services)
+            this IServiceCollection services,
+            IHostEnvironment environment)
         {
-            services.AddRateLimiter(RateLimitingPolicies.Register);
+            services.AddRateLimiter(options => RateLimitingPolicies.Register(options, environment));
 
             return services;
         }
