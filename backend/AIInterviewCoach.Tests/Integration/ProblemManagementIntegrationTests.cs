@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using AIInterviewCoach.Application.DTOs.Problems;
+using AIInterviewCoach.Application.Services.ProblemSignatures;
 using AIInterviewCoach.Tests.Common;
 
 namespace AIInterviewCoach.Tests.Integration
@@ -77,12 +78,10 @@ namespace AIInterviewCoach.Tests.Integration
                 ExampleInput = selectedTemplate.ExampleInput,
                 ExampleOutput = selectedTemplate.ExampleOutput,
                 ExecutionMode = selectedTemplate.ExecutionMode,
+                Signature = selectedTemplate.Signature,
                 CsharpStarterCode = selectedTemplate.CsharpStarterCode,
                 PythonStarterCode = selectedTemplate.PythonStarterCode,
                 CppStarterCode = selectedTemplate.CppStarterCode,
-                CsharpHarnessTemplate = selectedTemplate.CsharpHarnessTemplate,
-                PythonHarnessTemplate = selectedTemplate.PythonHarnessTemplate,
-                CppHarnessTemplate = selectedTemplate.CppHarnessTemplate,
                 IsPublic = true
             });
 
@@ -99,6 +98,8 @@ namespace AIInterviewCoach.Tests.Integration
             Assert.NotNull(candidateProblem);
             Assert.Equal("Two Sum Integration Variant", candidateProblem!.Title);
             Assert.Equal("function", candidateProblem.ExecutionMode);
+            Assert.NotNull(candidateProblem.Signature);
+            Assert.Equal(ProblemSignatureTypeKeys.IntArray, candidateProblem.Signature!.ReturnType);
             Assert.Contains("def twoSum", candidateProblem.PythonStarterCode);
             Assert.Contains("public int[] TwoSum", candidateProblem.CsharpStarterCode);
         }

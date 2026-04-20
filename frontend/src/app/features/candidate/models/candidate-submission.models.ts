@@ -1,12 +1,9 @@
+import type { CreateSubmissionRequestDto } from '../../../core/api/generated/backend-api';
+
 
 export type SubmissionFeedbackStatus = 'Pending' | 'Ready' | 'Failed';
 
-export interface CreateSubmissionRequest {
-  problemId: string;
-  interviewSessionId?: string | null;
-  language: string;
-  sourceCode: string;
-}
+export type CreateSubmissionRequest = CreateSubmissionRequestDto;
 
 export interface SubmissionResponse {
   id: string;

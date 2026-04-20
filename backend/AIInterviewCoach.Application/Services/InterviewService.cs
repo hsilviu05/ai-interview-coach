@@ -1,5 +1,6 @@
 using AIInterviewCoach.Application.DTOs.Interviews;
 using AIInterviewCoach.Application.Interfaces.Services;
+using AIInterviewCoach.Application.Services.ProblemSignatures;
 using AIInterviewCoach.Application.DTOs.Submissions;
 using AIInterviewCoach.Domain.Constants;
 using AIInterviewCoach.Domain.Entities;
@@ -102,18 +103,10 @@ namespace AIInterviewCoach.Application.Services
                     ExampleInput = BuildProblemExampleInput(ip.Problem),
                     ExampleOutput = BuildProblemExampleOutput(ip.Problem),
                     ExecutionMode = ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
-                    CsharpStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
-                        ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
-                        "csharp",
-                        ip.Problem?.CsharpStarterCode),
-                    PythonStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
-                        ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
-                        "python",
-                        ip.Problem?.PythonStarterCode),
-                    CppStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
-                        ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
-                        "cpp",
-                        ip.Problem?.CppStarterCode),
+                    Signature = ip.Problem is null ? null : ProblemCodeResolver.ResolveSignature(ip.Problem),
+                    CsharpStarterCode = ip.Problem is null ? string.Empty : ProblemCodeResolver.ResolveVisibleStarterCode(ip.Problem, "csharp"),
+                    PythonStarterCode = ip.Problem is null ? string.Empty : ProblemCodeResolver.ResolveVisibleStarterCode(ip.Problem, "python"),
+                    CppStarterCode = ip.Problem is null ? string.Empty : ProblemCodeResolver.ResolveVisibleStarterCode(ip.Problem, "cpp"),
                     VisibleTestCases = BuildVisibleTestCases(ip.Problem),
                     OrderIndex = ip.OrderIndex,
                     Points = ip.Points
@@ -148,18 +141,10 @@ namespace AIInterviewCoach.Application.Services
                     ExampleInput = BuildProblemExampleInput(ip.Problem),
                     ExampleOutput = BuildProblemExampleOutput(ip.Problem),
                     ExecutionMode = ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
-                    CsharpStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
-                        ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
-                        "csharp",
-                        ip.Problem?.CsharpStarterCode),
-                    PythonStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
-                        ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
-                        "python",
-                        ip.Problem?.PythonStarterCode),
-                    CppStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
-                        ip.Problem?.ExecutionMode ?? ProblemExecutionModes.Stdin,
-                        "cpp",
-                        ip.Problem?.CppStarterCode),
+                    Signature = ip.Problem is null ? null : ProblemCodeResolver.ResolveSignature(ip.Problem),
+                    CsharpStarterCode = ip.Problem is null ? string.Empty : ProblemCodeResolver.ResolveVisibleStarterCode(ip.Problem, "csharp"),
+                    PythonStarterCode = ip.Problem is null ? string.Empty : ProblemCodeResolver.ResolveVisibleStarterCode(ip.Problem, "python"),
+                    CppStarterCode = ip.Problem is null ? string.Empty : ProblemCodeResolver.ResolveVisibleStarterCode(ip.Problem, "cpp"),
                     VisibleTestCases = BuildVisibleTestCases(ip.Problem),
                     OrderIndex = ip.OrderIndex,
                     Points = ip.Points

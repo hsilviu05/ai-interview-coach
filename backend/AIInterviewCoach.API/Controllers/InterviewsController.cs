@@ -24,6 +24,7 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpPost]
         [Authorize(Policy = AuthorizationPolicies.InterviewerWorkspaceAccess)]
+        [ProducesResponseType(typeof(InterviewResponseDto), StatusCodes.Status201Created)]
         public async Task<IActionResult> CreateInterview([FromBody] CreateInterviewRequestDto request)
         {
             if (!ModelState.IsValid)
@@ -37,6 +38,8 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpPost("{id:guid}/problems")]
         [Authorize(Policy = AuthorizationPolicies.InterviewerWorkspaceAccess)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> AddProblemToInterview(Guid id, [FromBody] AddProblemToInterviewRequestDto request)
         {
             if (!ModelState.IsValid)
@@ -53,6 +56,8 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpGet("{id:guid}")]
         [Authorize(Policy = AuthorizationPolicies.InterviewerWorkspaceAccess)]
+        [ProducesResponseType(typeof(InterviewResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetInterviewById(Guid id)
         {
             var interviewerId = GetCurrentUserId();
@@ -66,6 +71,8 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpGet("token/{token}")]
         [EnableRateLimiting(RateLimitingPolicies.PublicInterviewTokenAccess)]
+        [ProducesResponseType(typeof(InterviewResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetInterviewByToken(string token)
         {
             var interview = await _interviewService.GetByTokenAsync(token);
@@ -79,6 +86,7 @@ namespace AIInterviewCoach.API.Controllers
         [HttpPost("token/{token}/start")]
         [Authorize(Policy = AuthorizationPolicies.CandidateWorkspaceAccess)]
         [EnableRateLimiting(RateLimitingPolicies.PublicInterviewTokenAccess)]
+        [ProducesResponseType(typeof(InterviewSessionResponseDto), StatusCodes.Status200OK)]
         public async Task<IActionResult> StartInterviewSession(string token)
         {
             var candidateId = GetCurrentUserId();
@@ -89,6 +97,7 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpPost("sessions/{sessionId:guid}/complete")]
         [Authorize(Policy = AuthorizationPolicies.CandidateWorkspaceAccess)]
+        [ProducesResponseType(typeof(InterviewSessionResponseDto), StatusCodes.Status200OK)]
         public async Task<IActionResult> CompleteInterviewSession(Guid sessionId)
         {
             var candidateId = GetCurrentUserId();
@@ -110,6 +119,7 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpGet("{interviewId:guid}/sessions")]
         [Authorize(Policy = AuthorizationPolicies.InterviewerWorkspaceAccess)]
+        [ProducesResponseType(typeof(IEnumerable<InterviewSessionResponseDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetInterviewSessions(Guid interviewId)
         {
             var interviewerId = GetCurrentUserId();
@@ -120,6 +130,7 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpGet("sessions/{sessionId:guid}")]
         [Authorize(Policy = AuthorizationPolicies.InterviewerWorkspaceAccess)]
+        [ProducesResponseType(typeof(InterviewSessionDetailsDto), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetInterviewSessionDetails(Guid sessionId)
         {
             var interviewerId = GetCurrentUserId();
@@ -130,6 +141,7 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpGet]
         [Authorize(Policy = AuthorizationPolicies.InterviewerWorkspaceAccess)]
+        [ProducesResponseType(typeof(IEnumerable<InterviewResponseDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetMyInterviews()
         {
             var interviewerId = GetCurrentUserId();

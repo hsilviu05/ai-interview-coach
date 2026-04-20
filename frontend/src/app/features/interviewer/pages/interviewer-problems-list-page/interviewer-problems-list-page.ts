@@ -91,6 +91,14 @@ export class InterviewerProblemsListPage implements OnInit {
     this.router.navigateByUrl('/interviewer/create-problem');
   }
 
+  editProblem(problem: ProblemListItem): void {
+    if (!this.isAdmin()) {
+      return;
+    }
+
+    this.router.navigateByUrl(`/interviewer/problems/${problem.id}/edit`);
+  }
+
   deleteProblem(problem: ProblemListItem): void {
     if (!this.isAdmin()) {
       return;

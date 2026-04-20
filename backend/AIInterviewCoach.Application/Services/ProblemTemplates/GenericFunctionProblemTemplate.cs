@@ -1,4 +1,6 @@
 using AIInterviewCoach.Domain.Enums;
+using AIInterviewCoach.Application.DTOs.Problems;
+using AIInterviewCoach.Application.Services.ProblemSignatures;
 
 namespace AIInterviewCoach.Application.Services.ProblemTemplates
 {
@@ -31,8 +33,8 @@ namespace AIInterviewCoach.Application.Services.ProblemTemplates
                 PythonStarterCode:
                 """
                 class Solution:
-                    def solve(self, raw_input: str) -> str:
-                        return raw_input.strip()
+                    def solve(self, rawInput: str) -> str:
+                        return rawInput.strip()
                 """,
                 CppStarterCode:
                 """
@@ -41,50 +43,23 @@ namespace AIInterviewCoach.Application.Services.ProblemTemplates
 
                 class Solution {
                 public:
-                    string solve(const string& rawInput) {
+                    string solve(string rawInput) {
                         return rawInput;
                     }
                 };
                 """,
-                CsharpHarnessTemplate:
-                """
-                using System;
-
-                {{candidate_code}}
-
-                var rawInput = Console.In.ReadToEnd();
-                var result = new Solution().Solve(rawInput);
-                Console.WriteLine(result);
-                """,
-                PythonHarnessTemplate:
-                """
-                import sys
-
-                {{candidate_code}}
-
-                raw_input = sys.stdin.read()
-                result = Solution().solve(raw_input)
-                print(result)
-                """,
-                CppHarnessTemplate:
-                """
-                #include <iostream>
-                #include <iterator>
-                #include <string>
-
-                {{candidate_code}}
-
-                int main() {
-                    string input(
-                        (istreambuf_iterator<char>(cin)),
-                        istreambuf_iterator<char>());
-
-                    Solution solution;
-                    auto result = solution.solve(input);
-                    cout << result;
-                    return 0;
-                }
-                """,
+                Signature: new ProblemSignatureDefinitionDto
+                {
+                    InputBindingMode = ProblemSignatureInputBindingModes.RawText,
+                    CsharpMethodName = "Solve",
+                    PythonMethodName = "solve",
+                    CppMethodName = "solve",
+                    ReturnType = ProblemSignatureTypeKeys.String,
+                    Parameters =
+                    [
+                        new ProblemSignatureParameterDto { Name = "rawInput", Type = ProblemSignatureTypeKeys.String }
+                    ]
+                },
                 IncludeInStarterCatalog: false,
                 TestCases: []);
         }

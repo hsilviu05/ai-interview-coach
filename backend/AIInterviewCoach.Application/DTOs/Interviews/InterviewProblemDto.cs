@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AIInterviewCoach.Application.DTOs.Problems;
 
 namespace AIInterviewCoach.Application.DTOs.Interviews
 {
@@ -16,6 +17,7 @@ namespace AIInterviewCoach.Application.DTOs.Interviews
         public string ExampleInput { get; set; } = string.Empty;
         public string ExampleOutput { get; set; } = string.Empty;
         public string ExecutionMode { get; set; } = string.Empty;
+        public ProblemSignatureDefinitionDto? Signature { get; set; }
         public string CsharpStarterCode { get; set; } = string.Empty;
         public string PythonStarterCode { get; set; } = string.Empty;
         public string CppStarterCode { get; set; } = string.Empty;

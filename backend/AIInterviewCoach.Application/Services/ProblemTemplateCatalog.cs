@@ -1,4 +1,5 @@
 using AIInterviewCoach.Application.DTOs.Problems;
+using AIInterviewCoach.Application.Services.ProblemSignatures;
 using AIInterviewCoach.Application.Services.ProblemTemplates;
 using AIInterviewCoach.Domain.Entities;
 
@@ -36,6 +37,9 @@ namespace AIInterviewCoach.Application.Services
             ProblemTemplateDefinition definition,
             Guid createdByUserId)
         {
+            var generatedArtifacts = definition.Signature is not null
+                ? ProblemSignatureCodeGenerator.Generate(definition.Signature)
+                : null;
             var problemId = Guid.NewGuid();
             var now = DateTime.UtcNow;
             var problem = new Problem
@@ -49,12 +53,21 @@ namespace AIInterviewCoach.Application.Services
                 ExampleInput = definition.ExampleInput,
                 ExampleOutput = definition.ExampleOutput,
                 ExecutionMode = definition.ExecutionMode,
-                CsharpStarterCode = definition.CsharpStarterCode.Trim(),
-                PythonStarterCode = definition.PythonStarterCode.Trim(),
-                CppStarterCode = definition.CppStarterCode.Trim(),
-                CsharpHarnessTemplate = definition.CsharpHarnessTemplate.Trim(),
-                PythonHarnessTemplate = definition.PythonHarnessTemplate.Trim(),
-                CppHarnessTemplate = definition.CppHarnessTemplate.Trim(),
+                SignatureDefinitionJson = definition.Signature is null
+                    ? null
+                    : ProblemSignatureSerializer.Serialize(definition.Signature),
+                CsharpStarterCode = ResolveTemplateStarterCode(
+                    definition.CsharpStarterCode,
+                    generatedArtifacts?.CsharpStarterCode),
+                PythonStarterCode = ResolveTemplateStarterCode(
+                    definition.PythonStarterCode,
+                    generatedArtifacts?.PythonStarterCode),
+                CppStarterCode = ResolveTemplateStarterCode(
+                    definition.CppStarterCode,
+                    generatedArtifacts?.CppStarterCode),
+                CsharpHarnessTemplate = generatedArtifacts?.CsharpHarnessCode ?? string.Empty,
+                PythonHarnessTemplate = generatedArtifacts?.PythonHarnessCode ?? string.Empty,
+                CppHarnessTemplate = generatedArtifacts?.CppHarnessCode ?? string.Empty,
                 IsPublic = true,
                 CreatedByUserId = createdByUserId,
                 CreatedAt = now,
@@ -78,6 +91,10 @@ namespace AIInterviewCoach.Application.Services
 
         private static ProblemTemplateResponseDto MapToResponseDto(ProblemTemplateDefinition definition)
         {
+            var generatedArtifacts = definition.Signature is not null
+                ? ProblemSignatureCodeGenerator.Generate(definition.Signature)
+                : null;
+
             return new ProblemTemplateResponseDto
             {
                 Key = definition.Key,
@@ -91,13 +108,26 @@ namespace AIInterviewCoach.Application.Services
                 ExampleInput = definition.ExampleInput,
                 ExampleOutput = definition.ExampleOutput,
                 ExecutionMode = definition.ExecutionMode,
-                CsharpStarterCode = definition.CsharpStarterCode,
-                PythonStarterCode = definition.PythonStarterCode,
-                CppStarterCode = definition.CppStarterCode,
-                CsharpHarnessTemplate = definition.CsharpHarnessTemplate,
-                PythonHarnessTemplate = definition.PythonHarnessTemplate,
-                CppHarnessTemplate = definition.CppHarnessTemplate
+                Signature = definition.Signature,
+                CsharpStarterCode = ResolveTemplateStarterCode(
+                    definition.CsharpStarterCode,
+                    generatedArtifacts?.CsharpStarterCode),
+                PythonStarterCode = ResolveTemplateStarterCode(
+                    definition.PythonStarterCode,
+                    generatedArtifacts?.PythonStarterCode),
+                CppStarterCode = ResolveTemplateStarterCode(
+                    definition.CppStarterCode,
+                    generatedArtifacts?.CppStarterCode)
             };
+        }
+
+        private static string ResolveTemplateStarterCode(
+            string configuredStarterCode,
+            string? generatedStarterCode)
+        {
+            return string.IsNullOrWhiteSpace(configuredStarterCode)
+                ? generatedStarterCode?.Trim() ?? string.Empty
+                : configuredStarterCode.Trim();
         }
     }
 }

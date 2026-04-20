@@ -1,4 +1,6 @@
 using AIInterviewCoach.Domain.Enums;
+using AIInterviewCoach.Application.DTOs.Problems;
+using AIInterviewCoach.Application.Services.ProblemSignatures;
 
 namespace AIInterviewCoach.Application.Services.ProblemTemplates
 {
@@ -18,102 +20,22 @@ namespace AIInterviewCoach.Application.Services.ProblemTemplates
                 ExampleInput: "word1 = \"abc\", word2 = \"pqr\"",
                 ExampleOutput: "apbqcr",
                 ExecutionMode: ProblemExecutionModes.FunctionSignature,
-                CsharpStarterCode:
-                """
-                public class Solution
+                Signature: new ProblemSignatureDefinitionDto
                 {
-                    public string MergeAlternately(string word1, string word2)
-                    {
-                        return string.Empty;
-                    }
-                }
-                """,
-                PythonStarterCode:
-                """
-                class Solution:
-                    def mergeAlternately(self, word1: str, word2: str) -> str:
-                        return ""
-                """,
-                CppStarterCode:
-                """
-                #include <string>
-                using namespace std;
-
-                class Solution {
-                public:
-                    string mergeAlternately(string word1, string word2) {
-                        return "";
-                    }
-                };
-                """,
-                CsharpHarnessTemplate:
-                """
-                using System;
-                using System.Text.Json;
-
-                {{candidate_code}}
-
-                var payload = JsonSerializer.Deserialize<MergeStringsInput>(Console.In.ReadToEnd());
-
-                if (payload is null)
-                {
-                    throw new InvalidOperationException("Invalid input.");
-                }
-
-                var result = new Solution().MergeAlternately(payload.word1 ?? string.Empty, payload.word2 ?? string.Empty);
-                Console.WriteLine(result);
-
-                public sealed class MergeStringsInput
-                {
-                    public string? word1 { get; set; }
-                    public string? word2 { get; set; }
-                }
-                """,
-                PythonHarnessTemplate:
-                """
-                import json
-                import sys
-
-                {{candidate_code}}
-
-                payload = json.loads(sys.stdin.read() or "{}")
-                result = Solution().mergeAlternately(payload.get("word1", ""), payload.get("word2", ""))
-                print(result)
-                """,
-                CppHarnessTemplate:
-                """
-                #include <iostream>
-                #include <iterator>
-                #include <string>
-
-                {{candidate_code}}
-
-                string ExtractStringField(const string& input, const string& key) {
-                    const auto keyPos = input.find("\"" + key + "\"");
-                    const auto colon = input.find(':', keyPos == string::npos ? 0 : keyPos);
-                    const auto firstQuote = input.find('"', colon == string::npos ? 0 : colon + 1);
-                    const auto secondQuote = input.find('"', firstQuote == string::npos ? 0 : firstQuote + 1);
-
-                    if (firstQuote == string::npos || secondQuote == string::npos || secondQuote <= firstQuote) {
-                        return "";
-                    }
-
-                    return input.substr(firstQuote + 1, secondQuote - firstQuote - 1);
-                }
-
-                int main() {
-                    string input(
-                        (istreambuf_iterator<char>(cin)),
-                        istreambuf_iterator<char>());
-
-                    Solution solution;
-                    auto result = solution.mergeAlternately(
-                        ExtractStringField(input, "word1"),
-                        ExtractStringField(input, "word2"));
-                    cout << result;
-                    return 0;
-                }
-                """,
+                    InputBindingMode = ProblemSignatureInputBindingModes.JsonObject,
+                    CsharpMethodName = "MergeAlternately",
+                    PythonMethodName = "mergeAlternately",
+                    CppMethodName = "mergeAlternately",
+                    ReturnType = ProblemSignatureTypeKeys.String,
+                    Parameters =
+                    [
+                        new ProblemSignatureParameterDto { Name = "word1", Type = ProblemSignatureTypeKeys.String },
+                        new ProblemSignatureParameterDto { Name = "word2", Type = ProblemSignatureTypeKeys.String }
+                    ]
+                },
+                CsharpStarterCode: string.Empty,
+                PythonStarterCode: string.Empty,
+                CppStarterCode: string.Empty,
                 IncludeInStarterCatalog: true,
                 TestCases:
                 [

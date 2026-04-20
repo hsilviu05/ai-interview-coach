@@ -40,6 +40,12 @@ export const routes: Routes = [
         canActivate: [roleGuard],
         data: { accessPolicy: routeAccessPolicies.adminProblemManagement },
       },
+      {
+        path: 'problems/:problemId/edit',
+        component: CreateProblemPage,
+        canActivate: [roleGuard],
+        data: { accessPolicy: routeAccessPolicies.adminProblemManagement },
+      },
     ],
   },
 

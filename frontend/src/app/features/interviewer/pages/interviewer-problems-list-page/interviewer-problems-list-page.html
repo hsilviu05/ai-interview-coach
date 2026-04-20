@@ -8,7 +8,7 @@
         <h1>{{ isAdmin() ? 'Manage reusable coding problems.' : 'Browse reusable coding problems.' }}</h1>
         <p>
           {{ isAdmin()
-            ? 'Create, delete, and reset the problems that can be attached to interviews.'
+            ? 'Create, edit, delete, and reset the problems that can be attached to interviews.'
             : 'Interviewers can review the catalog here, while only admins can create or change problems.' }}
         </p>
       </div>
@@ -149,6 +149,15 @@
         </div>
 
         <div class="card-actions">
+          <button
+            *ngIf="isAdmin()"
+            type="button"
+            class="primary-btn"
+            (click)="editProblem(problem)"
+            [disabled]="replacingCatalog() || deletingProblemId() === problem.id">
+            Edit Problem
+          </button>
+
           <button
             *ngIf="isAdmin()"
             type="button"

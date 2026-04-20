@@ -1,3 +1,5 @@
+using AIInterviewCoach.Application.DTOs.Problems;
+
 namespace AIInterviewCoach.Application.Services.ProblemTemplates
 {
     internal sealed record ProblemTemplateDefinition(
@@ -12,12 +14,10 @@ namespace AIInterviewCoach.Application.Services.ProblemTemplates
         string ExampleInput,
         string ExampleOutput,
         string ExecutionMode,
+        ProblemSignatureDefinitionDto? Signature,
         string CsharpStarterCode,
         string PythonStarterCode,
         string CppStarterCode,
-        string CsharpHarnessTemplate,
-        string PythonHarnessTemplate,
-        string CppHarnessTemplate,
         bool IncludeInStarterCatalog,
         IReadOnlyList<ProblemTemplateTestCaseDefinition> TestCases);
 

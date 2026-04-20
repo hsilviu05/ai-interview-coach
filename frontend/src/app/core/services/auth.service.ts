@@ -1,7 +1,12 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, firstValueFrom, of, tap } from 'rxjs';
+import { Observable, catchError, firstValueFrom, map, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import type {
+  AuthSessionResponseDto,
+  LoginRequestDto,
+  RegisterRequestDto,
+} from '../api/generated/backend-api';
 import { LoginRequest, RegisterRequest, AuthSession } from '../models/auth.models';
 import { StorageService } from './storage.service';
 
@@ -21,9 +26,9 @@ export class AuthService {
     this.clearLegacyAuthStorage();
 
     this.initializationPromise = firstValueFrom(
-      this.http.get<AuthSession>(`${this.baseUrl}/me`).pipe(
+      this.http.get<AuthSessionResponseDto>(`${this.baseUrl}/me`).pipe(
         tap(session => {
-          this.currentUser.set(session);
+          this.currentUser.set(this.normalizeSession(session));
         }),
         catchError(() => {
           this.currentUser.set(null);
@@ -36,15 +41,21 @@ export class AuthService {
   }
 
   login(payload: LoginRequest): Observable<AuthSession> {
-    return this.http.post<AuthSession>(`${this.baseUrl}/login`, payload).pipe(
+    return this.http.post<AuthSessionResponseDto>(`${this.baseUrl}/login`, payload as LoginRequestDto).pipe(
       tap(session => {
-        this.currentUser.set(session);
-      })
+        this.currentUser.set(this.normalizeSession(session));
+      }),
+      map(session => this.normalizeSession(session))
     );
   }
 
   register(payload: RegisterRequest): Observable<AuthSession> {
-    return this.http.post<AuthSession>(`${this.baseUrl}/register`, payload);
+    return this.http.post<AuthSessionResponseDto>(`${this.baseUrl}/register`, payload as RegisterRequestDto).pipe(
+      tap(session => {
+        this.currentUser.set(this.normalizeSession(session));
+      }),
+      map(session => this.normalizeSession(session))
+    );
   }
 
   logout(): Observable<void> {
@@ -74,5 +85,13 @@ export class AuthService {
   private clearLegacyAuthStorage(): void {
     this.storage.removeItem('auth_token');
     this.storage.removeItem('auth_role');
+  }
+
+  private normalizeSession(session: AuthSessionResponseDto): AuthSession {
+    return {
+      fullName: session.fullName ?? '',
+      email: session.email ?? '',
+      role: session.role ?? '',
+    };
   }
 }

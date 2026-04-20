@@ -108,6 +108,9 @@ namespace AIInterviewCoach.Infrastructure.Persistence
                     .HasMaxLength(30)
                     .IsRequired();
 
+                entity.Property(x => x.SignatureDefinitionJson)
+                    .HasColumnType("text");
+
                 entity.HasOne(x => x.CreatedBy)
                     .WithMany(x => x.Problems)
                     .HasForeignKey(x => x.CreatedByUserId)

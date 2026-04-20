@@ -2,6 +2,7 @@ using AIInterviewCoach.Application.Services;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
 using AIInterviewCoach.Infrastructure.Services;
+using System.Text.Json;
 
 namespace AIInterviewCoach.Tests.Services
 {
@@ -313,7 +314,9 @@ namespace AIInterviewCoach.Tests.Services
                     new Problem
                     {
                         ExecutionMode = template.ExecutionMode,
-                        PythonHarnessTemplate = template.PythonHarnessTemplate
+                        SignatureDefinitionJson = template.Signature is null
+                            ? null
+                            : JsonSerializer.Serialize(template.Signature)
                     },
                     template.PythonStarterCode,
                     "python",

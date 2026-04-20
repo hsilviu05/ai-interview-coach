@@ -23,6 +23,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType(typeof(SubmissionResponseDto), StatusCodes.Status200OK)]
         public async Task<IActionResult> CreateSubmission([FromBody] CreateSubmissionRequestDto request)
         {
             if (!ModelState.IsValid)
@@ -35,6 +36,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet("me")]
+        [ProducesResponseType(typeof(IEnumerable<SubmissionResponseDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetMySubmissions()
         {
             var candidateId = GetCurrentUserId();
@@ -44,6 +46,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet("session/{interviewSessionId:guid}")]
+        [ProducesResponseType(typeof(IEnumerable<SubmissionResponseDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetByInterviewSession(Guid interviewSessionId)
         {
             var candidateId = GetCurrentUserId();
@@ -53,6 +56,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpDelete("problem/{problemId:guid}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> ResetProblem(Guid problemId, [FromQuery] Guid? interviewSessionId)
         {
             var candidateId = GetCurrentUserId();
@@ -62,6 +66,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpDelete("session/{interviewSessionId:guid}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> ResetInterviewSession(Guid interviewSessionId)
         {
             var candidateId = GetCurrentUserId();

@@ -1,9 +1,15 @@
-export interface CreateInterviewRequest {
-  title: string;
-  positionName: string;
-  description: string;
-  durationMinutes: number;
-}
+import type {
+  AddProblemToInterviewRequestDto,
+  CreateInterviewRequestDto,
+  CreateProblemRequestDto,
+  CreateTestCaseRequestDto,
+  ProblemSignatureDefinitionDto,
+  ProblemSignaturePreviewResponseDto,
+  ProblemSignatureParameterDto,
+  UpdateProblemRequestDto,
+} from '../../../core/api/generated/backend-api';
+
+export type CreateInterviewRequest = CreateInterviewRequestDto;
 
 export interface InterviewProblemDto {
   problemId: string;
@@ -41,6 +47,13 @@ export interface ProblemListItem {
   updatedAt: string;
 }
 
+export interface ProblemEditorItem extends ProblemListItem {
+  signature?: ProblemSignatureDefinition | null;
+  csharpStarterCode: string;
+  pythonStarterCode: string;
+  cppStarterCode: string;
+}
+
 export interface ProblemTemplateItem {
   key: string;
   name: string;
@@ -53,13 +66,17 @@ export interface ProblemTemplateItem {
   exampleInput: string;
   exampleOutput: string;
   executionMode: string;
+  signature?: ProblemSignatureDefinition | null;
   csharpStarterCode: string;
   pythonStarterCode: string;
   cppStarterCode: string;
-  csharpHarnessTemplate: string;
-  pythonHarnessTemplate: string;
-  cppHarnessTemplate: string;
 }
+
+export type ProblemSignatureDefinition = ProblemSignatureDefinitionDto;
+
+export type ProblemSignatureParameter = ProblemSignatureParameterDto;
+
+export type ProblemSignaturePreview = ProblemSignaturePreviewResponseDto;
 
 export interface ReplaceProblemCatalogResponse {
   deletedProblemCount: number;
@@ -83,28 +100,9 @@ export interface AdminAuditLogListItem {
   createdAt: string;
 }
 
-export interface AddProblemToInterviewRequest {
-  problemId: string;
-  orderIndex: number;
-  points: number;
-}
-export interface CreateProblemRequest {
-  title: string;
-  description: string;
-  difficulty: string;
-  topic: string;
-  constraintsText: string;
-  exampleInput: string;
-  exampleOutput: string;
-  executionMode: string;
-  csharpStarterCode: string;
-  pythonStarterCode: string;
-  cppStarterCode: string;
-  csharpHarnessTemplate: string;
-  pythonHarnessTemplate: string;
-  cppHarnessTemplate: string;
-  isPublic: boolean;
-}
+export type AddProblemToInterviewRequest = AddProblemToInterviewRequestDto;
+export type CreateProblemRequest = CreateProblemRequestDto;
+export type UpdateProblemRequest = UpdateProblemRequestDto;
 
 export interface InterviewProblemSelectionItem {
   problemId: string;
@@ -129,9 +127,4 @@ export interface TestCaseListItem {
   isHidden: boolean;
   orderIndex: number;
 }
-export interface CreateTestCaseRequest {
-  input: string;
-  expectedOutput: string;
-  isHidden: boolean;
-  orderIndex: number;
-}
+export type CreateTestCaseRequest = CreateTestCaseRequestDto;

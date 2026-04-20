@@ -1,4 +1,6 @@
 using AIInterviewCoach.Domain.Enums;
+using AIInterviewCoach.Application.DTOs.Problems;
+using AIInterviewCoach.Application.Services.ProblemSignatures;
 
 namespace AIInterviewCoach.Application.Services.ProblemTemplates
 {
@@ -18,115 +20,21 @@ namespace AIInterviewCoach.Application.Services.ProblemTemplates
                 ExampleInput: "prices = [7,1,5,3,6,4]",
                 ExampleOutput: "5",
                 ExecutionMode: ProblemExecutionModes.FunctionSignature,
-                CsharpStarterCode:
-                """
-                public class Solution
+                Signature: new ProblemSignatureDefinitionDto
                 {
-                    public int MaxProfit(int[] prices)
-                    {
-                        return 0;
-                    }
-                }
-                """,
-                PythonStarterCode:
-                """
-                from typing import List
-
-
-                class Solution:
-                    def maxProfit(self, prices: List[int]) -> int:
-                        return 0
-                """,
-                CppStarterCode:
-                """
-                #include <vector>
-                using namespace std;
-
-                class Solution {
-                public:
-                    int maxProfit(vector<int>& prices) {
-                        return 0;
-                    }
-                };
-                """,
-                CsharpHarnessTemplate:
-                """
-                using System;
-                using System.Text.Json;
-
-                {{candidate_code}}
-
-                var payload = JsonSerializer.Deserialize<StockProfitInput>(Console.In.ReadToEnd());
-
-                if (payload is null)
-                {
-                    throw new InvalidOperationException("Invalid input.");
-                }
-
-                var result = new Solution().MaxProfit(payload.prices ?? Array.Empty<int>());
-                Console.WriteLine(result);
-
-                public sealed class StockProfitInput
-                {
-                    public int[] prices { get; set; } = Array.Empty<int>();
-                }
-                """,
-                PythonHarnessTemplate:
-                """
-                import json
-                import sys
-                from typing import List
-
-                {{candidate_code}}
-
-                payload = json.loads(sys.stdin.read() or "{}")
-                result = Solution().maxProfit(payload.get("prices", []))
-                print(result)
-                """,
-                CppHarnessTemplate:
-                """
-                #include <iostream>
-                #include <iterator>
-                #include <sstream>
-                #include <string>
-                #include <vector>
-
-                {{candidate_code}}
-
-                vector<int> ExtractIntArrayField(const string& input, const string& key) {
-                    const auto keyPos = input.find("\"" + key + "\"");
-                    const auto open = input.find('[', keyPos == string::npos ? 0 : keyPos);
-                    const auto close = input.find(']', open == string::npos ? 0 : open);
-
-                    if (open == string::npos || close == string::npos || close <= open) {
-                        return {};
-                    }
-
-                    vector<int> values;
-                    string token;
-                    stringstream stream(input.substr(open + 1, close - open - 1));
-
-                    while (getline(stream, token, ',')) {
-                        if (!token.empty()) {
-                            values.push_back(stoi(token));
-                        }
-                    }
-
-                    return values;
-                }
-
-                int main() {
-                    string input(
-                        (istreambuf_iterator<char>(cin)),
-                        istreambuf_iterator<char>());
-
-                    auto prices = ExtractIntArrayField(input, "prices");
-                    Solution solution;
-                    auto result = solution.maxProfit(prices);
-                    cout << result;
-                    return 0;
-                }
-                """,
+                    InputBindingMode = ProblemSignatureInputBindingModes.JsonObject,
+                    CsharpMethodName = "MaxProfit",
+                    PythonMethodName = "maxProfit",
+                    CppMethodName = "maxProfit",
+                    ReturnType = ProblemSignatureTypeKeys.Int,
+                    Parameters =
+                    [
+                        new ProblemSignatureParameterDto { Name = "prices", Type = ProblemSignatureTypeKeys.IntArray }
+                    ]
+                },
+                CsharpStarterCode: string.Empty,
+                PythonStarterCode: string.Empty,
+                CppStarterCode: string.Empty,
                 IncludeInStarterCatalog: true,
                 TestCases:
                 [

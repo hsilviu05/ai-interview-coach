@@ -1,5 +1,6 @@
 using AIInterviewCoach.Application.DTOs.AdminAuditLogs;
 using AIInterviewCoach.Application.DTOs.Problems;
+using AIInterviewCoach.Application.Services.ProblemSignatures;
 using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
@@ -74,14 +75,12 @@ namespace AIInterviewCoach.Application.Services
             }
 
             var normalizedExecutionMode = NormalizeExecutionMode(createRequest.ExecutionMode);
-            EnsureProblemExecutionConfiguration(
+            var executionConfiguration = BuildProblemExecutionConfiguration(
                 normalizedExecutionMode,
+                createRequest.Signature,
                 createRequest.CsharpStarterCode,
                 createRequest.PythonStarterCode,
-                createRequest.CppStarterCode,
-                createRequest.CsharpHarnessTemplate,
-                createRequest.PythonHarnessTemplate,
-                createRequest.CppHarnessTemplate);
+                createRequest.CppStarterCode);
 
             var problem = new Problem
             {
@@ -94,12 +93,13 @@ namespace AIInterviewCoach.Application.Services
                 ExampleInput = createRequest.ExampleInput.Trim(),
                 ExampleOutput = createRequest.ExampleOutput.Trim(),
                 ExecutionMode = normalizedExecutionMode,
-                CsharpStarterCode = createRequest.CsharpStarterCode.Trim(),
-                PythonStarterCode = createRequest.PythonStarterCode.Trim(),
-                CppStarterCode = createRequest.CppStarterCode.Trim(),
-                CsharpHarnessTemplate = createRequest.CsharpHarnessTemplate.Trim(),
-                PythonHarnessTemplate = createRequest.PythonHarnessTemplate.Trim(),
-                CppHarnessTemplate = createRequest.CppHarnessTemplate.Trim(),
+                SignatureDefinitionJson = executionConfiguration.SerializedSignature,
+                CsharpStarterCode = executionConfiguration.CsharpStarterCode,
+                PythonStarterCode = executionConfiguration.PythonStarterCode,
+                CppStarterCode = executionConfiguration.CppStarterCode,
+                CsharpHarnessTemplate = executionConfiguration.CsharpHarnessTemplate,
+                PythonHarnessTemplate = executionConfiguration.PythonHarnessTemplate,
+                CppHarnessTemplate = executionConfiguration.CppHarnessTemplate,
                 IsPublic = createRequest.IsPublic,
                 CreatedByUserId = userId,
                 CreatedAt = DateTime.UtcNow,
@@ -120,6 +120,7 @@ namespace AIInterviewCoach.Application.Services
                     ["difficulty"] = problem.Difficulty,
                     ["topic"] = problem.Topic,
                     ["executionMode"] = problem.ExecutionMode,
+                    ["hasStructuredSignature"] = executionConfiguration.SerializedSignature is null ? "false" : "true",
                     ["visibility"] = problem.IsPublic ? "public" : "private"
                 }
             });
@@ -148,17 +149,16 @@ namespace AIInterviewCoach.Application.Services
             var previousDifficulty = problem.Difficulty;
             var previousTopic = problem.Topic;
             var previousExecutionMode = problem.ExecutionMode;
+            var previousSignatureDefinitionJson = problem.SignatureDefinitionJson;
             var previousVisibility = problem.IsPublic;
 
             var normalizedExecutionMode = NormalizeExecutionMode(updateRequest.ExecutionMode);
-            EnsureProblemExecutionConfiguration(
+            var executionConfiguration = BuildProblemExecutionConfiguration(
                 normalizedExecutionMode,
+                updateRequest.Signature,
                 updateRequest.CsharpStarterCode,
                 updateRequest.PythonStarterCode,
-                updateRequest.CppStarterCode,
-                updateRequest.CsharpHarnessTemplate,
-                updateRequest.PythonHarnessTemplate,
-                updateRequest.CppHarnessTemplate);
+                updateRequest.CppStarterCode);
 
             problem.Title = updateRequest.Title.Trim();
             problem.Description = updateRequest.Description.Trim();
@@ -168,12 +168,13 @@ namespace AIInterviewCoach.Application.Services
             problem.ExampleInput = updateRequest.ExampleInput.Trim();
             problem.ExampleOutput = updateRequest.ExampleOutput.Trim();
             problem.ExecutionMode = normalizedExecutionMode;
-            problem.CsharpStarterCode = updateRequest.CsharpStarterCode.Trim();
-            problem.PythonStarterCode = updateRequest.PythonStarterCode.Trim();
-            problem.CppStarterCode = updateRequest.CppStarterCode.Trim();
-            problem.CsharpHarnessTemplate = updateRequest.CsharpHarnessTemplate.Trim();
-            problem.PythonHarnessTemplate = updateRequest.PythonHarnessTemplate.Trim();
-            problem.CppHarnessTemplate = updateRequest.CppHarnessTemplate.Trim();
+            problem.SignatureDefinitionJson = executionConfiguration.SerializedSignature;
+            problem.CsharpStarterCode = executionConfiguration.CsharpStarterCode;
+            problem.PythonStarterCode = executionConfiguration.PythonStarterCode;
+            problem.CppStarterCode = executionConfiguration.CppStarterCode;
+            problem.CsharpHarnessTemplate = executionConfiguration.CsharpHarnessTemplate;
+            problem.PythonHarnessTemplate = executionConfiguration.PythonHarnessTemplate;
+            problem.CppHarnessTemplate = executionConfiguration.CppHarnessTemplate;
             problem.IsPublic = updateRequest.IsPublic;
             problem.UpdatedAt = DateTime.UtcNow;
 
@@ -195,6 +196,8 @@ namespace AIInterviewCoach.Application.Services
                     ["currentTopic"] = problem.Topic,
                     ["previousExecutionMode"] = previousExecutionMode,
                     ["currentExecutionMode"] = problem.ExecutionMode,
+                    ["previousSignatureMode"] = string.IsNullOrWhiteSpace(previousSignatureDefinitionJson) ? "manual" : "structured",
+                    ["currentSignatureMode"] = string.IsNullOrWhiteSpace(problem.SignatureDefinitionJson) ? "manual" : "structured",
                     ["previousVisibility"] = previousVisibility ? "public" : "private",
                     ["currentVisibility"] = problem.IsPublic ? "public" : "private"
                 }
@@ -472,18 +475,10 @@ namespace AIInterviewCoach.Application.Services
                 ExampleInput = problem.ExampleInput,
                 ExampleOutput = problem.ExampleOutput,
                 ExecutionMode = problem.ExecutionMode,
-                CsharpStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
-                    problem.ExecutionMode,
-                    "csharp",
-                    problem.CsharpStarterCode),
-                PythonStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
-                    problem.ExecutionMode,
-                    "python",
-                    problem.PythonStarterCode),
-                CppStarterCode = ProblemTemplateCatalog.ResolveVisibleStarterCode(
-                    problem.ExecutionMode,
-                    "cpp",
-                    problem.CppStarterCode),
+                Signature = ProblemCodeResolver.ResolveSignature(problem),
+                CsharpStarterCode = ProblemCodeResolver.ResolveVisibleStarterCode(problem, "csharp"),
+                PythonStarterCode = ProblemCodeResolver.ResolveVisibleStarterCode(problem, "python"),
+                CppStarterCode = ProblemCodeResolver.ResolveVisibleStarterCode(problem, "cpp"),
                 IsPublic = problem.IsPublic,
                 CreatedByUserId = problem.CreatedByUserId,
                 CreatedAt = problem.CreatedAt,
@@ -500,39 +495,53 @@ namespace AIInterviewCoach.Application.Services
             };
         }
 
-        private static void EnsureProblemExecutionConfiguration(
+        private static ProblemExecutionConfiguration BuildProblemExecutionConfiguration(
             string executionMode,
+            ProblemSignatureDefinitionDto? signature,
             string csharpStarterCode,
             string pythonStarterCode,
-            string cppStarterCode,
-            string csharpHarnessTemplate,
-            string pythonHarnessTemplate,
-            string cppHarnessTemplate)
+            string cppStarterCode)
         {
-            if (executionMode != ProblemExecutionModes.FunctionSignature)
-                return;
+            if (executionMode == ProblemExecutionModes.FunctionSignature)
+            {
+                var normalizedSignature = ProblemSignatureValidation.ValidateAndNormalize(signature);
+                var generatedArtifacts = ProblemSignatureCodeGenerator.Generate(normalizedSignature);
 
-            var hasMissingStarter =
-                string.IsNullOrWhiteSpace(csharpStarterCode) ||
+                return new ProblemExecutionConfiguration(
+                    SerializedSignature: ProblemSignatureSerializer.Serialize(normalizedSignature),
+                    CsharpStarterCode: generatedArtifacts.CsharpStarterCode,
+                    PythonStarterCode: generatedArtifacts.PythonStarterCode,
+                    CppStarterCode: generatedArtifacts.CppStarterCode,
+                    CsharpHarnessTemplate: generatedArtifacts.CsharpHarnessCode,
+                    PythonHarnessTemplate: generatedArtifacts.PythonHarnessCode,
+                    CppHarnessTemplate: generatedArtifacts.CppHarnessCode);
+            }
+
+            if (string.IsNullOrWhiteSpace(csharpStarterCode) ||
                 string.IsNullOrWhiteSpace(pythonStarterCode) ||
-                string.IsNullOrWhiteSpace(cppStarterCode);
-            var hasMissingHarness =
-                string.IsNullOrWhiteSpace(csharpHarnessTemplate) ||
-                string.IsNullOrWhiteSpace(pythonHarnessTemplate) ||
-                string.IsNullOrWhiteSpace(cppHarnessTemplate);
+                string.IsNullOrWhiteSpace(cppStarterCode))
+            {
+                throw new InvalidOperationException(
+                    "Stdin/stdout problems require starter code for C#, Python, and C++.");
+            }
 
-            if (hasMissingStarter || hasMissingHarness)
-                throw new InvalidOperationException("Function-signature problems require starter code and hidden harness templates for C#, Python, and C++.");
-
-            EnsureHarnessTemplate(csharpHarnessTemplate, "C#");
-            EnsureHarnessTemplate(pythonHarnessTemplate, "Python");
-            EnsureHarnessTemplate(cppHarnessTemplate, "C++");
+            return new ProblemExecutionConfiguration(
+                SerializedSignature: null,
+                CsharpStarterCode: csharpStarterCode.Trim(),
+                PythonStarterCode: pythonStarterCode.Trim(),
+                CppStarterCode: cppStarterCode.Trim(),
+                CsharpHarnessTemplate: string.Empty,
+                PythonHarnessTemplate: string.Empty,
+                CppHarnessTemplate: string.Empty);
         }
 
-        private static void EnsureHarnessTemplate(string template, string languageLabel)
-        {
-            if (!template.Contains("{{candidate_code}}", StringComparison.Ordinal))
-                throw new InvalidOperationException($"{languageLabel} harness templates must contain the {{candidate_code}} placeholder.");
-        }
+        private sealed record ProblemExecutionConfiguration(
+            string? SerializedSignature,
+            string CsharpStarterCode,
+            string PythonStarterCode,
+            string CppStarterCode,
+            string CsharpHarnessTemplate,
+            string PythonHarnessTemplate,
+            string CppHarnessTemplate);
     }
 }
