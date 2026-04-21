@@ -25,11 +25,13 @@ namespace AIInterviewCoach.API.Extensions
             services.AddScoped<IAdminAuditService, AdminAuditService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProblemService, ProblemService>();
+            services.AddScoped<IPracticeProblemHintRequestService, PracticeProblemHintRequestService>();
             services.AddSingleton<IProblemTemplateService, ProblemTemplateService>();
             services.AddScoped<IInterviewService, InterviewService>();
             services.AddScoped<SubmissionFeedbackProcessor>();
             services.AddScoped<ISubmissionService, SubmissionService>();
             services.AddHttpClient<ISubmissionFeedbackService, SubmissionFeedbackService>();
+            services.AddHttpClient<IProblemHintService, ProblemHintService>();
             services.AddSingleton<SubmissionFeedbackBackgroundService>();
             services.AddSingleton<ISubmissionFeedbackQueue>(provider =>
                 provider.GetRequiredService<SubmissionFeedbackBackgroundService>());

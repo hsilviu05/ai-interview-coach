@@ -115,6 +115,43 @@
           </section>
         </div>
 
+        <section class="hint-panel" *ngIf="isPracticeMode()">
+          <div class="hint-panel-header">
+            <div>
+              <div class="feedback-badge">AI Hint Ladder</div>
+              <h3>Need a nudge?</h3>
+              <p>Unlock up to three progressively stronger hints without revealing the full solution.</p>
+            </div>
+
+            <button
+              type="button"
+              class="hint-btn"
+              (click)="requestNextHint()"
+              [disabled]="requestingHintLevel() !== null || nextHintLevel() === null">
+              {{
+                requestingHintLevel() !== null
+                  ? ('Generating Hint ' + requestingHintLevel() + '...')
+                  : nextHintLevel() !== null
+                    ? ('Get Hint ' + nextHintLevel())
+                    : 'All Hints Unlocked'
+              }}
+            </button>
+          </div>
+
+          <p class="error" *ngIf="hintErrorMessage()">{{ hintErrorMessage() }}</p>
+
+          <div class="hint-list" *ngIf="currentProblemHints().length">
+            <article class="hint-item" *ngFor="let hint of currentProblemHints()">
+              <div class="hint-item-meta">
+                <div class="feedback-badge">Hint {{ hint.level }}</div>
+                <div class="feedback-source-chip" *ngIf="hint.source">{{ hint.source }}</div>
+              </div>
+
+              <pre>{{ hint.content }}</pre>
+            </article>
+          </div>
+        </section>
+
         <form [formGroup]="form" class="editor-form" (ngSubmit)="submitSolution()">
           <div class="field">
             <label for="language">Language</label>

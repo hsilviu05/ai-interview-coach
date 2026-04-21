@@ -20,6 +20,16 @@ import {
   CandidateInterviewVisibleTestCase,
   InterviewSessionResponse,
 } from '../models/candidate-interview.models';
+import {
+  ProblemHintResponse,
+  RequestProblemHint,
+} from '../models/candidate-problem-hint.models';
+
+interface ProblemHintResponseDto {
+  level?: number | null;
+  content?: string | null;
+  source?: string | null;
+}
 
 @Injectable({ providedIn: 'root' })
 export class CandidateApi {
@@ -55,6 +65,21 @@ export class CandidateApi {
     return this.http
       .post<InterviewSessionResponseDto>(`${this.baseUrl}/sessions/${sessionId}/complete`, {})
       .pipe(map(session => this.normalizeInterviewSession(session)));
+  }
+
+  requestPracticeHint(
+    problemId: string,
+    payload: RequestProblemHint
+  ): Observable<ProblemHintResponse> {
+    return this.http
+      .post<ProblemHintResponseDto>(`${this.problemsBaseUrl}/${problemId}/hints`, payload)
+      .pipe(
+        map(hint => ({
+          level: hint.level ?? payload.level,
+          content: hint.content ?? '',
+          source: hint.source ?? 'LocalFallback',
+        }))
+      );
   }
 
   private normalizeInterview(interview: InterviewResponseDto): CandidateInterviewResponse {

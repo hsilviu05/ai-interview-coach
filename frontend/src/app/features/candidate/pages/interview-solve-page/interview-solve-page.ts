@@ -23,10 +23,12 @@ export class InterviewSolvePage implements OnInit {
   readonly completing = this.workspace.completing;
   readonly resettingProblem = this.workspace.resettingProblem;
   readonly resettingAllProblems = this.workspace.resettingAllProblems;
+  readonly requestingHintLevel = this.workspace.requestingHintLevel;
   readonly isPracticeMode = this.workspace.isPracticeMode;
   readonly languageOptions = this.workspace.languageOptions;
   readonly errorMessage = this.workspace.errorMessage;
   readonly successMessage = this.workspace.successMessage;
+  readonly hintErrorMessage = this.workspace.hintErrorMessage;
   readonly interview = this.workspace.interview;
   readonly session = this.workspace.session;
   readonly submissions = this.workspace.submissions;
@@ -37,6 +39,8 @@ export class InterviewSolvePage implements OnInit {
   readonly latestFeedbackSubmission = this.workspace.latestFeedbackSubmission;
   readonly autosaveStatus = this.workspace.autosaveStatus;
   readonly selectedProblem = this.workspace.selectedProblem;
+  readonly currentProblemHints = this.workspace.currentProblemHints;
+  readonly nextHintLevel = this.workspace.nextHintLevel;
 
   ngOnInit(): void {
     this.workspace.initializeFromRoute();
@@ -47,6 +51,7 @@ export class InterviewSolvePage implements OnInit {
   completeInterview = this.workspace.completeInterview.bind(this.workspace);
   resetCurrentProblem = this.workspace.resetCurrentProblem.bind(this.workspace);
   resetAllProblems = this.workspace.resetAllProblems.bind(this.workspace);
+  requestNextHint = this.workspace.requestNextHint.bind(this.workspace);
   getLatestSubmissionForProblem =
     this.workspace.getLatestSubmissionForProblem.bind(this.workspace);
   getProblemTitle = this.workspace.getProblemTitle.bind(this.workspace);
