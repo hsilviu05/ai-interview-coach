@@ -17,13 +17,16 @@ namespace AIInterviewCoach.API.Controllers
     {
         private readonly IProblemService _problemService;
         private readonly IProblemTemplateService _problemTemplateService;
+        private readonly IPracticeProblemHintRequestService _practiceProblemHintRequestService;
 
         public ProblemsController(
             IProblemService problemService,
-            IProblemTemplateService problemTemplateService)
+            IProblemTemplateService problemTemplateService,
+            IPracticeProblemHintRequestService practiceProblemHintRequestService)
         {
             _problemService = problemService;
             _problemTemplateService = problemTemplateService;
+            _practiceProblemHintRequestService = practiceProblemHintRequestService;
         }
 
         [HttpGet]
@@ -71,6 +74,38 @@ namespace AIInterviewCoach.API.Controllers
 
             var preview = _problemTemplateService.GetSignaturePreview(signature);
             return Ok(preview);
+        }
+
+        [HttpPost("{id:guid}/hints")]
+        [Authorize(Policy = AuthorizationPolicies.CandidateWorkspaceAccess)]
+        [EnableRateLimiting(RateLimitingPolicies.CandidateSubmissionFlow)]
+        [ProducesResponseType(typeof(ProblemHintResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GeneratePracticeHint(
+            Guid id,
+            [FromBody] ProblemHintRequestDto request,
+            CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            try
+            {
+                var hint = await _practiceProblemHintRequestService.GeneratePracticeHintAsync(
+                    id,
+                    GetCurrentUserId(),
+                    GetCurrentUserRole(),
+                    request,
+                    cancellationToken);
+
+                return Ok(hint);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { message = "Problem not found." });
+            }
         }
 
         [HttpPost]

@@ -12,6 +12,7 @@ import {
   SubmissionFeedbackStatus,
   SubmissionResponse,
 } from '../models/candidate-submission.models';
+import { ProblemHintResponse } from '../models/candidate-problem-hint.models';
 import { CandidateApi } from './candidate-api.service';
 import { CodeDraftStorageService } from './code-draft-storage.service';
 import { SubmissionApi } from './submission-api.service';
@@ -27,6 +28,7 @@ export interface SubmissionLanguageOption {
 export class CandidateWorkspaceFacade {
   private static readonly functionExecutionMode = 'function';
   private static readonly defaultLanguage: SubmissionLanguage = 'csharp';
+  private static readonly maxHintLevel = 3;
   private static readonly languageOptionsInternal: SubmissionLanguageOption[] = [
     { value: 'csharp', label: 'C#' },
     { value: 'python', label: 'Python' },
@@ -111,15 +113,18 @@ int main() {
   readonly completing = signal(false);
   readonly resettingProblem = signal(false);
   readonly resettingAllProblems = signal(false);
+  readonly requestingHintLevel = signal<number | null>(null);
   readonly isPracticeMode = signal(false);
   readonly languageOptions = CandidateWorkspaceFacade.languageOptionsInternal;
 
   readonly errorMessage = signal('');
   readonly successMessage = signal('');
+  readonly hintErrorMessage = signal('');
 
   readonly interview = signal<CandidateInterviewResponse | null>(null);
   readonly session = signal<InterviewSessionResponse | null>(null);
   readonly submissions = signal<SubmissionResponse[]>([]);
+  readonly practiceHintsByProblemId = signal<Record<string, ProblemHintResponse[]>>({});
   readonly selectedProblemId = signal<string | null>(null);
   readonly lastSavedAt = signal<string | null>(null);
   readonly completedProblemIds = computed(
@@ -183,6 +188,40 @@ int main() {
       interview.problems.find(problem => problem.problemId === selectedProblemId) ??
       null
     );
+  });
+
+  readonly currentProblemHints = computed(() => {
+    const problemId = this.selectedProblemId();
+
+    if (!problemId) {
+      return [];
+    }
+
+    return [...(this.practiceHintsByProblemId()[problemId] ?? [])].sort(
+      (left, right) => left.level - right.level
+    );
+  });
+
+  readonly nextHintLevel = computed(() => {
+    if (!this.isPracticeMode() || !this.selectedProblem()) {
+      return null;
+    }
+
+    const unlockedLevels = new Set(
+      this.currentProblemHints().map(hint => hint.level)
+    );
+
+    for (
+      let level = 1;
+      level <= CandidateWorkspaceFacade.maxHintLevel;
+      level += 1
+    ) {
+      if (!unlockedLevels.has(level)) {
+        return level;
+      }
+    }
+
+    return null;
   });
 
   readonly form = this.fb.nonNullable.group({
@@ -438,6 +477,7 @@ int main() {
       .subscribe({
         next: () => {
           this.codeDraftStorage.clearDraft(this.buildDraftScope(problem.problemId));
+          this.clearHintsForProblem(problem.problemId);
           this.setSubmissions(
             this.submissions().filter(submission => {
               if (submission.problemId !== problem.problemId) {
@@ -498,6 +538,7 @@ int main() {
       next: () => {
         for (const problem of interview.problems) {
           this.codeDraftStorage.clearDraft(this.buildDraftScope(problem.problemId));
+          this.clearHintsForProblem(problem.problemId);
         }
 
         this.setSubmissions(
@@ -556,6 +597,16 @@ int main() {
         : 'Submissions run as standalone C# console programs. Read from stdin and write the final answer to stdout.';
   }
 
+  requestNextHint(): void {
+    const nextHintLevel = this.nextHintLevel();
+
+    if (nextHintLevel === null) {
+      return;
+    }
+
+    this.requestHint(nextHintLevel);
+  }
+
   goToPracticeProblems(): void {
     this.router.navigateByUrl('/candidate/practice');
   }
@@ -579,6 +630,7 @@ int main() {
     this.loading.set(true);
     this.errorMessage.set('');
     this.successMessage.set('');
+    this.hintErrorMessage.set('');
 
     this.candidateApi.getPracticeProblemById(problemId).subscribe({
       next: problem => {
@@ -642,6 +694,7 @@ int main() {
 
   private startSession(token: string): void {
     this.startingSession.set(true);
+    this.hintErrorMessage.set('');
 
     this.candidateApi.startInterviewSession(token).subscribe({
       next: session => {
@@ -684,6 +737,8 @@ int main() {
     if (!problemId) {
       return;
     }
+
+    this.hintErrorMessage.set('');
 
     const draft = this.codeDraftStorage.getDraft(this.buildDraftScope(problemId));
     const latestSubmission = this.getLatestSubmissionForProblem(problemId);
@@ -768,6 +823,66 @@ int main() {
     }
 
     return `interview:${this.session()?.id ?? this.interview()?.id ?? 'pending'}:${problemId}`;
+  }
+
+  private requestHint(level: number): void {
+    const problem = this.selectedProblem();
+
+    if (!problem || !this.isPracticeMode()) {
+      return;
+    }
+
+    const existingHint = this.currentProblemHints().find(hint => hint.level === level);
+    if (existingHint) {
+      return;
+    }
+
+    this.requestingHintLevel.set(level);
+    this.hintErrorMessage.set('');
+
+    this.candidateApi
+      .requestPracticeHint(problem.problemId, {
+        level,
+        language: this.form.controls.language.value,
+        sourceCode: this.form.controls.sourceCode.value,
+      })
+      .subscribe({
+        next: hint => {
+          const existingHints = this.practiceHintsByProblemId()[problem.problemId] ?? [];
+          const nextHints = [...existingHints.filter(existing => existing.level !== hint.level), hint]
+            .sort((left, right) => left.level - right.level);
+
+          this.practiceHintsByProblemId.update(hintsByProblemId => ({
+            ...hintsByProblemId,
+            [problem.problemId]: nextHints,
+          }));
+        },
+        error: err => {
+          this.requestingHintLevel.set(null);
+          this.hintErrorMessage.set(
+            err?.error?.message ?? 'Unable to generate a hint right now.'
+          );
+        },
+        complete: () => {
+          this.requestingHintLevel.set(null);
+        },
+      });
+  }
+
+  private clearHintsForProblem(problemId: string): void {
+    this.practiceHintsByProblemId.update(hintsByProblemId => {
+      if (!(problemId in hintsByProblemId)) {
+        return hintsByProblemId;
+      }
+
+      const nextHintsByProblemId = { ...hintsByProblemId };
+      delete nextHintsByProblemId[problemId];
+      return nextHintsByProblemId;
+    });
+
+    if (this.selectedProblemId() === problemId) {
+      this.hintErrorMessage.set('');
+    }
   }
 
   private getLatestSubmissionForProblemByLanguage(

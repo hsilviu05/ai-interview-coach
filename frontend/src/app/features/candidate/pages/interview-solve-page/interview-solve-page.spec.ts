@@ -12,6 +12,12 @@ import { SubmissionApi } from '../../services/submission-api.service';
 describe('InterviewSolvePage', () => {
   let component: InterviewSolvePage;
   let fixture: ComponentFixture<InterviewSolvePage>;
+  let candidateApiMock: {
+    getInterviewByToken: ReturnType<typeof vi.fn>;
+    startInterviewSession: ReturnType<typeof vi.fn>;
+    completeInterviewSession: ReturnType<typeof vi.fn>;
+    requestPracticeHint: ReturnType<typeof vi.fn>;
+  };
   let submissionApiMock: {
     getByInterviewSession: ReturnType<typeof vi.fn>;
     createSubmission: ReturnType<typeof vi.fn>;
@@ -62,6 +68,79 @@ describe('InterviewSolvePage', () => {
       resetInterviewSession: vi.fn().mockReturnValue(of(void 0)),
     };
 
+    candidateApiMock = {
+      getInterviewByToken: vi.fn().mockReturnValue(of({
+        id: 'interview-1',
+        title: 'Frontend Interview',
+        positionName: 'Frontend Engineer',
+        description: '',
+        durationMinutes: 60,
+        accessToken: 'session-token',
+        isActive: true,
+        interviewerId: 'interviewer-1',
+        createdAt: new Date().toISOString(),
+        problems: [
+          {
+            problemId: 'problem-1',
+            title: 'Solved Problem',
+            description: '',
+            difficulty: 'Easy',
+            topic: 'Arrays',
+            constraintsText: '',
+            exampleInput: '',
+            exampleOutput: '',
+            executionMode: 'stdin',
+            csharpStarterCode: '',
+            pythonStarterCode: '',
+            cppStarterCode: '',
+            visibleTestCases: [],
+            orderIndex: 1,
+            points: 100,
+          },
+          {
+            problemId: 'problem-2',
+            title: 'Open Problem',
+            description: '',
+            difficulty: 'Medium',
+            topic: 'Strings',
+            constraintsText: '',
+            exampleInput: '',
+            exampleOutput: '',
+            executionMode: 'stdin',
+            csharpStarterCode: '',
+            pythonStarterCode: '',
+            cppStarterCode: '',
+            visibleTestCases: [],
+            orderIndex: 2,
+            points: 100,
+          },
+        ],
+      })),
+      startInterviewSession: vi.fn().mockReturnValue(of({
+        id: 'session-1',
+        interviewId: 'interview-1',
+        candidateId: 'candidate-1',
+        startedAt: new Date().toISOString(),
+        submittedAt: null,
+        status: 'InProgress',
+        totalScore: 0,
+      })),
+      completeInterviewSession: vi.fn().mockReturnValue(of({
+        id: 'session-1',
+        interviewId: 'interview-1',
+        candidateId: 'candidate-1',
+        startedAt: new Date().toISOString(),
+        submittedAt: new Date().toISOString(),
+        status: 'Completed',
+        totalScore: 100,
+      })),
+      requestPracticeHint: vi.fn().mockReturnValue(of({
+        level: 1,
+        content: 'Hint 1\nTry tracking a running minimum.',
+        source: 'LocalFallback',
+      })),
+    };
+
     await TestBed.configureTestingModule({
       imports: [InterviewSolvePage],
       providers: [
@@ -77,73 +156,7 @@ describe('InterviewSolvePage', () => {
         },
         {
           provide: CandidateApi,
-          useValue: {
-            getInterviewByToken: () => of({
-              id: 'interview-1',
-              title: 'Frontend Interview',
-              positionName: 'Frontend Engineer',
-              description: '',
-              durationMinutes: 60,
-              accessToken: 'session-token',
-              isActive: true,
-              interviewerId: 'interviewer-1',
-              createdAt: new Date().toISOString(),
-              problems: [
-                {
-                  problemId: 'problem-1',
-                  title: 'Solved Problem',
-                  description: '',
-                  difficulty: 'Easy',
-                  topic: 'Arrays',
-                  constraintsText: '',
-                  exampleInput: '',
-                  exampleOutput: '',
-                  executionMode: 'stdin',
-                  csharpStarterCode: '',
-                  pythonStarterCode: '',
-                  cppStarterCode: '',
-                  visibleTestCases: [],
-                  orderIndex: 1,
-                  points: 100,
-                },
-                {
-                  problemId: 'problem-2',
-                  title: 'Open Problem',
-                  description: '',
-                  difficulty: 'Medium',
-                  topic: 'Strings',
-                  constraintsText: '',
-                  exampleInput: '',
-                  exampleOutput: '',
-                  executionMode: 'stdin',
-                  csharpStarterCode: '',
-                  pythonStarterCode: '',
-                  cppStarterCode: '',
-                  visibleTestCases: [],
-                  orderIndex: 2,
-                  points: 100,
-                },
-              ],
-            }),
-            startInterviewSession: () => of({
-              id: 'session-1',
-              interviewId: 'interview-1',
-              candidateId: 'candidate-1',
-              startedAt: new Date().toISOString(),
-              submittedAt: null,
-              status: 'InProgress',
-              totalScore: 0,
-            }),
-            completeInterviewSession: () => of({
-              id: 'session-1',
-              interviewId: 'interview-1',
-              candidateId: 'candidate-1',
-              startedAt: new Date().toISOString(),
-              submittedAt: new Date().toISOString(),
-              status: 'Completed',
-              totalScore: 100,
-            }),
-          },
+          useValue: candidateApiMock,
         },
         {
           provide: SubmissionApi,
@@ -308,5 +321,56 @@ class Solution:
     expect(submissionApiMock.resetProblem).toHaveBeenCalledWith('practice-problem-1', undefined);
     expect(component.selectedProblemId()).toBe('practice-problem-1');
     expect(component.allProblemsCompleted()).toBe(false);
+  });
+
+  it('should request and store practice hints by level', () => {
+    component.isPracticeMode.set(true);
+    component.session.set(null);
+    component.interview.set({
+      id: 'practice-problem-1',
+      title: 'Practice Workspace',
+      positionName: 'Standalone Problem Practice',
+      description: '',
+      durationMinutes: 0,
+      accessToken: '',
+      isActive: true,
+      interviewerId: '',
+      createdAt: new Date().toISOString(),
+      problems: [
+        {
+          problemId: 'practice-problem-1',
+          title: 'Best Time to Buy and Sell Stock',
+          description: '',
+          difficulty: 'Easy',
+          topic: 'Arrays',
+          constraintsText: '',
+          exampleInput: '',
+          exampleOutput: '',
+          executionMode: 'function',
+          csharpStarterCode: '',
+          pythonStarterCode: '',
+          cppStarterCode: '',
+          visibleTestCases: [],
+          orderIndex: 1,
+          points: 0,
+        },
+      ],
+    });
+    component.selectedProblemId.set('practice-problem-1');
+
+    component.requestNextHint();
+
+    expect(candidateApiMock.requestPracticeHint).toHaveBeenCalledWith(
+      'practice-problem-1',
+      expect.objectContaining({ level: 1 })
+    );
+    expect(component.currentProblemHints()).toEqual([
+      {
+        level: 1,
+        content: 'Hint 1\nTry tracking a running minimum.',
+        source: 'LocalFallback',
+      },
+    ]);
+    expect(component.nextHintLevel()).toBe(2);
   });
 });

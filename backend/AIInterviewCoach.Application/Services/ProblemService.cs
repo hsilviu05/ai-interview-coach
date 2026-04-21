@@ -62,7 +62,7 @@ namespace AIInterviewCoach.Application.Services
             if (problem is null)
                 throw new KeyNotFoundException("Problem not found.");
 
-            EnsureProblemAccessible(problem, currentUserId, currentUserRole);
+            ProblemAccessAuthorization.EnsureProblemAccessible(problem, currentUserId, currentUserRole);
 
             return MapProblemToDto(problem);
         }
@@ -357,7 +357,7 @@ namespace AIInterviewCoach.Application.Services
             if (problem is null)
                 throw new KeyNotFoundException("Problem not found.");
 
-            EnsureProblemOwnership(problem, currentUserId, isAdmin);
+            ProblemAccessAuthorization.EnsureProblemOwnership(problem, currentUserId, isAdmin);
 
             var testCase = new TestCase
             {
@@ -415,7 +415,7 @@ namespace AIInterviewCoach.Application.Services
             if (problem is null)
                 throw new KeyNotFoundException("Problem not found.");
 
-            EnsureProblemOwnership(problem, currentUserId, isAdmin);
+            ProblemAccessAuthorization.EnsureProblemOwnership(problem, currentUserId, isAdmin);
 
             var query = _dbContext.TestCases
                 .AsNoTracking()
@@ -438,28 +438,6 @@ namespace AIInterviewCoach.Application.Services
                     OrderIndex = t.OrderIndex
                 })
                     .ToListAsync();
-        }
-
-        private static void EnsureProblemAccessible(Problem problem, Guid currentUserId, UserRole currentUserRole)
-        {
-            if (currentUserRole == UserRole.Admin)
-                return;
-
-            if (currentUserRole == UserRole.Candidate && !problem.IsPublic)
-                throw new UnauthorizedAccessException("You do not have access to this problem.");
-
-            if (currentUserRole == UserRole.Interviewer &&
-                problem.CreatedByUserId != currentUserId &&
-                !problem.IsPublic)
-            {
-                throw new UnauthorizedAccessException("You do not have access to this problem.");
-            }
-        }
-
-        private static void EnsureProblemOwnership(Problem problem, Guid currentUserId, bool isAdmin)
-        {
-            if (!isAdmin && problem.CreatedByUserId != currentUserId)
-                throw new UnauthorizedAccessException("You can only manage test cases for your own problems.");
         }
 
         private static ProblemResponseDto MapProblemToDto(Problem problem)
