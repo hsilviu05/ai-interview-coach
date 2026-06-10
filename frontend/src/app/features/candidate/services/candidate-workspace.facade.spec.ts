@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { convertToParamMap, ActivatedRoute } from '@angular/router';
+import { convertToParamMap, ActivatedRoute, Router } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
@@ -8,6 +8,7 @@ import { afterEach, vi } from 'vitest';
 import { CandidateWorkspaceFacade } from './candidate-workspace.facade';
 import { CandidateApi } from './candidate-api.service';
 import { SubmissionApi } from './submission-api.service';
+import { CodeDraftStorageService } from './code-draft-storage.service';
 import type { CandidateInterviewResponse, InterviewSessionResponse } from '../models/candidate-interview.models';
 import type { SubmissionResponse } from '../models/candidate-submission.models';
 
@@ -244,5 +245,450 @@ describe('CandidateWorkspaceFacade — feedback polling', () => {
 
     vi.advanceTimersByTime(5000); // no further polls after Ready
     expect(submissionApiMock.getMySubmissions).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── Shared provider factory ───────────────────────────────────────────────────
+
+function makeCandidateApiMock() {
+  return {
+    getInterviewByToken: vi.fn().mockReturnValue(of(null)),
+    startInterviewSession: vi.fn().mockReturnValue(of(null)),
+    completeInterviewSession: vi.fn().mockReturnValue(of(null)),
+    requestPracticeHint: vi.fn().mockReturnValue(of(null)),
+    getPracticeProblemById: vi.fn().mockReturnValue(of(null)),
+  };
+}
+
+function makeSubmissionApiMock() {
+  return {
+    getByInterviewSession: vi.fn().mockReturnValue(of([])),
+    getMySubmissions: vi.fn().mockReturnValue(of([])),
+    createSubmission: vi.fn().mockReturnValue(of(null)),
+    resetProblem: vi.fn().mockReturnValue(of(void 0)),
+    resetInterviewSession: vi.fn().mockReturnValue(of(void 0)),
+  };
+}
+
+function configureFacadeTestBed(
+  paramMap: Record<string, string>,
+  candidateApi = makeCandidateApiMock(),
+  submissionApi = makeSubmissionApiMock()
+): void {
+  TestBed.configureTestingModule({
+    providers: [
+      CandidateWorkspaceFacade,
+      provideRouter([]),
+      provideHttpClient(),
+      {
+        provide: ActivatedRoute,
+        useValue: { snapshot: { paramMap: convertToParamMap(paramMap) } },
+      },
+      { provide: CandidateApi, useValue: candidateApi },
+      { provide: SubmissionApi, useValue: submissionApi },
+    ],
+  });
+}
+
+// ── Draft autosave (debounce + distinctUntilChanged) ─────────────────────────
+
+describe('CandidateWorkspaceFacade — draft autosave', () => {
+  let facade: CandidateWorkspaceFacade;
+  let saveDraftSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    configureFacadeTestBed({});
+    facade = TestBed.inject(CandidateWorkspaceFacade);
+    facade.loading.set(false);
+    facade.session.set(sessionStub);
+    facade.selectedProblemId.set('problem-1');
+    facade.interview.set(practiceInterviewStub);
+    saveDraftSpy = vi.spyOn(TestBed.inject(CodeDraftStorageService), 'saveDraft');
+  });
+
+  afterEach(() => {
+    // Null selectedProblemId before Angular destroys the TestBed so that
+    // the onDestroy → persistCurrentDraft call is a no-op and does not
+    // re-populate localStorage after we clear it here.
+    facade.selectedProblemId.set(null);
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it('does not save the draft before the 500 ms debounce window', () => {
+    facade.form.controls.sourceCode.setValue('DRAFT_A');
+    vi.advanceTimersByTime(499);
+    expect(saveDraftSpy).not.toHaveBeenCalled();
+  });
+
+  it('saves the draft once the 500 ms debounce window elapses', () => {
+    facade.form.controls.sourceCode.setValue('DRAFT_A');
+    vi.advanceTimersByTime(500);
+    expect(saveDraftSpy).toHaveBeenCalledOnce();
+  });
+
+  it('does not re-save when the form value is unchanged (distinctUntilChanged)', () => {
+    facade.form.controls.sourceCode.setValue('SAME_CONTENT');
+    vi.advanceTimersByTime(500);
+    expect(saveDraftSpy).toHaveBeenCalledTimes(1);
+
+    facade.form.controls.sourceCode.setValue('SAME_CONTENT');
+    vi.advanceTimersByTime(500);
+    // distinctUntilChanged sees the same JSON → no additional save
+    expect(saveDraftSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves again when the form content changes after a prior debounced save', () => {
+    facade.form.controls.sourceCode.setValue('VERSION_1');
+    vi.advanceTimersByTime(500);
+    expect(saveDraftSpy).toHaveBeenCalledTimes(1);
+
+    facade.form.controls.sourceCode.setValue('VERSION_2');
+    vi.advanceTimersByTime(500);
+    expect(saveDraftSpy).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ── Language switch and per-language draft isolation ─────────────────────────
+
+describe('CandidateWorkspaceFacade — language switch and draft isolation', () => {
+  let facade: CandidateWorkspaceFacade;
+
+  beforeEach(() => {
+    vi.useFakeTimers(); // suppress debounced autosave side-effects
+    configureFacadeTestBed({});
+    facade = TestBed.inject(CandidateWorkspaceFacade);
+    facade.loading.set(false);
+    facade.session.set(sessionStub);
+    facade.selectedProblemId.set('problem-1');
+    facade.interview.set(practiceInterviewStub); // stdin mode, empty starters
+  });
+
+  afterEach(() => {
+    // Null selectedProblemId before Angular destroys the TestBed so that
+    // the onDestroy → persistCurrentDraft call is a no-op and does not
+    // re-populate localStorage after we clear it here.
+    facade.selectedProblemId.set(null);
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it('loads the global stdin starter when switching to a language with no saved draft', () => {
+    facade.form.controls.language.setValue('python');
+    expect(facade.form.controls.sourceCode.value).toContain('import sys');
+  });
+
+  it('preserves separate drafts per language when switching back and forth', () => {
+    facade.form.controls.sourceCode.setValue('CSHARP_DRAFT');
+
+    facade.form.controls.language.setValue('python'); // saves C# draft, loads Python starter
+    expect(facade.form.controls.sourceCode.value).toContain('import sys');
+
+    facade.form.controls.sourceCode.setValue('PYTHON_DRAFT');
+
+    facade.form.controls.language.setValue('csharp'); // saves Python draft, reloads C# draft
+    expect(facade.form.controls.sourceCode.value).toBe('CSHARP_DRAFT');
+
+    facade.form.controls.language.setValue('python'); // reloads saved Python draft
+    expect(facade.form.controls.sourceCode.value).toBe('PYTHON_DRAFT');
+  });
+
+  it('loads the function-mode per-language starter when the problem uses function execution', () => {
+    facade.interview.set({
+      ...practiceInterviewStub,
+      problems: [{
+        ...practiceInterviewStub.problems[0],
+        executionMode: 'function',
+        csharpStarterCode: 'public int CsharpSolution() { return 0; }',
+        pythonStarterCode: 'def python_solution(): return 0',
+        cppStarterCode: 'int cpp_solution() { return 0; }',
+      }],
+    });
+
+    facade.form.controls.language.setValue('python');
+    expect(facade.form.controls.sourceCode.value).toBe('def python_solution(): return 0');
+
+    facade.form.controls.language.setValue('cpp');
+    expect(facade.form.controls.sourceCode.value).toBe('int cpp_solution() { return 0; }');
+  });
+});
+
+// ── Hint system (maxHintLevel cap, error path) ────────────────────────────────
+
+describe('CandidateWorkspaceFacade — hint system', () => {
+  let facade: CandidateWorkspaceFacade;
+  let candidateApiMock: ReturnType<typeof makeCandidateApiMock>;
+
+  beforeEach(() => {
+    candidateApiMock = makeCandidateApiMock();
+    configureFacadeTestBed({}, candidateApiMock);
+    facade = TestBed.inject(CandidateWorkspaceFacade);
+    facade.loading.set(false);
+    facade.isPracticeMode.set(true);
+    facade.interview.set(practiceInterviewStub);
+    facade.selectedProblemId.set('problem-1');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it('nextHintLevel returns null once all three hints are unlocked', () => {
+    facade.practiceHintsByProblemId.set({
+      'problem-1': [
+        { level: 1, content: 'H1', source: 'LocalFallback' },
+        { level: 2, content: 'H2', source: 'LocalFallback' },
+        { level: 3, content: 'H3', source: 'LocalFallback' },
+      ],
+    });
+
+    expect(facade.nextHintLevel()).toBeNull();
+  });
+
+  it('requestNextHint is a no-op when all three hints are already unlocked', () => {
+    facade.practiceHintsByProblemId.set({
+      'problem-1': [
+        { level: 1, content: 'H1', source: 'LocalFallback' },
+        { level: 2, content: 'H2', source: 'LocalFallback' },
+        { level: 3, content: 'H3', source: 'LocalFallback' },
+      ],
+    });
+
+    facade.requestNextHint();
+
+    expect(candidateApiMock.requestPracticeHint).not.toHaveBeenCalled();
+  });
+
+  it('sets hintErrorMessage and clears requestingHintLevel when the hint API returns an error', () => {
+    candidateApiMock.requestPracticeHint.mockReturnValue(
+      throwError(() => ({ error: { message: 'Quota exceeded.' } }))
+    );
+
+    facade.requestNextHint(); // nextHintLevel() is 1 (no hints yet)
+
+    expect(facade.hintErrorMessage()).toBe('Quota exceeded.');
+    expect(facade.requestingHintLevel()).toBeNull();
+  });
+});
+
+// ── initializeFromRoute ───────────────────────────────────────────────────────
+
+describe('CandidateWorkspaceFacade — initializeFromRoute: missing token', () => {
+  let facade: CandidateWorkspaceFacade;
+
+  beforeEach(() => {
+    configureFacadeTestBed({});
+    facade = TestBed.inject(CandidateWorkspaceFacade);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it('sets errorMessage and clears loading when neither token nor problemId is present', () => {
+    facade.initializeFromRoute();
+
+    expect(facade.errorMessage()).toBe('Missing interview token.');
+    expect(facade.loading()).toBe(false);
+  });
+});
+
+describe('CandidateWorkspaceFacade — initializeFromRoute: practice mode', () => {
+  let facade: CandidateWorkspaceFacade;
+  let candidateApiMock: ReturnType<typeof makeCandidateApiMock>;
+  let submissionApiMock: ReturnType<typeof makeSubmissionApiMock>;
+
+  beforeEach(() => {
+    candidateApiMock = makeCandidateApiMock();
+    candidateApiMock.getPracticeProblemById.mockReturnValue(
+      of(practiceInterviewStub.problems[0])
+    );
+    submissionApiMock = makeSubmissionApiMock();
+    submissionApiMock.getMySubmissions.mockReturnValue(of([]));
+    configureFacadeTestBed({ problemId: 'problem-1' }, candidateApiMock, submissionApiMock);
+    facade = TestBed.inject(CandidateWorkspaceFacade);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it('sets isPracticeMode and loads the problem by ID', () => {
+    facade.initializeFromRoute();
+
+    expect(facade.isPracticeMode()).toBe(true);
+    expect(candidateApiMock.getPracticeProblemById).toHaveBeenCalledWith('problem-1');
+    expect(facade.loading()).toBe(false);
+  });
+
+  it('sets errorMessage and clears loading when the practice problem API fails', () => {
+    candidateApiMock.getPracticeProblemById.mockReturnValue(
+      throwError(() => ({ error: { message: 'Not found.' } }))
+    );
+
+    facade.initializeFromRoute();
+
+    expect(facade.errorMessage()).toBe('Not found.');
+    expect(facade.loading()).toBe(false);
+  });
+});
+
+describe('CandidateWorkspaceFacade — initializeFromRoute: interview token', () => {
+  let facade: CandidateWorkspaceFacade;
+  let candidateApiMock: ReturnType<typeof makeCandidateApiMock>;
+  let submissionApiMock: ReturnType<typeof makeSubmissionApiMock>;
+
+  beforeEach(() => {
+    candidateApiMock = makeCandidateApiMock();
+    candidateApiMock.getInterviewByToken.mockReturnValue(of(practiceInterviewStub));
+    candidateApiMock.startInterviewSession.mockReturnValue(of(sessionStub));
+    submissionApiMock = makeSubmissionApiMock();
+    submissionApiMock.getByInterviewSession.mockReturnValue(of([]));
+    configureFacadeTestBed({ token: 'test-token' }, candidateApiMock, submissionApiMock);
+    facade = TestBed.inject(CandidateWorkspaceFacade);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it('loads the interview and starts a session when a token is present', () => {
+    facade.initializeFromRoute();
+
+    expect(candidateApiMock.getInterviewByToken).toHaveBeenCalledWith('test-token');
+    expect(candidateApiMock.startInterviewSession).toHaveBeenCalledWith('test-token');
+    expect(facade.session()).toEqual(sessionStub);
+    expect(facade.loading()).toBe(false);
+  });
+
+  it('sets errorMessage and clears loading when getInterviewByToken fails', () => {
+    candidateApiMock.getInterviewByToken.mockReturnValue(
+      throwError(() => ({ error: { message: 'Token expired.' } }))
+    );
+
+    facade.initializeFromRoute();
+
+    expect(facade.errorMessage()).toBe('Token expired.');
+    expect(facade.loading()).toBe(false);
+  });
+});
+
+// ── completeInterview and submitSolution ─────────────────────────────────────
+
+describe('CandidateWorkspaceFacade — completeInterview', () => {
+  let facade: CandidateWorkspaceFacade;
+  let candidateApiMock: ReturnType<typeof makeCandidateApiMock>;
+
+  beforeEach(() => {
+    candidateApiMock = makeCandidateApiMock();
+    configureFacadeTestBed({}, candidateApiMock);
+    facade = TestBed.inject(CandidateWorkspaceFacade);
+    facade.loading.set(false);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it('navigates to /candidate/practice without calling the API when in practice mode', () => {
+    const router = TestBed.inject(Router);
+    vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    facade.isPracticeMode.set(true);
+
+    facade.completeInterview();
+
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/candidate/practice');
+    expect(candidateApiMock.completeInterviewSession).not.toHaveBeenCalled();
+  });
+
+  it('sets errorMessage when called with no active session in interview mode', () => {
+    facade.session.set(null);
+
+    facade.completeInterview();
+
+    expect(facade.errorMessage()).toBe('No active session.');
+    expect(candidateApiMock.completeInterviewSession).not.toHaveBeenCalled();
+  });
+
+  it('sets errorMessage from the API error when completeInterviewSession fails', () => {
+    candidateApiMock.completeInterviewSession.mockReturnValue(
+      throwError(() => ({ error: { message: 'Session already completed.' } }))
+    );
+    facade.session.set(sessionStub);
+
+    facade.completeInterview();
+
+    expect(facade.errorMessage()).toBe('Session already completed.');
+    expect(facade.completing()).toBe(false);
+  });
+});
+
+describe('CandidateWorkspaceFacade — submitSolution', () => {
+  let facade: CandidateWorkspaceFacade;
+  let submissionApiMock: ReturnType<typeof makeSubmissionApiMock>;
+
+  beforeEach(() => {
+    submissionApiMock = makeSubmissionApiMock();
+    configureFacadeTestBed({}, makeCandidateApiMock(), submissionApiMock);
+    facade = TestBed.inject(CandidateWorkspaceFacade);
+    facade.loading.set(false);
+    facade.isPracticeMode.set(true);
+    facade.interview.set(practiceInterviewStub);
+    facade.selectedProblemId.set('problem-1');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it('sets errorMessage immediately when no problem is selected', () => {
+    facade.selectedProblemId.set(null);
+
+    facade.submitSolution();
+
+    expect(facade.errorMessage()).toBe('No selected problem.');
+    expect(submissionApiMock.createSubmission).not.toHaveBeenCalled();
+  });
+
+  it('sets errorMessage from the server error when the submission API fails', () => {
+    submissionApiMock.createSubmission.mockReturnValue(
+      throwError(() => ({ error: { message: 'Session expired.' } }))
+    );
+
+    facade.submitSolution();
+
+    expect(facade.errorMessage()).toBe('Session expired.');
+    expect(facade.submitting()).toBe(false);
+  });
+
+  it('sets errorMessage with status and output when submission returns a non-Accepted status', () => {
+    submissionApiMock.createSubmission.mockReturnValue(of({
+      id: 'sub-1',
+      candidateId: 'c1',
+      problemId: 'problem-1',
+      interviewSessionId: null,
+      language: 'csharp',
+      sourceCode: 'code',
+      status: 'WrongAnswer',
+      passedTests: 0,
+      totalTests: 1,
+      executionOutput: 'Expected 5, got 3',
+      aiFeedbackStatus: 'Pending',
+      submittedAt: new Date().toISOString(),
+    }));
+
+    facade.submitSolution();
+
+    expect(facade.errorMessage()).toContain('WrongAnswer');
+    expect(facade.errorMessage()).toContain('Expected 5, got 3');
   });
 });
