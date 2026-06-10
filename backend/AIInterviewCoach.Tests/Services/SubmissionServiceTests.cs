@@ -1,4 +1,5 @@
 using AIInterviewCoach.Application.DTOs.Submissions;
+using AIInterviewCoach.Application.Interfaces.Services;
 using AIInterviewCoach.Application.Services;
 using AIInterviewCoach.Domain.Constants;
 using AIInterviewCoach.Domain.Enums;
@@ -302,6 +303,89 @@ namespace AIInterviewCoach.Tests.Services
 
             Assert.Equal(SubmissionFeedbackSources.LocalFallback, result.AiFeedbackSource);
             Assert.Equal(SubmissionFeedbackStatuses.Ready, result.AiFeedbackStatus);
+        }
+
+        [Fact]
+        public async Task CreateSubmissionAsync_ShouldThrow_WhenProblemNotFound()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                service.CreateSubmissionAsync(candidate.Id, new CreateSubmissionRequestDto
+                {
+                    ProblemId = Guid.NewGuid(),
+                    Language = "csharp",
+                    SourceCode = "public class Solution { }"
+                }));
+        }
+
+        [Fact]
+        public async Task CreateSubmissionAsync_ShouldThrow_WhenInterviewSessionBelongsToAnotherCandidate()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var owner = TestDataSeeder.CreateCandidate(db);
+            var impersonator = TestDataSeeder.CreateCandidate(db);
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id);
+            var session = TestDataSeeder.CreateInterviewSession(
+                db, interview.Id, owner.Id, InterviewSessionStatus.InProgress);
+
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            // The session is owned by `owner`; `impersonator` must get 404, not 403,
+            // so the session cannot be confirmed to exist.
+            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                service.CreateSubmissionAsync(impersonator.Id, new CreateSubmissionRequestDto
+                {
+                    ProblemId = problem.Id,
+                    InterviewSessionId = session.Id,
+                    Language = "csharp",
+                    SourceCode = "public class Solution { }"
+                }));
+        }
+
+        [Fact]
+        public async Task CreateSubmissionAsync_ShouldPersistSubmission_WhenFeedbackQueueThrows()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+
+            var throwingQueue = new ThrowingSubmissionFeedbackQueue();
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), throwingQueue,
+                NullLogger<SubmissionService>.Instance);
+
+            // Queue failure must not surface to the caller — submission execution
+            // is the primary contract; AI feedback is best-effort.
+            var result = await service.CreateSubmissionAsync(candidate.Id, new CreateSubmissionRequestDto
+            {
+                ProblemId = problem.Id,
+                Language = "csharp",
+                SourceCode = "public class Solution { }"
+            });
+
+            Assert.NotNull(result);
+            Assert.Equal(SubmissionFeedbackStatuses.Pending, result.AiFeedbackStatus);
+            Assert.Equal(1, db.Submissions.Count());
+        }
+
+        private sealed class ThrowingSubmissionFeedbackQueue : ISubmissionFeedbackQueue
+        {
+            public ValueTask QueueAsync(Guid submissionId, CancellationToken cancellationToken = default)
+                => throw new InvalidOperationException("Queue is unavailable.");
         }
 
         [Fact]

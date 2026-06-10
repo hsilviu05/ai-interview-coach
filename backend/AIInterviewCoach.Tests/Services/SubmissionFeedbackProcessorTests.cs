@@ -76,5 +76,110 @@ namespace AIInterviewCoach.Tests.Services
             Assert.Equal(SubmissionFeedbackStatuses.Failed, storedSubmission.AiFeedbackStatus);
             Assert.Null(storedSubmission.AiFeedback);
         }
+
+        // ── Idempotency ───────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task ProcessAsync_ShouldSkipFeedbackGeneration_WhenSubmissionIsAlreadyReady()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            var submission = TestDataSeeder.CreateSubmission(
+                db,
+                candidate.Id,
+                problem.Id,
+                null,
+                SubmissionStatus.Accepted,
+                passedTests: 1,
+                totalTests: 1,
+                aiFeedback: "Existing AI feedback",
+                aiFeedbackStatus: SubmissionFeedbackStatuses.Ready);
+
+            var callCount = 0;
+            var processor = new SubmissionFeedbackProcessor(
+                db,
+                new FakeSubmissionFeedbackService(_ =>
+                {
+                    callCount++;
+                    return new SubmissionFeedbackResultDto { Content = "Replacement content", Source = SubmissionFeedbackSources.OpenAI };
+                }),
+                new ApplicationObservabilityService(),
+                NullLogger<SubmissionFeedbackProcessor>.Instance);
+
+            await processor.ProcessAsync(submission.Id);
+
+            Assert.Equal(0, callCount);
+            var stored = db.Submissions.Single(x => x.Id == submission.Id);
+            Assert.Equal("Existing AI feedback", stored.AiFeedback);
+            Assert.Equal(SubmissionFeedbackStatuses.Ready, stored.AiFeedbackStatus);
+        }
+
+        [Fact]
+        public async Task ProcessAsync_ShouldSkipFeedbackGeneration_WhenSubmissionIsAlreadyFailed()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            var submission = TestDataSeeder.CreateSubmission(
+                db,
+                candidate.Id,
+                problem.Id,
+                null,
+                SubmissionStatus.Accepted,
+                passedTests: 0,
+                totalTests: 1,
+                aiFeedback: null,
+                aiFeedbackStatus: SubmissionFeedbackStatuses.Failed);
+
+            var callCount = 0;
+            var processor = new SubmissionFeedbackProcessor(
+                db,
+                new FakeSubmissionFeedbackService(_ => { callCount++; return new SubmissionFeedbackResultDto(); }),
+                new ApplicationObservabilityService(),
+                NullLogger<SubmissionFeedbackProcessor>.Instance);
+
+            await processor.ProcessAsync(submission.Id);
+
+            Assert.Equal(0, callCount);
+            var stored = db.Submissions.Single(x => x.Id == submission.Id);
+            Assert.Equal(SubmissionFeedbackStatuses.Failed, stored.AiFeedbackStatus);
+            Assert.Null(stored.AiFeedback);
+        }
+
+        // ── Submission no longer exists ───────────────────────────────────────
+
+        [Fact]
+        public async Task ProcessAsync_ShouldSkipSilently_WhenSubmissionHasBeenDeleted()
+        {
+            // Documents both the "submission not found" early return AND a subtle
+            // design quirk: the `if (submission.Problem is null)` branch inside
+            // ProcessAsync is dead code via the normal Include query.
+            //
+            // Reason: EF Core treats Problem as a *required* navigation (non-
+            // nullable type). Include() uses INNER JOIN semantics, so if the
+            // Problem row is deleted, EF excludes the Submission from results
+            // entirely and FirstOrDefaultAsync returns null — the code hits the
+            // `submission is null` guard instead and returns without changing
+            // AiFeedbackStatus to Failed. The Pending submission is therefore
+            // silently abandoned, which may be worth revisiting.
+            using var db = TestDbContextFactory.CreateContext();
+
+            var nonExistentId = Guid.NewGuid();
+            var callCount = 0;
+            var processor = new SubmissionFeedbackProcessor(
+                db,
+                new FakeSubmissionFeedbackService(_ => { callCount++; return new SubmissionFeedbackResultDto(); }),
+                new ApplicationObservabilityService(),
+                NullLogger<SubmissionFeedbackProcessor>.Instance);
+
+            await processor.ProcessAsync(nonExistentId);
+
+            Assert.Equal(0, callCount);
+        }
     }
 }

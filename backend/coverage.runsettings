@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Coverage settings for coverlet.collector (XPlat Code Coverage).
+  Used by: dotnet test -\-settings coverage.runsettings
+
+  To produce an HTML report after running tests:
+    dotnet tool restore
+    dotnet tool run reportgenerator \
+      "-reports:coverage-results/**/coverage.cobertura.xml" \
+      "-targetdir:coverage-results/html" \
+      "-reporttypes:Html;TextSummary"
+
+  Open coverage-results/html/index.html in a browser to browse results.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <!-- Cobertura is the format that reportgenerator ingests. -->
+          <Format>cobertura</Format>
+
+          <!-- EF Core migration scaffolding - auto-generated, not hand-written logic. -->
+          <ExcludeByFile>**/Persistence/Migrations/**/*.cs</ExcludeByFile>
+
+          <!-- Types decorated with [GeneratedCode] or [CompilerGenerated]
+               (e.g. source generators, record equality synthesised members). -->
+          <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
+
+          <!-- The test assembly itself should never appear in production-code coverage. -->
+          <Exclude>[AIInterviewCoach.Tests]*</Exclude>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>
