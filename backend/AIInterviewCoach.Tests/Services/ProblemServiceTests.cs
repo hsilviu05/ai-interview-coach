@@ -48,6 +48,52 @@ namespace AIInterviewCoach.Tests.Services
         }
 
         [Fact]
+        public async Task GetProblemByIdAsync_ShouldThrow_WhenInterviewerRequestsAnotherInterviewersPrivateProblem()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var owner = TestDataSeeder.CreateInterviewer(db);
+            var other = TestDataSeeder.CreateInterviewer(db);
+            var privateProblem = TestDataSeeder.CreateProblem(db, owner.Id, isPublic: false);
+
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                service.GetProblemByIdAsync(privateProblem.Id, other.Id, UserRole.Interviewer));
+        }
+
+        [Fact]
+        public async Task GetProblemByIdAsync_ShouldSucceed_WhenInterviewerRequestsTheirOwnPrivateProblem()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var owner = TestDataSeeder.CreateInterviewer(db);
+            var privateProblem = TestDataSeeder.CreateProblem(db, owner.Id, isPublic: false);
+
+            var service = CreateService(db);
+
+            var result = await service.GetProblemByIdAsync(privateProblem.Id, owner.Id, UserRole.Interviewer);
+
+            Assert.Equal(privateProblem.Id, result.Id);
+        }
+
+        [Fact]
+        public async Task GetProblemByIdAsync_ShouldSucceed_WhenInterviewerRequestsAnotherInterviewersPublicProblem()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var owner = TestDataSeeder.CreateInterviewer(db);
+            var other = TestDataSeeder.CreateInterviewer(db);
+            var publicProblem = TestDataSeeder.CreateProblem(db, owner.Id, isPublic: true);
+
+            var service = CreateService(db);
+
+            var result = await service.GetProblemByIdAsync(publicProblem.Id, other.Id, UserRole.Interviewer);
+
+            Assert.Equal(publicProblem.Id, result.Id);
+        }
+
+        [Fact]
         public async Task GetProblemByIdAsync_ShouldPopulateCentralizedStarterCode_WhenProblemUsesBlankStdinStarters()
         {
             using var db = TestDbContextFactory.CreateContext();
@@ -380,6 +426,260 @@ namespace AIInterviewCoach.Tests.Services
             Assert.Equal(9, statistics.TotalSubmissions);
             Assert.Equal(88.8m, statistics.AccuracyRate);
             Assert.Equal(123, statistics.AverageExecutionTimeMs);
+        }
+
+        // ── GetAllProblemsAsync ───────────────────────────────────────────────
+
+        [Fact]
+        public async Task GetAllProblemsAsync_ShouldReturnAll_ForAdmin()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var admin = TestDataSeeder.CreateAdmin(db);
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            TestDataSeeder.CreateProblem(db, interviewer.Id, title: "Public", isPublic: true);
+            TestDataSeeder.CreateProblem(db, interviewer.Id, title: "Private", isPublic: false);
+
+            var service = CreateService(db);
+            var results = (await service.GetAllProblemsAsync(admin.Id, UserRole.Admin)).ToList();
+
+            Assert.Equal(2, results.Count);
+        }
+
+        [Fact]
+        public async Task GetAllProblemsAsync_ShouldReturnPublicAndOwnPrivate_ForInterviewer()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var owner = TestDataSeeder.CreateInterviewer(db);
+            var other = TestDataSeeder.CreateInterviewer(db);
+            TestDataSeeder.CreateProblem(db, owner.Id, title: "Owner Public", isPublic: true);
+            TestDataSeeder.CreateProblem(db, owner.Id, title: "Owner Private", isPublic: false);
+            TestDataSeeder.CreateProblem(db, other.Id, title: "Other Public", isPublic: true);
+            TestDataSeeder.CreateProblem(db, other.Id, title: "Other Private", isPublic: false);
+
+            var service = CreateService(db);
+            var results = (await service.GetAllProblemsAsync(owner.Id, UserRole.Interviewer)).ToList();
+
+            Assert.Equal(3, results.Count);
+            Assert.Contains(results, p => p.Title == "Owner Public");
+            Assert.Contains(results, p => p.Title == "Owner Private");
+            Assert.Contains(results, p => p.Title == "Other Public");
+            Assert.DoesNotContain(results, p => p.Title == "Other Private");
+        }
+
+        // ── UpdateProblemAsync ────────────────────────────────────────────────
+
+        [Fact]
+        public async Task UpdateProblemAsync_ShouldReturnNull_WhenProblemNotFound()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var admin = TestDataSeeder.CreateAdmin(db);
+            var service = CreateService(db);
+
+            var result = await service.UpdateProblemAsync(Guid.NewGuid(), admin.Id, BuildUpdateRequest());
+
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public async Task UpdateProblemAsync_ShouldThrow_WhenNonOwnerTriesToUpdate()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var owner = TestDataSeeder.CreateInterviewer(db);
+            var other = TestDataSeeder.CreateInterviewer(db);
+            var problem = TestDataSeeder.CreateProblem(db, owner.Id);
+
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                service.UpdateProblemAsync(problem.Id, other.Id, BuildUpdateRequest()));
+        }
+
+        // ── DeleteProblemAsync ────────────────────────────────────────────────
+
+        [Fact]
+        public async Task DeleteProblemAsync_ShouldReturnFalse_WhenProblemNotFound()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var admin = TestDataSeeder.CreateAdmin(db);
+            var service = CreateService(db);
+
+            var result = await service.DeleteProblemAsync(Guid.NewGuid(), admin.Id, isAdmin: true);
+
+            Assert.False(result);
+        }
+
+        [Fact]
+        public async Task DeleteProblemAsync_ShouldThrow_WhenNonOwnerTriesToDelete()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var owner = TestDataSeeder.CreateInterviewer(db);
+            var other = TestDataSeeder.CreateInterviewer(db);
+            var problem = TestDataSeeder.CreateProblem(db, owner.Id);
+
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                service.DeleteProblemAsync(problem.Id, other.Id, isAdmin: false));
+        }
+
+        [Fact]
+        public async Task DeleteProblemAsync_ShouldSucceed_AndNotWriteAuditLog_WhenOwnerDeletesAsNonAdmin()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var owner = TestDataSeeder.CreateInterviewer(db);
+            var problem = TestDataSeeder.CreateProblem(db, owner.Id);
+
+            var service = CreateService(db);
+
+            var result = await service.DeleteProblemAsync(problem.Id, owner.Id, isAdmin: false);
+
+            Assert.True(result);
+            Assert.Equal(0, db.Problems.Count());
+            Assert.Equal(0, db.AdminAuditLogs.Count());
+        }
+
+        // ── GetTestCasesAsync ─────────────────────────────────────────────────
+
+        [Fact]
+        public async Task GetTestCasesAsync_ShouldThrow_WhenProblemNotFound()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var admin = TestDataSeeder.CreateAdmin(db);
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                service.GetTestCasesAsync(Guid.NewGuid(), admin.Id, isAdmin: true, includeHidden: true));
+        }
+
+        [Fact]
+        public async Task GetTestCasesAsync_ShouldFilterHiddenTestCases_WhenIncludeHiddenIsFalse()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var owner = TestDataSeeder.CreateInterviewer(db);
+            var problem = TestDataSeeder.CreateProblem(db, owner.Id, testCaseCount: 0);
+            db.TestCases.Add(new Domain.Entities.TestCase
+            {
+                Id = Guid.NewGuid(), ProblemId = problem.Id,
+                Input = "1", ExpectedOutput = "1", IsHidden = false, OrderIndex = 1
+            });
+            db.TestCases.Add(new Domain.Entities.TestCase
+            {
+                Id = Guid.NewGuid(), ProblemId = problem.Id,
+                Input = "2", ExpectedOutput = "2", IsHidden = true, OrderIndex = 2
+            });
+            db.SaveChanges();
+
+            var service = CreateService(db);
+
+            var visible = (await service.GetTestCasesAsync(problem.Id, owner.Id, isAdmin: false, includeHidden: false)).ToList();
+            var all = (await service.GetTestCasesAsync(problem.Id, owner.Id, isAdmin: false, includeHidden: true)).ToList();
+
+            Assert.Single(visible);
+            Assert.Equal(2, all.Count);
+        }
+
+        // ── AddTestCaseAsync ──────────────────────────────────────────────────
+
+        [Fact]
+        public async Task AddTestCaseAsync_ShouldThrow_WhenProblemNotFound()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var owner = TestDataSeeder.CreateInterviewer(db);
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                service.AddTestCaseAsync(Guid.NewGuid(), owner.Id, isAdmin: false,
+                    new CreateTestCaseRequestDto { Input = "1", ExpectedOutput = "1", IsHidden = false, OrderIndex = 1 }));
+        }
+
+        [Fact]
+        public async Task AddTestCaseAsync_ShouldSucceed_AndNotWriteAuditLog_WhenNonAdminOwnerAdds()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var owner = TestDataSeeder.CreateInterviewer(db);
+            var problem = TestDataSeeder.CreateProblem(db, owner.Id, testCaseCount: 0);
+
+            var service = CreateService(db);
+
+            var result = await service.AddTestCaseAsync(
+                problem.Id, owner.Id, isAdmin: false,
+                new CreateTestCaseRequestDto { Input = "in", ExpectedOutput = "out", IsHidden = false, OrderIndex = 1 });
+
+            Assert.Equal(problem.Id, result.ProblemId);
+            Assert.Equal("in", result.Input);
+            Assert.Equal(0, db.AdminAuditLogs.Count());
+        }
+
+        // ── CreateProblemAsync ────────────────────────────────────────────────
+
+        [Fact]
+        public async Task CreateProblemAsync_ShouldCreateStdinProblem_WithStarterCode()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var service = CreateService(db);
+
+            var result = await service.CreateProblemAsync(interviewer.Id, new CreateProblemRequestDto
+            {
+                Title = "Sum Two Numbers",
+                Description = "Add two integers.",
+                Difficulty = "Easy",
+                Topic = "Math",
+                ConstraintsText = "1 <= n <= 100",
+                ExampleInput = "3 5",
+                ExampleOutput = "8",
+                ExecutionMode = ProblemExecutionModes.Stdin,
+                CsharpStarterCode = "// csharp",
+                PythonStarterCode = "# python",
+                CppStarterCode = "// cpp",
+                IsPublic = true
+            });
+
+            Assert.Equal(ProblemExecutionModes.Stdin, result.ExecutionMode);
+            Assert.Null(result.Signature);
+            Assert.Equal("// csharp", result.CsharpStarterCode);
+
+            var stored = db.Problems.Single();
+            Assert.Equal(ProblemExecutionModes.Stdin, stored.ExecutionMode);
+            Assert.Null(stored.SignatureDefinitionJson);
+        }
+
+        [Fact]
+        public async Task CreateProblemAsync_ShouldThrow_WhenStdinProblemMissingStarterCode()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var service = CreateService(db);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.CreateProblemAsync(interviewer.Id, new CreateProblemRequestDto
+                {
+                    Title = "No Starters",
+                    Description = "desc",
+                    Difficulty = "Easy",
+                    Topic = "Math",
+                    ConstraintsText = "",
+                    ExampleInput = "",
+                    ExampleOutput = "",
+                    ExecutionMode = ProblemExecutionModes.Stdin,
+                    CsharpStarterCode = "",
+                    PythonStarterCode = "",
+                    CppStarterCode = "",
+                    IsPublic = false
+                }));
         }
 
         private static ProblemService CreateService(Infrastructure.Persistence.AppDbContext db) =>

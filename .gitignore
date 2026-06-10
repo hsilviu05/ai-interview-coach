@@ -63,3 +63,7 @@ backend/AIInterviewCoach.API/appsettings.*.Local.json
 # Playwright outputs
 frontend/playwright-report/
 frontend/test-results/
+
+# Coverage outputs
+backend/coverage-results/
+frontend/coverage/

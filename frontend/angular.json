@@ -93,7 +93,16 @@
           "defaultConfiguration": "development"
         },
         "test": {
-          "builder": "@angular/build:unit-test"
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "coverageReporters": ["text-summary", "html"],
+            "coverageExclude": [
+              "src/app/core/api/generated/**",
+              "src/main.ts",
+              "src/app/app.config.ts",
+              "src/environments/**"
+            ]
+          }
         }
       }
     }
