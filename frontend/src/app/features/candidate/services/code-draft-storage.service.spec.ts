@@ -91,17 +91,17 @@ describe('CodeDraftStorageService', () => {
       expect(result?.sourceCode).toBe('py second');
     });
 
-    it('returns null when the resolved selectedLanguage is an empty string', () => {
-      // A legacy draft with language: '' causes getDraftCollection to return
-      // selectedLanguage: '' and then the !selectedLanguage guard fires.
+    it('removes the key and returns null for a legacy draft with an empty language', () => {
+      // parseLegacyDraft rejects language: '' as invalid, so the stored object
+      // fails both the legacy path and the collection shape check → cleaned up.
       localStorage.setItem(KEY, JSON.stringify({
         language: '',
         sourceCode: 'code',
         updatedAt: '2024-01-01T00:00:00.000Z',
       }));
 
-      // getDraft without an explicit language reads selectedLanguage → '' → null
       expect(service.getDraft(SCOPE)).toBeNull();
+      expect(localStorage.getItem(KEY)).toBeNull();
     });
   });
 

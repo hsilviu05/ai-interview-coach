@@ -139,6 +139,7 @@ export class CodeDraftStorageService {
 
     if (
       typeof draft.language !== 'string' ||
+      !draft.language ||
       typeof draft.sourceCode !== 'string' ||
       typeof draft.updatedAt !== 'string'
     ) {

@@ -70,7 +70,7 @@ namespace AIInterviewCoach.API.Controllers
         }
 
         [HttpGet("token/{token}")]
-        [EnableRateLimiting(RateLimitingPolicies.PublicInterviewTokenAccess)]
+        [EnableRateLimiting(RateLimitingPolicies.InterviewTokenAccess)]
         [ProducesResponseType(typeof(InterviewResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetInterviewByToken(string token)
@@ -85,7 +85,7 @@ namespace AIInterviewCoach.API.Controllers
 
         [HttpPost("token/{token}/start")]
         [Authorize(Policy = AuthorizationPolicies.CandidateWorkspaceAccess)]
-        [EnableRateLimiting(RateLimitingPolicies.PublicInterviewTokenAccess)]
+        [EnableRateLimiting(RateLimitingPolicies.InterviewTokenAccess)]
         [ProducesResponseType(typeof(InterviewSessionResponseDto), StatusCodes.Status200OK)]
         public async Task<IActionResult> StartInterviewSession(string token)
         {
