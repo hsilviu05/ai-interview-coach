@@ -44,8 +44,34 @@ jobs:
       - name: Restore backend test project
         run: dotnet restore backend/AIInterviewCoach.Tests/AIInterviewCoach.Tests.csproj
 
-      - name: Run backend test suite
-        run: dotnet test backend/AIInterviewCoach.Tests/AIInterviewCoach.Tests.csproj --configuration Release --no-restore
+      - name: Run backend test suite with coverage
+        run: |
+          dotnet test backend/AIInterviewCoach.Tests/AIInterviewCoach.Tests.csproj \
+            --configuration Release --no-restore \
+            --settings backend/coverage.runsettings \
+            --collect:"XPlat Code Coverage" \
+            --results-directory backend/coverage-results
+
+      - name: Enforce backend coverage thresholds
+        run: |
+          python3 - <<'EOF'
+          import xml.etree.ElementTree as ET, glob, sys
+          files = glob.glob('backend/coverage-results/**/coverage.cobertura.xml', recursive=True)
+          if not files:
+              print('ERROR: coverage file not found', file=sys.stderr)
+              sys.exit(1)
+          root = ET.parse(files[0]).getroot()
+          line   = float(root.attrib['line-rate'])
+          branch = float(root.attrib['branch-rate'])
+          thresholds = [('line', line, 0.80), ('branch', branch, 0.50)]
+          failed = False
+          for name, value, minimum in thresholds:
+              status = 'PASS' if value >= minimum else 'FAIL'
+              print(f'{status}  {name:8s}  {value*100:.1f}%  (min {minimum*100:.0f}%)')
+              if value < minimum:
+                  failed = True
+          sys.exit(1 if failed else 0)
+          EOF
 
   frontend-checks:
     name: Frontend Checks
@@ -78,8 +104,30 @@ jobs:
       - name: Type-check test code
         run: npx tsc -p tsconfig.spec.json --noEmit
 
-      - name: Run frontend unit tests
-        run: npx ng test --watch=false
+      - name: Run frontend unit tests with coverage
+        run: npx ng test --watch=false --coverage
+
+      - name: Enforce frontend coverage thresholds
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+          with open('coverage/frontend/coverage-summary.json') as f:
+              d = json.load(f)
+          t = d['total']
+          thresholds = [
+              ('statements', t['statements']['pct'], 55),
+              ('branches',   t['branches']['pct'],   43),
+              ('functions',  t['functions']['pct'],   38),
+              ('lines',      t['lines']['pct'],       57),
+          ]
+          failed = False
+          for name, pct, minimum in thresholds:
+              status = 'PASS' if pct >= minimum else 'FAIL'
+              print(f'{status}  {name:12s}  {pct:.1f}%  (min {minimum}%)')
+              if pct < minimum:
+                  failed = True
+          sys.exit(1 if failed else 0)
+          EOF
 
       - name: Build production frontend bundle
         run: npm run build

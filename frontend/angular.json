@@ -95,7 +95,7 @@
         "test": {
           "builder": "@angular/build:unit-test",
           "options": {
-            "coverageReporters": ["text-summary", "html"],
+            "coverageReporters": ["text-summary", "html", "json-summary"],
             "coverageExclude": [
               "src/app/core/api/generated/**",
               "src/main.ts",
