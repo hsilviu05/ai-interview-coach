@@ -10,7 +10,7 @@ namespace AIInterviewCoach.API.RateLimiting
     public static class RateLimitingPolicies
     {
         public const string AuthLogin = "AuthLogin";
-        public const string PublicInterviewTokenAccess = "PublicInterviewTokenAccess";
+        public const string InterviewTokenAccess = "InterviewTokenAccess";
         public const string CandidateSubmissionFlow = "CandidateSubmissionFlow";
         public const string AdminMutation = "AdminMutation";
 
@@ -50,9 +50,9 @@ namespace AIInterviewCoach.API.RateLimiting
                         AutoReplenishment = true
                     }));
 
-            options.AddPolicy(PublicInterviewTokenAccess, httpContext =>
+            options.AddPolicy(InterviewTokenAccess, httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
-                    BuildIpPartitionKey(httpContext, "interview-token"),
+                    BuildAuthenticatedPartitionKey(httpContext, "interview-token"),
                     _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = 20,
