@@ -411,6 +411,7 @@ int main() {
           this.errorMessage.set(
             err?.error?.message ?? 'Failed to submit solution.'
           );
+          this.submitting.set(false);
         },
         complete: () => {
           this.submitting.set(false);
@@ -444,6 +445,7 @@ int main() {
         this.errorMessage.set(
           err?.error?.message ?? 'Failed to complete interview.'
         );
+        this.completing.set(false);
       },
       complete: () => {
         this.completing.set(false);
@@ -501,6 +503,7 @@ int main() {
           this.errorMessage.set(
             err?.error?.message ?? 'Failed to reset the problem.'
           );
+          this.resettingProblem.set(false);
         },
         complete: () => {
           this.resettingProblem.set(false);
@@ -555,6 +558,7 @@ int main() {
         this.errorMessage.set(
           err?.error?.message ?? 'Failed to reset the problems.'
         );
+        this.resettingAllProblems.set(false);
       },
       complete: () => {
         this.resettingAllProblems.set(false);
