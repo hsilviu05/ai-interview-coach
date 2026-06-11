@@ -63,7 +63,7 @@ jobs:
           root = ET.parse(files[0]).getroot()
           line   = float(root.attrib['line-rate'])
           branch = float(root.attrib['branch-rate'])
-          thresholds = [('line', line, 0.80), ('branch', branch, 0.50)]
+          thresholds = [('line', line, 0.82), ('branch', branch, 0.54)]
           failed = False
           for name, value, minimum in thresholds:
               status = 'PASS' if value >= minimum else 'FAIL'
@@ -116,9 +116,9 @@ jobs:
           t = d['total']
           thresholds = [
               ('statements', t['statements']['pct'], 55),
-              ('branches',   t['branches']['pct'],   43),
-              ('functions',  t['functions']['pct'],   38),
-              ('lines',      t['lines']['pct'],       57),
+              ('branches',   t['branches']['pct'],   44),
+              ('functions',  t['functions']['pct'],   39),
+              ('lines',      t['lines']['pct'],       58),
           ]
           failed = False
           for name, pct, minimum in thresholds:
