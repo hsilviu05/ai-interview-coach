@@ -199,11 +199,11 @@ Cererile către alte origini nu sunt modificate.
         al utilizatorului prin \texttt{canAccessPolicy()}.
         Dacă rolul nu îndeplinește politica:
         \begin{itemize}
-          \item Utilizator neautentificat → redirecționare la \texttt{/login}.
-          \item Utilizator cu alt rol → redirecționare la ruta implicită
+          \item Utilizator neautentificat $\rightarrow$ redirecționare la \texttt{/login}.
+          \item Utilizator cu alt rol $\rightarrow$ redirecționare la ruta implicită
                 a rolului (\texttt{getDefaultRouteForRole()}):
-                Interviewer/Admin → \texttt{/interviewer/dashboard},
-                Candidate → \texttt{/candidate/access}.
+                Interviewer/Admin $\rightarrow$ \texttt{/interviewer/dashboard},
+                Candidate $\rightarrow$ \texttt{/candidate/access}.
         \end{itemize}
         % Sursă: frontend/src/app/core/guards/role-guard.ts
 

@@ -70,7 +70,7 @@ Structura canonică este descrisă în
 \texttt{PythonHarnessTemplate} & \texttt{text}           & NOT NULL       & \\
 \texttt{CppHarnessTemplate}    & \texttt{text}           & NOT NULL       & \\
 \texttt{IsPublic}              & \texttt{boolean}        & NOT NULL       & \\
-\texttt{CreatedByUserId}       & \texttt{uuid}           & FK→Users, NOT NULL & ON DELETE CASCADE \\
+\texttt{CreatedByUserId}       & \texttt{uuid}           & FK$\rightarrow$Users, NOT NULL & ON DELETE CASCADE \\
 \texttt{CreatedAt}             & \texttt{timestamp with time zone} & NOT NULL & \\
 \texttt{UpdatedAt}             & \texttt{timestamp with time zone} & NOT NULL & \\
 \hline
@@ -87,7 +87,7 @@ Index: \texttt{CreatedByUserId}.
 \textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
 \hline
 \texttt{Id}             & \texttt{uuid}    & PK, NOT NULL                 & \\
-\texttt{ProblemId}      & \texttt{uuid}    & FK→Problems, NOT NULL        & ON DELETE CASCADE \\
+\texttt{ProblemId}      & \texttt{uuid}    & FK$\rightarrow$Problems, NOT NULL        & ON DELETE CASCADE \\
 \texttt{Input}          & \texttt{text}    & NOT NULL                     & \\
 \texttt{ExpectedOutput} & \texttt{text}    & NOT NULL                     & \\
 \texttt{IsHidden}       & \texttt{boolean} & NOT NULL                     & \\
@@ -129,8 +129,8 @@ Tabelă de joncțiune mulți-la-mulți între \texttt{Interviews} și
 \textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
 \hline
 \texttt{Id}          & \texttt{uuid}    & PK, NOT NULL                  & \\
-\texttt{InterviewId} & \texttt{uuid}    & FK→Interviews, NOT NULL       & ON DELETE Cascade \\
-\texttt{ProblemId}   & \texttt{uuid}    & FK→Problems, NOT NULL         & ON DELETE Restrict \\
+\texttt{InterviewId} & \texttt{uuid}    & FK$\rightarrow$Interviews, NOT NULL       & ON DELETE Cascade \\
+\texttt{ProblemId}   & \texttt{uuid}    & FK$\rightarrow$Problems, NOT NULL         & ON DELETE Restrict \\
 \texttt{OrderIndex}  & \texttt{integer} & NOT NULL                      & \\
 \texttt{Points}      & \texttt{integer} & NOT NULL                      & \\
 \hline
@@ -148,8 +148,8 @@ Indecși: \texttt{InterviewId}, \texttt{ProblemId}.
 \textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
 \hline
 \texttt{Id}          & \texttt{uuid}           & PK, NOT NULL               & \\
-\texttt{InterviewId} & \texttt{uuid}           & FK→Interviews, NOT NULL    & ON DELETE Cascade \\
-\texttt{CandidateId} & \texttt{uuid}           & FK→Users, NOT NULL         & ON DELETE Restrict \\
+\texttt{InterviewId} & \texttt{uuid}           & FK$\rightarrow$Interviews, NOT NULL    & ON DELETE Cascade \\
+\texttt{CandidateId} & \texttt{uuid}           & FK$\rightarrow$Users, NOT NULL         & ON DELETE Restrict \\
 \texttt{StartedAt}   & \texttt{timestamp with time zone} & NOT NULL         & \\
 \texttt{SubmittedAt} & \texttt{timestamp with time zone} & NULL             & setat la finalizare \\
 \texttt{Status}      & \texttt{varchar(30)}    & NOT NULL                   & ``InProgress'' sau ``Completed'' \\
@@ -169,9 +169,9 @@ Indecși: \texttt{CandidateId}, \texttt{InterviewId}.
 \textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
 \hline
 \texttt{Id}                 & \texttt{uuid}        & PK, NOT NULL               & \\
-\texttt{CandidateId}        & \texttt{uuid}        & FK→Users, NOT NULL         & ON DELETE Restrict \\
-\texttt{ProblemId}          & \texttt{uuid}        & FK→Problems, NOT NULL      & ON DELETE Cascade \\
-\texttt{InterviewSessionId} & \texttt{uuid}        & FK→InterviewSessions, NULL & ON DELETE Cascade; NULL → practică \\
+\texttt{CandidateId}        & \texttt{uuid}        & FK$\rightarrow$Users, NOT NULL         & ON DELETE Restrict \\
+\texttt{ProblemId}          & \texttt{uuid}        & FK$\rightarrow$Problems, NOT NULL      & ON DELETE Cascade \\
+\texttt{InterviewSessionId} & \texttt{uuid}        & FK$\rightarrow$InterviewSessions, NULL & ON DELETE Cascade; NULL $\rightarrow$ practică \\
 \texttt{Language}           & \texttt{varchar(50)} & NOT NULL                   & ``csharp'', ``python'', ``cpp'' \\
 \texttt{SourceCode}         & \texttt{text}        & NOT NULL                   & \\
 \texttt{Status}             & \texttt{integer}     & NOT NULL                   & enum SubmissionStatus \\
@@ -197,7 +197,7 @@ Indecși: \texttt{CandidateId}, \texttt{InterviewSessionId}, \texttt{ProblemId}.
 \textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
 \hline
 \texttt{Id}                     & \texttt{uuid}    & PK, NOT NULL                 & \\
-\texttt{CandidateId}            & \texttt{uuid}    & FK→Users, NOT NULL, UNIQUE   & relație 1-la-1 \\
+\texttt{CandidateId}            & \texttt{uuid}    & FK$\rightarrow$Users, NOT NULL, UNIQUE   & relație 1-la-1 \\
 \texttt{ProblemsSolved}         & \texttt{integer} & NOT NULL                     & \\
 \texttt{TotalSubmissions}       & \texttt{integer} & NOT NULL                     & \\
 \texttt{AccuracyRate}           & \texttt{numeric} & NOT NULL                     & valoare 0–1 \\
@@ -214,7 +214,7 @@ Indecși: \texttt{CandidateId}, \texttt{InterviewSessionId}, \texttt{ProblemId}.
 \textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
 \hline
 \texttt{Id}                & \texttt{uuid}           & PK, NOT NULL              & \\
-\texttt{AdminUserId}       & \texttt{uuid}           & FK→Users, NOT NULL        & ON DELETE Restrict \\
+\texttt{AdminUserId}       & \texttt{uuid}           & FK$\rightarrow$Users, NOT NULL        & ON DELETE Restrict \\
 \texttt{AdminEmail}        & \texttt{varchar(200)}   & NOT NULL                  & denormalizat \\
 \texttt{AdminFullName}     & \texttt{varchar(200)}   & NOT NULL                  & denormalizat \\
 \texttt{ActionType}        & \texttt{varchar(100)}   & NOT NULL                  & \\
