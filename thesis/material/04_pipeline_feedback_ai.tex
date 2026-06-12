@@ -1,0 +1,229 @@
+% ============================================================
+% SECȚIUNEA 4 — Pipeline-ul de feedback AI
+% Fișiere sursă de referință:
+%   backend/AIInterviewCoach.Application/Services/SubmissionFeedbackProcessor.cs
+%   backend/AIInterviewCoach.Infrastructure/Services/SubmissionFeedbackBackgroundService.cs
+%   backend/AIInterviewCoach.Infrastructure/Services/SubmissionFeedbackService.cs
+%   frontend/src/app/features/candidate/services/candidate-workspace.facade.ts
+%   backend/AIInterviewCoach.Domain/Constants/SubmissionFeedbackStatuses.cs
+% ============================================================
+
+\section{Pipeline-ul de feedback AI}
+\label{sec:pipeline_feedback_ai}
+
+\subsection{Vedere de ansamblu}
+
+Evaluarea cu ajutorul inteligenței artificiale funcționează \emph{asincron}
+față de cererea HTTP care creează submisia. Decizia de a nu bloca
+răspunsul HTTP (care ar putea dura câteva secunde) se justifică prin
+latența imprevizibilă a API-ului OpenAI și prin nevoia de a proteja
+experiența candidatului. Submisia este creată imediat cu statusul
+\texttt{Pending}; feedback-ul sosește ulterior, iar frontend-ul îl afișează
+prin polling.
+
+Pipeline-ul este alcătuit din patru componente principale, descrise în
+secțiunile care urmează:
+
+\begin{enumerate}
+  \item \texttt{SubmissionService} — creează submisia și o pune în coadă.
+  \item \texttt{SubmissionFeedbackBackgroundService} — coadă de fundal
+        bazată pe \texttt{System.Threading.Channels}.
+  \item \texttt{SubmissionFeedbackProcessor} — orchestrează generarea și
+        persistă rezultatul.
+  \item \texttt{SubmissionFeedbackService} — apelează efectiv API-ul
+        OpenAI sau furnizează feedback local de rezervă.
+\end{enumerate}
+
+\subsection{Mașina de stări a feedback-ului}
+
+Coloana \texttt{AiFeedbackStatus} din tabela \texttt{Submissions} poate
+lua trei valori, definite ca constante de șir în
+\texttt{SubmissionFeedbackStatuses}:
+% Sursă: Domain/Constants/SubmissionFeedbackStatuses.cs
+
+\begin{itemize}
+  \item \texttt{Pending} — stare inițială (valoare implicită la inserție
+        în baza de date); feedback-ul nu a fost generat încă.
+  \item \texttt{Ready} — feedback-ul a fost generat cu succes și este
+        stocat în coloana \texttt{AiFeedback}.
+  \item \texttt{Failed} — generarea a eșuat definitiv (eroare API
+        neașteptată sau problemă lipsă din baza de date).
+\end{itemize}
+
+Tranziția \texttt{Pending}→\texttt{Ready} sau \texttt{Pending}→\texttt{Failed}
+este atomică: ambele câmpuri (\texttt{AiFeedback} și \texttt{AiFeedbackStatus})
+sunt actualizate într-un singur apel \texttt{SaveChangesAsync()}.
+% Sursă: Application/Services/SubmissionFeedbackProcessor.cs:75–86
+
+\subsection{SubmissionFeedbackBackgroundService — coada de procesare}
+
+\texttt{SubmissionFeedbackBackgroundService} este un
+\texttt{IHostedService} (singleton) care implementează totodată
+\texttt{ISubmissionFeedbackQueue}, interfața prin care serviciile de
+aplicație înregistrează submisii în coadă.
+% Sursă: Infrastructure/Services/SubmissionFeedbackBackgroundService.cs
+
+\paragraph{Mecanismul de coadă}
+Se folosesc două structuri de date paralele:
+\begin{itemize}
+  \item \texttt{Channel<Guid>} — canal neblocat, configurat cu
+        \texttt{SingleReader = true, SingleWriter = false}; vehiculează
+        ID-urile submisiilor de procesat.
+  \item \texttt{ConcurrentDictionary<Guid, byte>} — set de deduplicare;
+        previne adăugarea aceleiași submisii de două ori (relevant dacă
+        un ID ajunge din nou în coadă înainte de a fi procesat).
+\end{itemize}
+
+Metoda \texttt{QueueAsync()} verifică mai întâi dicționarul; dacă ID-ul
+este deja prezent, returnează imediat fără a scrie în canal.
+% Sursă: Infrastructure/Services/SubmissionFeedbackBackgroundService.cs:34–42
+
+\paragraph{Recuperare la pornire}
+La pornirea aplicației, \texttt{ExecuteAsync()} interoghează baza de date
+și pune în coadă toate submisiile cu \texttt{AiFeedbackStatus = ``Pending''},
+ordonate după \texttt{SubmittedAt}. Această recuperare rezolvă cazul
+în care serverul este repornit cu submisii nerezolvate.
+% Sursă: Infrastructure/Services/SubmissionFeedbackBackgroundService.cs:56–81
+
+\paragraph{Bucla de procesare}
+Bucla principală citește ID-uri din canal cu
+\texttt{WaitToReadAsync()} (blocare asincronă fără busy-wait) și,
+pentru fiecare ID, creează un scope DI nou, instanțiează
+\texttt{SubmissionFeedbackProcessor} și îl apelează. Excepțiile
+neașteptate sunt loggate (nivel \texttt{Error}) dar nu opresc bucla;
+\texttt{OperationCanceledException} la oprire iese curat.
+% Sursă: Infrastructure/Services/SubmissionFeedbackBackgroundService.cs:44–77
+
+\subsection{SubmissionFeedbackProcessor — orchestrare}
+
+\texttt{SubmissionFeedbackProcessor} este un serviciu \emph{scoped} din
+stratul Application; primește un singur ID de submisie și execută
+urmăroarele etape în ordine:
+% Sursă: Application/Services/SubmissionFeedbackProcessor.cs
+
+\begin{enumerate}
+  \item \textbf{Interogare}: Încarcă submisia împreună cu entitatea
+        \texttt{Problem} asociată printr-un \texttt{Include(s => s.Problem)}.
+        Dacă submisia nu mai există (ștearsă între timp), abandonează
+        silențios.
+        % Sursă: SubmissionFeedbackProcessor.cs:33–41
+
+  \item \textbf{Verificare stare}: Dacă \texttt{AiFeedbackStatus} nu mai
+        este \texttt{Pending} (submisie deja procesată), returnează imediat
+        fără efect.
+        % Sursă: SubmissionFeedbackProcessor.cs:43–47
+
+  \item \textbf{Apel serviciu}: Apelează
+        \texttt{ISubmissionFeedbackService.GenerateFeedbackAsync()} cu un
+        DTO de context ce include titlul problemei, codul sursă, rezultatul
+        execuției, limbajul și modul de utilizare (practică vs.\ interviu).
+        % Sursă: SubmissionFeedbackProcessor.cs:56–73, BuildFeedbackContext()
+
+  \item \textbf{Persistare}: Actualizează \texttt{AiFeedback} și
+        \texttt{AiFeedbackStatus} și apelează \texttt{SaveChangesAsync()}.
+        % Sursă: SubmissionFeedbackProcessor.cs:75–86
+
+  \item \textbf{Observabilitate}: Înregistrează metrica de latență și
+        sursa feedback-ului (\texttt{OpenAI} sau \texttt{LocalFallback})
+        prin \texttt{IObservabilityService.RecordAiFeedback()}.
+        % Sursă: SubmissionFeedbackProcessor.cs:88–92
+\end{enumerate}
+
+\subsection{SubmissionFeedbackService — generarea efectivă}
+
+\texttt{SubmissionFeedbackService} este responsabil de comunicarea cu
+API-ul OpenAI și de logica de rezervă.
+% Sursă: Infrastructure/Services/SubmissionFeedbackService.cs
+
+\paragraph{Configurare}
+Cheia API este citită prioritizat din:
+\begin{enumerate}
+  \item Cheia de configurare \texttt{AiFeedback:ApiKey}
+        (\texttt{appsettings.json} / variabile de mediu).
+  \item Variabila de mediu \texttt{OPENAI\_API\_KEY}.
+\end{enumerate}
+Modelul este obținut similar din \texttt{AiFeedback:Model} sau
+\texttt{OPENAI\_MODEL}, iar URL-ul de bază din \texttt{AiFeedback:BaseUrl}
+sau \texttt{OPENAI\_BASE\_URL} (implicit
+\texttt{https://api.openai.com/v1}).
+% Sursă: SubmissionFeedbackService.cs:78–101
+
+Dacă oricare dintre cheie și model lipsesc, serviciul nu apelează API-ul
+și returnează direct feedback-ul de rezervă.
+% Sursă: SubmissionFeedbackService.cs:57–59
+
+\paragraph{Apelul API}
+Serviciul trimite un \texttt{POST} la \texttt{\{baseUrl\}/responses}
+cu corp JSON care include:
+\begin{itemize}
+  \item \texttt{model} — identificatorul modelului configurat.
+  \item \texttt{instructions} — prompt de sistem cu instrucțiunile de stil
+        (text simplu, patru secțiuni: \emph{Overall}, \emph{Correctness},
+        \emph{Code Quality}, \emph{Next Step}; fără Markdown).
+  \item \texttt{input} — promptul candidat construit din contextul submisiei
+        (titlu, descriere, constrângeri, cod sursă, output de execuție,
+        număr de teste trecute, mod de utilizare).
+  \item \texttt{max\_output\_tokens = 220} — limitare explicită pentru
+        menținerea răspunsului concis.
+\end{itemize}
+% Sursă: SubmissionFeedbackService.cs:73–88, BuildPrompt()
+
+\paragraph{Parsarea răspunsului}
+Funcția \texttt{ExtractResponseText()} suportă două formate de răspuns
+OpenAI: câmpul de nivel superior \texttt{output\_text} (răspuns simplificat)
+și structura \texttt{output[*].content[*].text} (răspuns complet).
+% Sursă: SubmissionFeedbackService.cs:106–135
+
+\paragraph{Normalizare}
+Funcția \texttt{NormalizeRemoteFeedback()} elimină heading-urile Markdown
+(\texttt{\#}), elimină liniile goale de la început/sfârșit și colapsează
+secvențele de mai multe linii goale consecutive la una singură.
+Rezultatul este text simplu, gata de afișare în cardul UI.
+% Sursă: SubmissionFeedbackService.cs:137–167
+
+\paragraph{Feedback de rezervă}
+În caz de eroare de rețea, de configurare lipsă sau de răspuns gol,
+\texttt{SubmissionFeedbackService} returnează conținut generat de
+\texttt{SubmissionFallbackFeedbackCatalog.Generate()}, un catalog de
+texte statice personalizate după statusul submisiei.
+Sursa este marcată ca \texttt{LocalFallback} în DTO, astfel încât
+\texttt{SubmissionFeedbackProcessor} poate distinge cele două cazuri
+pentru observabilitate.
+% Sursă: SubmissionFeedbackService.cs:196–202
+
+\subsection{Polling-ul din frontend}
+
+Frontend-ul (Angular) detectează submisiile cu \texttt{aiFeedbackStatus = ``Pending''}
+și programează o verificare periodică până când toate devin \texttt{Ready}
+sau \texttt{Failed}.
+% Sursă: frontend/.../candidate-workspace.facade.ts:912–1000
+
+Mecanismul este implementat în \texttt{CandidateWorkspaceFacade}:
+
+\begin{enumerate}
+  \item La fiecare actualizare a listei de submisii, metoda
+        \texttt{setSubmissions()} verifică dacă există cel puțin una cu
+        \texttt{aiFeedbackStatus === ``Pending''}.
+  \item Dacă da, apelează \texttt{ensureFeedbackPolling(delayMs = 1500)}.
+        Această metodă creează un \texttt{setTimeout} de 1\,500\,ms dacă
+        nu există deja unul activ (idempotentă).
+  \item La expirarea timeout-ului, \texttt{refreshPendingFeedback()} face
+        un apel API:
+        \begin{itemize}
+          \item \textbf{Mod practică}: \texttt{GET /api/submissions/me},
+                filtrând local submisiile care corespund problemei curente.
+          \item \textbf{Mod interviu}: \texttt{GET /api/submissions/session/\{sessionId\}}.
+        \end{itemize}
+  \item Răspunsul este pasat din nou prin \texttt{setSubmissions()}, care
+        decide dacă polling-ul continuă sau se oprește.
+  \item În caz de eroare a cererii, \texttt{ensureFeedbackPolling(4000)}
+        reprogramează cu o întârziere mai mare de 4\,000\,ms.
+  \item Polling-ul se oprește definitiv (\texttt{stopFeedbackPolling()})
+        când nu mai există submisii \texttt{Pending} sau la distrugerea
+        componentei, prin \texttt{DestroyRef}.
+\end{enumerate}
+% Sursă: candidate-workspace.facade.ts:929–999
+
+Alegerea \texttt{setTimeout} în locul unui interval fix evită
+acumularea cererilor dacă una este lentă: o nouă verificare nu
+este programată decât după ce răspunsul anterior a sosit.

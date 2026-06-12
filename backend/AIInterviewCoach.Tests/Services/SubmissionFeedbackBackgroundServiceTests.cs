@@ -94,6 +94,48 @@ namespace AIInterviewCoach.Tests.Services
             Assert.NotNull(stored.AiFeedback);
         }
 
+        [Fact]
+        public async Task ExecuteAsync_ReturnsEarlyWithoutDrainLoop_WhenStartupDbQueryFails()
+        {
+            // If IAppDbContext cannot be resolved, GetRequiredService throws and the startup
+            // catch(Exception) block fires, logs a warning, and returns without entering the
+            // drain loop.  Items subsequently enqueued via QueueAsync sit in the channel unread.
+            var startupScopeDisposed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var processorCallCount = 0;
+
+            var scopeFactory = new ControlledScopeFactory(callNum =>
+            {
+                // Scope 1 = startup: empty provider → GetRequiredService<IAppDbContext> throws.
+                // Any callNum > 1 would mean the drain loop started — fail fast.
+                var provider = callNum == 1
+                    ? new FakeServiceProvider(new Dictionary<Type, Func<object>>())
+                    : new FakeServiceProvider(new Dictionary<Type, Func<object>>
+                      {
+                          [typeof(SubmissionFeedbackProcessor)] = () =>
+                          {
+                              Interlocked.Increment(ref processorCallCount);
+                              throw new InvalidOperationException("Drain loop must not run after startup failure.");
+                          }
+                      });
+                return new SignalingScope(provider,
+                    callNum == 1 ? () => startupScopeDisposed.TrySetResult(true) : null);
+            });
+
+            var svc = new SubmissionFeedbackBackgroundService(
+                scopeFactory, NullLogger<SubmissionFeedbackBackgroundService>.Instance);
+            await svc.StartAsync(CancellationToken.None);
+
+            // Wait for startup scope disposal — guarantees ExecuteAsync passed its try/catch and returned.
+            await startupScopeDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            // These writes reach the channel but nobody reads them (drain loop never started).
+            await svc.QueueAsync(Guid.NewGuid());
+            await svc.QueueAsync(Guid.NewGuid());
+
+            await svc.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(0, processorCallCount);
+        }
+
         // ── Manual queue dispatch ─────────────────────────────────────────────
 
         [Fact]
@@ -142,6 +184,47 @@ namespace AIInterviewCoach.Tests.Services
         }
 
         // ── Exception resilience ──────────────────────────────────────────────
+
+        [Fact]
+        public async Task ExecuteAsync_TreatsOperationCancelledAsError_WhenStoppingTokenIsNotCancelled()
+        {
+            // The drain loop has: catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested).
+            // When stoppingToken is NOT cancelled, the `when` guard is false, the exception falls to
+            // catch(Exception), logs an error, and the loop continues to the next item.
+            using var db = TestDbContextFactory.CreateContext();
+
+            var id1 = Guid.NewGuid();
+            var id2 = Guid.NewGuid();
+            var processorResolutionCount = 0;
+            var secondItemProcessed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var scopeFactory = new ControlledScopeFactory(callNum =>
+            {
+                var provider = new FakeServiceProvider(new Dictionary<Type, Func<object>>
+                {
+                    [typeof(IAppDbContext)] = () => db,
+                    [typeof(SubmissionFeedbackProcessor)] = () =>
+                    {
+                        if (Interlocked.Increment(ref processorResolutionCount) == 1)
+                            throw new OperationCanceledException("Simulated inner cancellation — not a shutdown signal.");
+                        return MakeProcessor(db);
+                    }
+                });
+                return new SignalingScope(provider, callNum == 3 ? () => secondItemProcessed.TrySetResult(true) : null);
+            });
+
+            var svc = new SubmissionFeedbackBackgroundService(
+                scopeFactory, NullLogger<SubmissionFeedbackBackgroundService>.Instance);
+            await svc.StartAsync(CancellationToken.None);
+
+            await svc.QueueAsync(id1);
+            await svc.QueueAsync(id2);
+
+            await secondItemProcessed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await svc.StopAsync(CancellationToken.None);
+
+            Assert.Equal(2, processorResolutionCount);
+        }
 
         [Fact]
         public async Task ExecuteAsync_ContinuesProcessingLoop_AfterExceptionOnOneItem()
@@ -213,6 +296,62 @@ namespace AIInterviewCoach.Tests.Services
         }
 
         // ── Deduplication ─────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task QueueAsync_AllowsRequeue_AfterSameIdIsFullyProcessed()
+        {
+            // _queuedSubmissionIds.TryRemove fires in the finally block of the drain loop
+            // *after* ProcessSubmissionAsync returns.  Once removed, a subsequent QueueAsync
+            // call for the same ID must succeed (TryAdd returns true) and trigger a second
+            // processing round.
+            //
+            // Sentinel pattern: the sentinel item is queued immediately after the target ID.
+            // Because the drain loop is single-reader, by the time the sentinel's scope is
+            // disposed (scope 3), TryRemove for the target ID has already completed (it ran
+            // between scope 2 disposal and scope 3 creation).  This makes the re-queue safe
+            // without requiring timing hacks.
+            using var db = TestDbContextFactory.CreateContext();
+
+            var id = Guid.NewGuid();
+            var sentinelId = Guid.NewGuid();
+            var processorCallCount = 0;
+            var sentinelComplete = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var requeueueComplete = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            // Scopes: 1=startup, 2=id, 3=sentinel, 4=id (re-queued)
+            var scopeFactory = new ControlledScopeFactory(callNum =>
+            {
+                var provider = new FakeServiceProvider(new Dictionary<Type, Func<object>>
+                {
+                    [typeof(IAppDbContext)] = () => db,
+                    [typeof(SubmissionFeedbackProcessor)] = () =>
+                    {
+                        Interlocked.Increment(ref processorCallCount);
+                        return MakeProcessor(db);
+                    }
+                });
+                Action? onDispose = callNum == 3 ? () => sentinelComplete.TrySetResult(true)
+                                  : callNum == 4 ? () => requeueueComplete.TrySetResult(true)
+                                  : null;
+                return new SignalingScope(provider, onDispose);
+            });
+
+            var svc = new SubmissionFeedbackBackgroundService(
+                scopeFactory, NullLogger<SubmissionFeedbackBackgroundService>.Instance);
+            await svc.StartAsync(CancellationToken.None);
+
+            await svc.QueueAsync(id);
+            await svc.QueueAsync(sentinelId);
+
+            // Sentinel processed → TryRemove(id) has already run (sequential drain loop).
+            await sentinelComplete.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            await svc.QueueAsync(id); // TryAdd must succeed now
+            await requeueueComplete.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await svc.StopAsync(CancellationToken.None);
+
+            Assert.Equal(3, processorCallCount); // id, sentinelId, id again
+        }
 
         [Fact]
         public async Task QueueAsync_IsIdempotent_WhenSameIdQueuedTwice()

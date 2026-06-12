@@ -1,0 +1,158 @@
+% ============================================================
+% SECȚIUNEA 1 — Descrierea arhitecturii
+% Fișiere sursă de referință:
+%   backend/AIInterviewCoach.Domain/
+%   backend/AIInterviewCoach.Application/
+%   backend/AIInterviewCoach.Infrastructure/
+%   backend/AIInterviewCoach.API/
+%   backend/AIInterviewCoach.API/Extensions/ServiceCollectionExtensions.cs
+%   backend/AIInterviewCoach.API/Program.cs
+% ============================================================
+
+\section{Arhitectura sistemului}
+\label{sec:arhitectura}
+
+\subsection{Principii de proiectare}
+
+Aplicația back-end a fost structurată conform paradigmei \emph{Clean Architecture}
+(arhitectură curată), propusă de Robert C.\ Martin, care impune separarea
+responsabilităților în straturi concentrice independente de tehnologie.
+Dependențele de cod sunt permise exclusiv spre interior: straturile exterioare
+pot referi straturile interioare, dar niciodată invers.
+Avantajul practic este că logica de business poate fi testată izolat, fără
+nicio dependență de baze de date, cadre web sau servicii externe.
+
+\subsection{Stratificarea proiectului}
+
+Soluția conține patru proiecte \texttt{.NET~10}, fiecare corespunzând unui
+strat al arhitecturii:
+
+\paragraph{AIInterviewCoach.Domain}
+Cel mai interior strat; nu depinde de nicio altă bibliotecă din proiect.
+Conține entitățile de domeniu (\texttt{User}, \texttt{Problem}, \texttt{Submission},
+\texttt{Interview} etc.), enumerările (\texttt{UserRole}, \texttt{SubmissionStatus},
+\texttt{InterviewSessionStatus}) și constantele de domeniu
+(\texttt{SubmissionFeedbackStatuses}).
+Aceste clase nu moștenesc din nicio clasă de infrastructură și nu referă
+Entity Framework, ASP.NET sau orice alt cadru extern.
+% Sursă: backend/AIInterviewCoach.Domain/Entities/ și Enums/
+
+\paragraph{AIInterviewCoach.Application}
+Stratul de aplicație orchestrează logica de utilizare.
+Definește interfețele de servicii (\texttt{IAuthService}, \texttt{ISubmissionService},
+\texttt{IProblemService} etc.) din directorul
+\texttt{Application/Interfaces/Services/},
+implementează serviciile concrete (\texttt{AuthService}, \texttt{SubmissionService},
+\texttt{InterviewService}, \texttt{SubmissionFeedbackProcessor} etc.)
+și declară obiectele de transfer de date (DTO-urile) din subdirectorul
+\texttt{Application/DTOs/}.
+Accesul la baza de date se face exclusiv prin interfața \texttt{IAppDbContext},
+injectată prin constructor, nu prin clasa concretă \texttt{AppDbContext}.
+% Sursă: backend/AIInterviewCoach.Application/
+
+\paragraph{AIInterviewCoach.Infrastructure}
+Stratul de infrastructură furnizează implementările concrete ale
+interfețelor definite în Application.
+Conține:
+\begin{itemize}
+  \item \texttt{AppDbContext} — contextul Entity Framework Core 10,
+        configurat pentru PostgreSQL (provider implicit) sau SQLite
+        (pentru teste de integrare), conform cheii de configurare
+        \texttt{DatabaseProvider};
+        % Sursă: ServiceCollectionExtensions.cs, AddApplicationDatabase()
+  \item \texttt{JwtTokenService} — generează tokenuri JWT semnate HMAC-SHA256
+        cu pretenții \texttt{sub}, \texttt{email}, \texttt{name} și \texttt{role};
+        % Sursă: Infrastructure/Services/JwtTokenService.cs
+  \item \texttt{PasswordHasherService} — hash-uiește parolele cu PBKDF2-HMAC-SHA256,
+        10\,000 de iterații, salt aleatoriu de 16 octeți, stocând
+        \texttt{base64(salt).base64(hash)};
+        % Sursă: Infrastructure/Services/PasswordHasherService.cs
+  \item \texttt{DotnetCodeExecutor} — execută cod C\#, Python și C++ în sandbox;
+        % Sursă: Infrastructure/Services/DotnetCodeExecutor.cs
+  \item \texttt{SubmissionFeedbackService} — apelează API-ul OpenAI;
+        % Sursă: Infrastructure/Services/SubmissionFeedbackService.cs
+  \item \texttt{SubmissionFeedbackBackgroundService} — coadă de fundal bazată
+        pe \texttt{System.Threading.Channels}.
+        % Sursă: Infrastructure/Services/SubmissionFeedbackBackgroundService.cs
+\end{itemize}
+
+\paragraph{AIInterviewCoach.API}
+Stratul de prezentare expune API-ul REST prin ASP.NET Core Minimal
+Controllers.
+Conține controlere, middleware, politici de autorizare și rate limiting.
+Controlarele sunt \emph{subțiri} în mod deliberat: ele validează
+modelul de intrare (\texttt{ModelState.IsValid}), extrag identitatea
+utilizatorului din claimuri JWT, deleghează operația serviciului de
+aplicație corespunzător și returnează rezultatul.
+Nu conțin logică de business.
+% Sursă: API/Controllers/
+
+\subsection{Fluxul unei cereri HTTP}
+
+Parcursul complet al unei cereri tipice (exemplu: \texttt{POST /api/submissions})
+este următorul:
+
+\begin{enumerate}
+  \item Cererea HTTP ajunge la pipeline-ul ASP.NET Core.
+  \item \texttt{RequestObservabilityMiddleware} pornește un cronometru și
+        înregistrează metrica la finalul cererii prin
+        \texttt{IObservabilityService.RecordRequest()}.
+        % Sursă: API/Middleware/RequestObservabilityMiddleware.cs
+  \item \texttt{ExceptionHandlingMiddleware} înfășoară restul pipeline-ului
+        într-un bloc \texttt{try/catch}; excepțiile negestionate sunt
+        mapate la coduri HTTP: \texttt{KeyNotFoundException}→404,
+        \texttt{UnauthorizedAccessException}→403,
+        \texttt{InvalidOperationException}→400, altele→500.
+        % Sursă: API/Middleware/ExceptionHandlingMiddleware.cs
+  \item Middleware-ul de autentificare JWT validează cookie-ul \texttt{aic\_auth}
+        sau antetul \texttt{Authorization: Bearer} și populează
+        \texttt{HttpContext.User} cu claimurile tokenului.
+        % Sursă: ServiceCollectionExtensions.cs, AddJwtAuthentication()
+  \item Rate limiter-ul verifică politica \texttt{CandidateSubmissionFlow}
+        (bucket de tokeni, 15 cereri/minut per utilizator autentificat).
+        % Sursă: API/RateLimiting/RateLimitingPolicies.cs
+  \item Middleware-ul de autorizare evaluează politica
+        \texttt{CandidateWorkspaceAccess}, care cere rolul
+        \texttt{Candidate} sau \texttt{Admin}.
+        % Sursă: API/Authorization/AuthorizationPolicies.cs
+  \item \texttt{SubmissionsController.CreateSubmission()} validează
+        \texttt{ModelState}, extrage \texttt{candidateId} din claimul
+        \texttt{ClaimTypes.NameIdentifier} și apelează
+        \texttt{ISubmissionService.CreateSubmissionAsync()}.
+        % Sursă: API/Controllers/SubmissionsController.cs
+  \item \texttt{SubmissionService} interoghează baza de date prin
+        \texttt{IAppDbContext}, execută codul candidatului prin
+        \texttt{ICodeExecutor}, persistă submisia și pune ID-ul în coada
+        de feedback AI prin \texttt{ISubmissionFeedbackQueue.QueueAsync()}.
+        % Sursă: Application/Services/SubmissionService.cs
+  \item Răspunsul DTO este serializat JSON și returnat cu HTTP~200.
+\end{enumerate}
+
+\subsection{De ce rămân controlarele subțiri}
+
+Prin delegarea oricărei logici de business serviciilor din stratul Application,
+proiectul obține mai multe beneficii:
+
+\begin{itemize}
+  \item \textbf{Testabilitate}: Serviciile pot fi testate cu baze de date
+        InMemory (EF Core), fără a porni un server HTTP.
+        Proiectul \texttt{AIInterviewCoach.Tests} conține 314 teste unitare
+        și de integrare care nu folosesc nicio cerere HTTP reală.
+  \item \textbf{Independență de transport}: Aceeași logică poate fi expusă
+        ulterior prin gRPC sau mesagerie, fără a modifica serviciile.
+  \item \textbf{Coeziune}: Un controler nu trebuie să cunoască regulile de
+        acces la probleme (\texttt{ProblemAccessAuthorization}) sau
+        algoritmul de hash al parolei; aceste detalii aparțin straturilor
+        interioare.
+\end{itemize}
+
+\subsection{Înregistrarea serviciilor}
+
+Toate serviciile sunt înregistrate în
+\texttt{ServiceCollectionExtensions.AddApplicationServices()}:
+singleton-uri pentru \texttt{IObservabilityService} și
+\texttt{IProblemTemplateService} (fără stare mutabilă per cerere),
+scoped pentru serviciile de aplicație care accesează baza de date,
+și \texttt{IHostedService} pentru \texttt{SubmissionFeedbackBackgroundService}
+(un singleton care implementează totodată \texttt{ISubmissionFeedbackQueue}).
+% Sursă: API/Extensions/ServiceCollectionExtensions.cs, AddApplicationServices()

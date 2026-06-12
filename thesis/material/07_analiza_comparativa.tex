@@ -1,0 +1,434 @@
+% ============================================================
+% SECȚIUNEA 7 — Analiza comparativă
+%
+% CONVENȚII DE VERIFICARE:
+%   [V]  — afirmație verificată din surse publice oficiale sau
+%           documentație accesibilă la momentul redactării
+%   [NV] — afirmație neverificată; marcată explicit pentru
+%           verificare manuală înainte de includere în teză
+%
+% Platforma proprie (AI Interview Coach) este documentată
+% exclusiv din codul sursă; toate afirmațiile despre aceasta
+% sunt [V].
+% ============================================================
+
+\section{Analiză comparativă}
+\label{sec:analiza_comparativa}
+
+\subsection{Platforme analizate}
+
+Comparația acoperă cinci platforme destinate evaluării tehnice a
+programatorilor și pregătirii pentru interviuri:
+
+\begin{itemize}
+  \item \textbf{AI Interview Coach} — platforma descrisă în această
+        lucrare (sursa de referință: codul sursă al proiectului).
+  \item \textbf{LeetCode} (\url{leetcode.com}) — platformă de practică
+        algoritmică, utilizată preponderent pentru auto-pregătire.
+  \item \textbf{HackerRank} (\url{hackerrank.com}) — platformă de
+        evaluare tehnică și recrutare, cu suport pentru interviuri live.
+  \item \textbf{CoderPad} (\url{coderpad.io}) — mediu de coding
+        colaborativ în timp real, focalizat pe interviuri tehnice live.
+  \item \textbf{CodeSignal} (\url{codesignal.com}) — platformă de
+        evaluare automată a candidaților și practică.
+\end{itemize}
+
+\subsection{Tabel comparativ}
+
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.35}
+
+\begin{longtable}{p{2.4cm}|p{3.0cm}|p{3.0cm}|p{3.0cm}|p{3.0cm}|p{3.0cm}}
+\caption{Comparație între platforme de evaluare tehnică}
+\label{tab:comparatie} \\
+
+\hline
+\textbf{Dimensiune} &
+\textbf{AI Interview Coach} &
+\textbf{LeetCode} &
+\textbf{HackerRank} &
+\textbf{CoderPad} &
+\textbf{CodeSignal} \\
+\hline
+\endfirsthead
+
+\multicolumn{6}{l}{\small\textit{(continuare Tabel~\ref{tab:comparatie})}} \\
+\hline
+\textbf{Dimensiune} &
+\textbf{AI Interview Coach} &
+\textbf{LeetCode} &
+\textbf{HackerRank} &
+\textbf{CoderPad} &
+\textbf{CodeSignal} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{6}{r}{\small\textit{continuare pe pagina următoare}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
+%% ── Feedback AI ──────────────────────────────────────────────────────
+\textbf{Feedback AI}
+  (format, disponibilitate)
+&
+  \textbf{[V]}
+  Generat de OpenAI (model configurabil);
+  4 secțiuni structurate: \emph{Overall}, \emph{Correctness},
+  \emph{Code Quality}, \emph{Next Step}.
+  Asincron — afișat prin polling după execuție.
+  Fallback static local dacă API-ul nu este configurat.
+  Inclus în planul de bază (fără nivel premium).
+&
+  \textbf{[NV]}
+  „LeetCode AI" (denumit și AI Mentor / AI Code Review)
+  disponibil pentru abonații Premium (din 2023).
+  Oferă feedback general pe soluție;
+  formatul exact și dacă este asincron sau sincron
+  \emph{nu au putut fi verificate}.
+&
+  \textbf{[NV]}
+  Funcționalități AI de code review adăugate în 2023--2024.
+  Disponibilitate pe plan și formatul detaliat al
+  feedback-ului \emph{nu au putut fi verificate}.
+&
+  \textbf{[NV]}
+  Funcționalități AI de rezumat al interviului și evaluare
+  raportate în 2023--2024.
+  Dacă există feedback AI structurat \emph{pe cod}
+  (nu doar pe sesiune) \emph{nu a putut fi verificat}.
+&
+  \textbf{[NV]}
+  Scoring automat bazat pe AI (``Coding Score'');
+  feedback textual detaliat pe submisie
+  \emph{nu a putut fi verificat}.
+\\
+\hline
+
+%% ── Hint-uri ─────────────────────────────────────────────────────────
+\textbf{Sistem de hint-uri}
+&
+  \textbf{[V]}
+  Până la 3 niveluri de hint per problemă,
+  generate de AI la cerere (endpoint
+  \texttt{POST /api/problems/\{id\}/hints}).
+  Hint-urile sunt progresive și stocate pe durata sesiunii.
+&
+  \textbf{[V]}
+  1--3 hint-uri statice per problemă, predefinite de autori.
+  Soluții editoriale text disponibile.
+  Fără generare AI la cerere.
+&
+  \textbf{[NV]}
+  Soluții editoriale și discuții comunitare confirmate.
+  Sistem formal de hint-uri progresive
+  \emph{nu a putut fi verificat}.
+&
+  \textbf{[NV]}
+  Sistem de hint-uri formal
+  \emph{nu a putut fi verificat}.
+  Platforma este focalizată pe coding colaborativ live,
+  nu pe parcursuri de practică structurată.
+&
+  \textbf{[NV]}
+  Sistem de hint-uri formal
+  \emph{nu a putut fi verificat}.
+\\
+\hline
+
+%% ── Mod interviu vs. practică ────────────────────────────────────────
+\textbf{Mod interviu vs.\ practică}
+&
+  \textbf{[V]}
+  \textbf{Ambele} — sesiuni de interviu cu token de acces
+  unic, timer, scor agregat și vizualizare de către
+  intervievator; mod practică standalone fără sesiune.
+  Roluri separate: Candidate, Interviewer, Admin.
+&
+  \textbf{[V]}
+  Predominant practică algoritmică.
+  ``Mock Interview'' disponibil.
+  ``LeetCode for Companies'' (evaluare candidați) — \textbf{[NV]}
+  detalii despre modul interviu gestionat de recrutor
+  \emph{nu au putut fi verificate}.
+&
+  \textbf{[V]}
+  \textbf{Ambele} — HackerRank for Work (sesiuni de interviu
+  tehnic gestionate de recrutor) și provocări de practică
+  publice.
+&
+  \textbf{[V]}
+  Focalizat pe \textbf{interviu live} (coding colaborativ
+  în timp real, sesiuni cu partajare de ecran).
+  CoderPad Practice (practică asincronă) confirmat,
+  dar ca produs secundar.
+&
+  \textbf{[V]}
+  \textbf{Ambele} — Assessments (evaluare automată a
+  candidaților) și Arcade / practice (practică).
+\\
+\hline
+
+%% ── Limbaje suportate ────────────────────────────────────────────────
+\textbf{Limbaje de programare}
+&
+  \textbf{[V]}
+  \textbf{3 limbaje}: C\#, Python, C++.
+  Executate în sandbox local (DotnetCodeExecutor).
+  Extensibil prin configurare, dar nu implicit.
+&
+  \textbf{[V]}
+  \textbf{$\approx$\,20 limbaje}: Python, Java, C++, C\#,
+  JavaScript/TypeScript, Go, Rust, Swift, Kotlin etc.
+  (numărul exact variază; conform documentației publice).
+&
+  \textbf{[V]}
+  \textbf{$>\,30$ limbaje}, inclusiv limbaje mai puțin
+  frecvente (Perl, Scala, Erlang etc.);
+  confirmată ca unul dintre punctele forte ale platformei.
+&
+  \textbf{[V]}
+  \textbf{$>\,30$ limbaje}, inclusiv suport pentru
+  framework-uri frontend (React, Vue).
+  Unul dintre punctele forte diferențiatoare față de
+  platformele algoritmice.
+&
+  \textbf{[NV]}
+  Suportă multiple limbaje; numărul exact
+  \emph{nu a putut fi verificat}.
+\\
+\hline
+
+%% ── Self-hosting ─────────────────────────────────────────────────────
+\textbf{Self-hosting / open-source}
+&
+  \textbf{[V]}
+  \textbf{Da} — infrastructură proprie;
+  .NET 10 + PostgreSQL; fără dependențe de licențe terță
+  parte pentru rularea de bază.
+  Cheie OpenAI opțională (fallback static fără ea).
+  Codul sursă controlat privat; nu este publicat open-source
+  în prezent.
+&
+  \textbf{[V]}
+  \textbf{Nu} — exclusiv SaaS.
+  Nu există opțiune de deployment on-premises confirmată.
+&
+  \textbf{[V]}
+  \textbf{Nu} — exclusiv SaaS.
+  Plan Enterprise disponibil, dar fără on-premises confirmat.
+&
+  \textbf{[NV]}
+  Predominant SaaS.
+  Dacă planul Enterprise include opțiune on-premises
+  \emph{nu a putut fi verificat}.
+&
+  \textbf{[V]}
+  \textbf{Nu} — exclusiv SaaS.
+\\
+\hline
+
+\end{longtable}
+\endgroup
+
+\subsection{Interpretare și poziționare}
+
+\paragraph{Avantajele distinctive ale platformei propuse}
+Față de competitorii analizați, AI Interview Coach se diferențiază prin:
+
+\begin{enumerate}
+  \item \textbf{Feedback AI structurat și inclus implicit} — celelalte
+        platforme fie nu oferă feedback AI pe cod (CoderPad, CodeSignal),
+        fie îl restricționează la abonați premium (LeetCode), fie au
+        detalii neverificate (HackerRank). Platforma propusă include
+        feedback AI cu 4 secțiuni precise pentru orice utilizator, fără
+        nivel premium, cu fallback static dacă serviciul extern nu este
+        disponibil.
+
+  \item \textbf{Hint-uri AI progresive, la cerere} — LeetCode oferă
+        hint-uri statice predefinite de autor; celelalte platforme nu au
+        un sistem de hint-uri confirmat. Platforma propusă generează
+        hint-uri la cerere în până la 3 niveluri, adaptate codului
+        candidatului.
+
+  \item \textbf{Integrare nativă intervievator-candidat} — HackerRank și
+        CoderPad oferă funcționalitate similară, dar ca SaaS. Platforma
+        propusă permite unui intervievator să creeze un interviu cu
+        probleme proprii, să emită un token de acces și să urmărească
+        sesiunile candidaților, totul self-hosted.
+
+  \item \textbf{Self-hosting complet} — niciuna dintre platformele
+        concurente analizate nu confirmă o opțiune de deployment
+        on-premises. Platforma propusă rulează integral pe infrastructura
+        proprie, fără date trimise la terți (cu excepția opțională a API-ului
+        OpenAI).
+\end{enumerate}
+
+\paragraph{Limitări față de competitori}
+\begin{itemize}
+  \item \textbf{Limbaje suportate}: 3 față de 20--30+. HackerRank și
+        CoderPad acoperă semnificativ mai multe limbaje, inclusiv
+        framework-uri frontend.
+  \item \textbf{Ecosistem de probleme}: LeetCode și HackerRank dispun
+        de cataloage cu mii de probleme; platforma propusă depinde de
+        problemele create de intervievatori, plus un set de pornire.
+  \item \textbf{Funcționalități de colaborare live}: CoderPad oferă
+        coding colaborativ sincron (editor partajat în timp real);
+        platforma propusă nu are această funcționalitate.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────
+
+\section{Schelet de bibliografie}
+\label{sec:bibliografie_schelet}
+
+Această secțiune listează \emph{categoriile de surse} necesare pentru
+fundamentarea teoretică a lucrării și, unde există consens academic sau
+industrial, identifică lucrările canonice de referință.
+\textbf{Nu sunt incluse referințe fabricate; fiecare sursă de mai jos
+este reală și verificabilă.}
+Sursele marcate cu \emph{[de identificat]} necesită căutare activă
+pentru a găsi cele mai relevante lucrări actuale.
+
+\subsection*{A. Arhitectura software}
+
+\begin{description}
+  \item[Clean Architecture]
+    Robert C.\ Martin, \emph{Clean Architecture: A Craftsman's Guide to
+    Software Structure and Design}, Prentice Hall, 2017.
+    Lucrarea canonică pentru principiile de stratificare folosite în
+    proiect (inversiunea dependențelor, separarea responsabilităților).
+
+  \item[Domain-Driven Design]
+    Eric Evans, \emph{Domain-Driven Design: Tackling Complexity in the
+    Heart of Software}, Addison-Wesley, 2003.
+    Sursă pentru conceptele de entitate, aggregate root, repository și
+    serviciu de domeniu.
+
+  \item[Patterns of Enterprise Application Architecture]
+    Martin Fowler, \emph{Patterns of Enterprise Application Architecture},
+    Addison-Wesley, 2002.
+    Referință pentru patternuri de infrastructură: Repository, Unit of Work,
+    Service Layer (implementate prin EF Core și stratul Application).
+
+  \item[Dependency Injection în .NET]
+    Mark Seemann, \emph{Dependency Injection Principles, Practices, and
+    Patterns}, Manning, 2019.
+    Justificarea alegerilor de lifetime (singleton, scoped, transient) din
+    \texttt{ServiceCollectionExtensions}.
+\end{description}
+
+\subsection*{B. Modele lingvistice mari și evaluare automată a codului}
+
+\begin{description}
+  \item[Mecanismul Transformer (fundament teoretic)]
+    Vaswani et al., ``Attention Is All You Need'',
+    \emph{Advances in Neural Information Processing Systems}, 2017.
+    Arhitectura de bază a modelelor de limbaj utilizate prin API-ul OpenAI.
+
+  \item[Modele LLM pentru generarea și evaluarea codului — \emph{[de identificat]}]
+    Căutați lucrări recente (2021--2025) despre: Codex (Chen et al., OpenAI),
+    Code Llama (Meta AI), GPT-4 Technical Report (OpenAI, 2023),
+    DeepMind AlphaCode.
+    Aceste lucrări prezintă benchmark-uri de generare de cod și sunt
+    relevante pentru secțiunea de feedback AI.
+
+  \item[AI în educație și sisteme tutoriale inteligente — \emph{[de identificat]}]
+    Căutați lucrări în conferințele ACM SIGCSE, ICER sau AIED (Artificial
+    Intelligence in Education) despre: automated feedback for programming
+    assignments, intelligent tutoring systems for code.
+
+  \item[Evaluare automată a submisiilor de cod (online judges) — \emph{[de identificat]}]
+    Căutați lucrări despre arhitecturi de online judge
+    (de ex.\ sisteme sandboxate, compararea output-urilor, execuție izolată).
+\end{description}
+
+\subsection*{C. Documentații tehnice oficiale (surse primare, stabile)}
+
+\begin{description}
+  \item[ASP.NET Core]
+    Microsoft, \emph{ASP.NET Core documentation},
+    \url{https://learn.microsoft.com/aspnet/core}.
+    Referință pentru Minimal Controllers, middleware pipeline, autentificare
+    JWT, rate limiting.
+
+  \item[Entity Framework Core]
+    Microsoft, \emph{Entity Framework Core documentation},
+    \url{https://learn.microsoft.com/ef/core}.
+    Referință pentru migrări, relații, InMemory provider (teste).
+
+  \item[Angular]
+    Google, \emph{Angular documentation},
+    \url{https://angular.dev}.
+    Referință pentru Signals, HttpInterceptorFn, CanActivateFn, DestroyRef.
+
+  \item[OpenAI API]
+    OpenAI, \emph{OpenAI Platform documentation},
+    \url{https://platform.openai.com/docs}.
+    Referință pentru endpoint-ul \texttt{/v1/responses}, structura răspunsului,
+    câmpul \texttt{max\_output\_tokens}.
+
+  \item[.NET 10]
+    Microsoft, \emph{.NET documentation},
+    \url{https://learn.microsoft.com/dotnet}.
+    Referință pentru \texttt{System.Threading.Channels},
+    \texttt{System.Security.Cryptography},
+    \texttt{KeyDerivation.Pbkdf2}.
+\end{description}
+
+\subsection*{D. Securitate}
+
+\begin{description}
+  \item[JWT — Standard]
+    M.\ Jones, J.\ Bradley, N.\ Sakimura,
+    \emph{RFC 7519: JSON Web Token (JWT)},
+    IETF, 2015.
+    Specificația formală a formatului tokenurilor folosite în aplicație.
+
+  \item[PBKDF2 — Standard]
+    B.\ Kaliski, \emph{RFC 2898: PKCS \#5: Password-Based Cryptography
+    Specification Version 2.0}, IETF, 2000.
+    Specificația algoritmului de hash al parolelor (PBKDF2-HMAC-SHA256).
+
+  \item[OWASP Top 10]
+    OWASP Foundation, \emph{OWASP Top 10},
+    \url{https://owasp.org/www-project-top-ten/}.
+    Referință pentru vulnerabilitățile adresate: injection, broken access
+    control, insecure design, security misconfiguration.
+\end{description}
+
+\subsection*{E. Testare software}
+
+\begin{description}
+  \item[Unit Testing]
+    Roy Osherove, \emph{The Art of Unit Testing} (ed.\ a 3-a),
+    Manning, 2023.
+    Justificare pentru structura testelor (Arrange-Act-Assert),
+    utilizarea InMemory vs.\ mock-uri reale, izolarea serviciilor.
+
+  \item[xUnit.net]
+    xUnit.net contributors, \emph{xUnit.net documentation},
+    \url{https://xunit.net}.
+    Cadrul de testare utilizat în proiect (\texttt{AIInterviewCoach.Tests}).
+\end{description}
+
+\subsection*{F. Platforme comparate — surse de verificat}
+
+Afirmațiile marcate \textbf{[NV]} din tabelul comparativ necesită
+verificare în:
+
+\begin{itemize}
+  \item Paginile oficiale de funcționalități și prețuri ale fiecărei
+        platforme (verificate la data citării).
+  \item Bloguri de produs și note de versiune oficiale (changelogs)
+        pentru funcționalitățile AI adăugate recent (2023--2025).
+  \item Documentații tehnice publice (dacă există API-uri publice).
+\end{itemize}
+
+\noindent
+\textbf{Atenție:} funcționalitățile SaaS se modifică frecvent; orice
+comparație trebuie însoțită de data la care a fost efectuată verificarea.

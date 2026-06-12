@@ -246,6 +246,79 @@ describe('CandidateWorkspaceFacade — feedback polling', () => {
     vi.advanceTimersByTime(5000); // no further polls after Ready
     expect(submissionApiMock.getMySubmissions).toHaveBeenCalledTimes(1);
   });
+
+  // ── Refresh is a no-op when submissions clear before timer fires ──────────
+
+  it('stops polling without calling the API when submissions become non-Pending before the timer fires', () => {
+    // refreshPendingFeedback early-return guard: hasPendingAiFeedback returns false
+    // when the timer fires even though it was true when the timer was armed.
+    facade.session.set(sessionStub);
+    (facade as any).setSubmissions([makeSub('Pending')]); // arms timer
+
+    // Directly mutate the signal (bypassing setSubmissions/stopFeedbackPolling) so the
+    // timer is still live but submissions are no longer Pending.
+    (facade as any).submissions.set([makeSub('Ready')]);
+
+    vi.advanceTimersByTime(1500); // timer fires → no pending → early return
+
+    expect(submissionApiMock.getByInterviewSession).not.toHaveBeenCalled();
+    expect(submissionApiMock.getMySubmissions).not.toHaveBeenCalled();
+  });
+
+  // ── Interview mode: stops when session is null at poll time ──────────────
+
+  it('stops polling in interview mode when session is cleared before the timer fires', () => {
+    // refreshPendingFeedback: no sessionId path → stopFeedbackPolling, no API call.
+    facade.session.set(sessionStub);
+    (facade as any).setSubmissions([makeSub('Pending')]); // arms timer
+
+    facade.session.set(null); // session gone before the timer fires
+
+    vi.advanceTimersByTime(1500);
+
+    expect(submissionApiMock.getByInterviewSession).not.toHaveBeenCalled();
+  });
+
+  // ── Practice mode: stops when no problemId can be resolved ───────────────
+
+  it('stops polling in practice mode when neither interview nor selectedProblemId is available', () => {
+    // refreshPendingFeedback practice branch: no practiceProblemId → stopFeedbackPolling.
+    facade.isPracticeMode.set(true);
+    facade.interview.set(null);       // interview?.problems[0]?.problemId → undefined
+    facade.selectedProblemId.set(null); // fallback also null
+
+    (facade as any).submissions.set([makeSub('Pending', null)]);
+    (facade as any).ensureFeedbackPolling(); // arm timer manually (bypasses setSubmissions guard)
+
+    vi.advanceTimersByTime(1500);
+
+    expect(submissionApiMock.getMySubmissions).not.toHaveBeenCalled();
+  });
+
+  // ── Practice mode error retry with 4 000 ms back-off ─────────────────────
+
+  it('retries with a 4 000 ms back-off after a getMySubmissions error in practice mode', () => {
+    submissionApiMock.getMySubmissions
+      .mockReturnValueOnce(throwError(() => new Error('Network error')))
+      .mockReturnValue(of([makeSub('Ready', null)]));
+
+    facade.isPracticeMode.set(true);
+    facade.interview.set(practiceInterviewStub);
+
+    (facade as any).setSubmissions([makeSub('Pending', null)]);
+
+    vi.advanceTimersByTime(1500); // first poll → error → re-arms with 4 000 ms
+    expect(submissionApiMock.getMySubmissions).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(1500); // t = 3 000 ms — back-off not yet elapsed
+    expect(submissionApiMock.getMySubmissions).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(2500); // t = 5 500 ms — second poll → Ready
+    expect(submissionApiMock.getMySubmissions).toHaveBeenCalledTimes(2);
+
+    vi.advanceTimersByTime(5000); // no further polls
+    expect(submissionApiMock.getMySubmissions).toHaveBeenCalledTimes(2);
+  });
 });
 
 // ── Shared provider factory ───────────────────────────────────────────────────

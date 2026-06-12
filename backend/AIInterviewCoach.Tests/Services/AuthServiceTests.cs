@@ -65,6 +65,28 @@ namespace AIInterviewCoach.Tests.Services
                 }));
         }
 
+        // ── PasswordHasherService.VerifyPassword edge cases ──────────────────
+
+        [Fact]
+        public void VerifyPassword_ReturnsFalse_WhenStoredHashHasWrongNumberOfParts()
+        {
+            var hasher = new PasswordHasherService();
+
+            var result = hasher.VerifyPassword("any-password", "no-dot-in-here");
+
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void VerifyPassword_ReturnsFalse_WhenStoredHashPartsAreNotValidBase64()
+        {
+            var hasher = new PasswordHasherService();
+
+            var result = hasher.VerifyPassword("any-password", "not-base64!.also-not-base64!");
+
+            Assert.False(result);
+        }
+
         private sealed class FakeJwtTokenService : IJwtTokenService
         {
             public string GenerateToken(User user) => $"token-for-{user.Id}";
