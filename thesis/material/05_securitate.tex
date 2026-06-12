@@ -1,0 +1,240 @@
+% ============================================================
+% SECȚIUNEA 5 — Securitate
+% Fișiere sursă de referință:
+%   backend/AIInterviewCoach.Infrastructure/Services/JwtTokenService.cs
+%   backend/AIInterviewCoach.Infrastructure/Services/PasswordHasherService.cs
+%   backend/AIInterviewCoach.API/Authentication/AuthCookieDefaults.cs
+%   backend/AIInterviewCoach.API/Extensions/ServiceCollectionExtensions.cs (AddJwtAuthentication)
+%   backend/AIInterviewCoach.API/Authorization/AuthorizationPolicies.cs
+%   backend/AIInterviewCoach.API/RateLimiting/RateLimitingPolicies.cs
+%   backend/AIInterviewCoach.Application/Services/ProblemAccessAuthorization.cs
+%   frontend/src/app/core/interceptors/auth.interceptor.ts
+%   frontend/src/app/core/guards/auth-guard.ts
+%   frontend/src/app/core/guards/role-guard.ts
+%   frontend/src/app/core/auth/access-policies.ts
+% ============================================================
+
+\section{Securitatea sistemului}
+\label{sec:securitate}
+
+\subsection{Autentificarea utilizatorilor}
+
+\subsubsection{Hash-ul parolelor}
+
+Parolele sunt procesate înainte de stocare cu \texttt{PasswordHasherService},
+care utilizează \textbf{PBKDF2-HMAC-SHA256}:
+% Sursă: Infrastructure/Services/PasswordHasherService.cs
+
+\begin{itemize}
+  \item Salt aleatoriu de \textbf{16 octeți}, generat cu
+        \texttt{RandomNumberGenerator.GetBytes(16)} (CSP, criptografic sigur).
+  \item \textbf{10\,000 de iterații} de derivare a cheii.
+  \item Output de \textbf{32 de octeți} (256 biți).
+  \item Stocare ca un singur șir \texttt{base64(salt).base64(hash)};
+        salt-ul este stocat alături de hash, deci fiecare parola are un
+        salt unic.
+\end{itemize}
+
+Verificarea folosește \texttt{CryptographicOperations.FixedTimeEquals()},
+care compară octeți în timp constant, eliminând vulnerabilitatea de tip
+\emph{timing attack}.
+
+\subsubsection{Emiterea token-ului JWT}
+
+La autentificare cu succes, \texttt{JwtTokenService.GenerateToken()} emite
+un token JWT semnat \textbf{HMAC-SHA256} cu:
+% Sursă: Infrastructure/Services/JwtTokenService.cs
+
+\begin{itemize}
+  \item Claim \texttt{sub} — GUID-ul utilizatorului.
+  \item Claim \texttt{email} — adresa de e-mail.
+  \item Claim \texttt{name} — numele complet.
+  \item Claim \texttt{role} — rolul (stringul enum: \texttt{Candidate},
+        \texttt{Interviewer} sau \texttt{Admin}).
+  \item Câmpuri \texttt{iss} (issuer) și \texttt{aud} (audience) din
+        configurare (\texttt{Jwt:Issuer}, \texttt{Jwt:Audience}).
+  \item Timp de viață: \textbf{7 zile} (\texttt{DateTime.UtcNow.AddDays(7)}).
+\end{itemize}
+
+Cheia de semnare este citită obligatoriu din configurare
+(\texttt{JwtSigningKeyResolver.GetRequiredSigningKey()}); dacă lipsește,
+aplicația nu pornește.
+
+\subsubsection{Transportul token-ului}
+
+Token-ul este plasat de server în cookie-ul HTTP \texttt{aic\_auth} cu
+durata de viață de 7 zile, sau poate fi transmis ca antet HTTP standard
+\texttt{Authorization: Bearer <token>}.
+% Sursă: API/Authentication/AuthCookieDefaults.cs
+
+Middleware-ul \texttt{OnMessageReceived} din configurarea JwtBearer
+implementează o logică de prioritate:
+% Sursă: ServiceCollectionExtensions.cs:96–118
+
+\begin{enumerate}
+  \item Dacă \texttt{context.Token} este deja populat (alt middleware), nu
+        face nimic.
+  \item Încearcă cookie-ul \texttt{aic\_auth}.
+  \item Dacă cookie-ul lipsește, încearcă antetul \texttt{Authorization}.
+\end{enumerate}
+
+Validarea token-ului verifică emitent, audiență, semnătură și termenul de
+valabilitate (\texttt{ValidateLifetime = true}).
+
+\subsection{Autorizarea bazată pe roluri}
+
+\subsubsection{Politici de autorizare — backend}
+
+ASP.NET Core evaluează politicile de autorizare după autentificare.
+Aplicația definește cinci politici înregistrate în
+\texttt{AuthorizationPolicies.Register()}:
+% Sursă: API/Authorization/AuthorizationPolicies.cs
+
+\begin{itemize}
+  \item \texttt{InterviewerWorkspaceAccess} — acceptă rolurile
+        \texttt{Interviewer} și \texttt{Admin}.
+        Protejează CRUD-ul de interviuri și gestionarea sesiunilor.
+  \item \texttt{CandidateWorkspaceAccess} — acceptă rolurile
+        \texttt{Candidate} și \texttt{Admin}.
+        Protejează submisiile, accesul prin token și finalizarea sesiunii.
+  \item \texttt{AdminProblemManagement} — exclusiv \texttt{Admin}.
+        Protejează crearea, modificarea și ștergerea problemelor, a
+        cazurilor de test și a catalog-ului.
+  \item \texttt{AdminAuditLogAccess} — exclusiv \texttt{Admin}.
+        Protejează interogarea jurnalelor de audit.
+  \item \texttt{AdminObservabilityAccess} — exclusiv \texttt{Admin}.
+        Protejează metricele de observabilitate.
+\end{itemize}
+
+\subsubsection{Autorizarea la nivel de date — ProblemAccessAuthorization}
+
+Politicile de mai sus operează la nivel de rută. La nivel de date,
+\texttt{ProblemAccessAuthorization.EnsureProblemAccessible()} adaugă un
+strat suplimentar:
+% Sursă: Application/Services/ProblemAccessAuthorization.cs
+
+\begin{itemize}
+  \item \textbf{Admin}: acces necondiționat la orice problemă.
+  \item \textbf{Candidate}: poate accesa numai problemele cu
+        \texttt{IsPublic = true}.
+  \item \textbf{Interviewer}: poate accesa orice problemă publică sau
+        orice problemă proprie (\texttt{CreatedByUserId == currentUserId}).
+\end{itemize}
+
+O metodă separată, \texttt{EnsureProblemOwnership()}, verifică că un
+intervievator modifică/șterge doar propriile cazuri de test (sau că
+solicitantul este admin).
+
+\subsubsection{Token-urile de acces la interviuri}
+
+Câmpul \texttt{AccessToken} din tabela \texttt{Interviews} este un șir
+opac generat la crearea interviului. Endpoint-ul
+\texttt{GET /api/interviews/token/\{token\}} este deliberat \emph{neautentificat},
+permițând candidaților să vizualizeze detaliile interviului înainte de
+conectare. Endpoint-ul
+\texttt{POST /api/interviews/token/\{token\}/start} cere autentificare
+(politica \texttt{CandidateWorkspaceAccess}) și creează sesiunea.
+Rata de acces prin token este limitată la 20 cereri/minut per utilizator
+(politica \texttt{InterviewTokenAccess}), prevenind enumerarea token-urilor.
+
+\subsection{Rate limiting}
+
+Limitele de rată sunt implementate cu
+\texttt{Microsoft.AspNetCore.RateLimiting} și partiționate per sursă:
+% Sursă: API/RateLimiting/RateLimitingPolicies.cs
+
+\begin{itemize}
+  \item \textbf{AuthLogin} (fereastră fixă, 5 cereri/minut per IP):
+        Protejează \texttt{POST /api/auth/register} și
+        \texttt{POST /api/auth/login} împotriva atacurilor de forță brută.
+        Partiționare: adresă IP a clientului.
+        \emph{Notă}: în mediul de testare de integrare limita este ridicată
+        la 50 cereri/minut.
+
+  \item \textbf{InterviewTokenAccess} (fereastră fixă, 20 cereri/minut per
+        utilizator):
+        Protejează \texttt{GET /token/\{token\}} și
+        \texttt{POST /token/\{token\}/start} împotriva enumerării token-urilor.
+        Partiționare: ID utilizator (sau IP dacă neautentificat).
+
+  \item \textbf{CandidateSubmissionFlow} (bucket de tokeni, 15
+        tokeni/minut per utilizator):
+        Protejează \texttt{POST /submissions}, \texttt{GET /submissions/me},
+        \texttt{DELETE /submissions/...} și \texttt{POST /problems/\{id\}/hints}.
+        Algoritmul bucket de tokeni permite rafale mici (până la 15 cereri
+        instant dacă bucket-ul este plin) fără a penaliza utilizarea normală.
+        Partiționare: ID utilizator.
+
+  \item \textbf{AdminMutation} (fereastră fixă, 12 cereri/minut per
+        utilizator):
+        Protejează operațiunile de scriere administrative (creare/modificare/
+        ștergere probleme și cazuri de test, înlocuire catalog).
+        Partiționare: ID utilizator.
+\end{itemize}
+
+La depășirea limitei, API-ul răspunde cu \textbf{HTTP~429} și, dacă
+aplicabil, cu antetul \texttt{Retry-After} exprimat în secunde.
+
+\subsection{Securitate frontend}
+
+\subsubsection{Interceptorul de autentificare}
+
+\texttt{authInterceptor} (Angular \texttt{HttpInterceptorFn}) clonează
+fiecare cerere HTTP care vizează \texttt{environment.apiBaseUrl} și
+adaugă \texttt{withCredentials: true}, asigurând că browser-ul trimite
+automat cookie-ul \texttt{aic\_auth} la fiecare cerere API.
+Cererile către alte origini nu sunt modificate.
+% Sursă: frontend/src/app/core/interceptors/auth.interceptor.ts
+
+\subsubsection{Gardele de rută}
+
+\begin{itemize}
+  \item \texttt{authGuard}: verifică \texttt{AuthService.isAuthenticated()};
+        dacă utilizatorul nu este autentificat, redirecționează la
+        \texttt{/login}.
+        % Sursă: frontend/src/app/core/guards/auth-guard.ts
+
+  \item \texttt{roleGuard}: citește politica de acces din datele rutei
+        (\texttt{route.data['accessPolicy']}) și evaluează rolul curent
+        al utilizatorului prin \texttt{canAccessPolicy()}.
+        Dacă rolul nu îndeplinește politica:
+        \begin{itemize}
+          \item Utilizator neautentificat → redirecționare la \texttt{/login}.
+          \item Utilizator cu alt rol → redirecționare la ruta implicită
+                a rolului (\texttt{getDefaultRouteForRole()}):
+                Interviewer/Admin → \texttt{/interviewer/dashboard},
+                Candidate → \texttt{/candidate/access}.
+        \end{itemize}
+        % Sursă: frontend/src/app/core/guards/role-guard.ts
+
+  \item Funcțiile de politică (\texttt{canAccessInterviewerWorkspace},
+        \texttt{canAccessCandidateWorkspace}, \texttt{isAdminRole}) oglindesc
+        exact politicile de autorizare definite în backend, asigurând
+        consistența verificărilor.
+        % Sursă: frontend/src/app/core/auth/access-policies.ts
+\end{itemize}
+
+\subsection{Considerații de securitate suplimentare}
+
+\paragraph{Rezistența la timing attacks}
+Compararea hash-urilor de parolă folosește \texttt{FixedTimeEquals()},
+care execută întotdeauna același număr de operații indiferent de lungimea
+prefixului comun, eliminând posibilitatea inferenței prin variația
+timpului de răspuns.
+% Sursă: Infrastructure/Services/PasswordHasherService.cs
+
+\paragraph{Separarea responsabilităților autentificare/autorizare}
+Token-urile de acces la interviu (\texttt{AccessToken}) sunt separate
+de autentificarea cu parolă: un candidat poate vedea un interviu fără
+cont, dar nu poate \emph{începe} sesiunea fără autentificare. Aceasta
+permite unui intervievator să trimită linkul de interviu pe e-mail înainte
+ca acel candidat să fie înregistrat în sistem.
+
+\paragraph{Jurnalul de audit administrativ}
+Toate acțiunile administrative sensibile (creare/modificare/ștergere
+probleme, înlocuire catalog) sunt înregistrate în tabela
+\texttt{AdminAuditLogs} cu ID-ul, e-mailul și numele complet al
+administratorului, tipul acțiunii, entitatea afectată și rezumatul.
+Aceasta asigură trasabilitatea modificărilor și suportul pentru
+investigații post-incident.
+% Sursă: Domain/Entities/AdminAuditLog.cs

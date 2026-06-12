@@ -9,6 +9,78 @@ namespace AIInterviewCoach.Tests.Services
     public class DotnetCodeExecutorTests
     {
         [Fact]
+        public async Task ExecuteAsync_ShouldRejectUnsupportedLanguage()
+        {
+            // NormalizeLanguage returns null for unknown languages → early rejection
+            var executor = new DotnetCodeExecutor();
+            var result = await executor.ExecuteAsync(
+                new Problem(),
+                "print('hello')",
+                "java",
+                [
+                    new TestCase
+                    {
+                        Input = string.Empty,
+                        ExpectedOutput = string.Empty,
+                        OrderIndex = 1
+                    }
+                ]);
+
+            Assert.Equal(SubmissionStatus.CompilationError, result.Status);
+            Assert.Contains("Unsupported language", result.Output);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_ShouldRejectEmptySourceCode()
+        {
+            var executor = new DotnetCodeExecutor();
+            var result = await executor.ExecuteAsync(
+                new Problem(),
+                "   ",
+                "python",
+                [
+                    new TestCase
+                    {
+                        Input = string.Empty,
+                        ExpectedOutput = string.Empty,
+                        OrderIndex = 1
+                    }
+                ]);
+
+            Assert.Equal(SubmissionStatus.CompilationError, result.Status);
+            Assert.Contains("source code is empty", result.Output);
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_ShouldRejectMissingHarnessTemplate_AndIncludeFormattedLanguageName()
+        {
+            // FunctionSignature mode with no harness template → BuildSourceCode returns error
+            // using FormatLanguage("csharp") → "C#". Returns before running dotnet.
+            var executor = new DotnetCodeExecutor();
+            var result = await executor.ExecuteAsync(
+                new Problem
+                {
+                    ExecutionMode = ProblemExecutionModes.FunctionSignature,
+                    SignatureDefinitionJson = null,
+                    CsharpHarnessTemplate = string.Empty
+                },
+                "public int Solve() { return 0; }",
+                "csharp",
+                [
+                    new TestCase
+                    {
+                        Input = string.Empty,
+                        ExpectedOutput = "0",
+                        OrderIndex = 1
+                    }
+                ]);
+
+            Assert.Equal(SubmissionStatus.CompilationError, result.Status);
+            Assert.Contains("C#", result.Output);
+            Assert.Contains("harness template", result.Output);
+        }
+
+        [Fact]
         public async Task ExecuteAsync_ShouldRejectRestrictedPythonApis()
         {
             var executor = new DotnetCodeExecutor();

@@ -537,6 +537,112 @@ namespace AIInterviewCoach.Tests.Services
 
         // ── GetMineAsync ──────────────────────────────────────────────────────
 
+        // ── GetByTokenAsync — blank-field fallback branches ──────────────────
+
+        [Fact]
+        public async Task GetByTokenAsync_ReturnsUnspecifiedDifficulty_WhenProblemDifficultyIsBlank()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id, token: "blank-difficulty-token");
+            var problem = new Problem
+            {
+                Id = Guid.NewGuid(),
+                Title = "Blank Difficulty",
+                Description = "desc",
+                Difficulty = string.Empty,
+                Topic = "Arrays",
+                IsPublic = true,
+                CreatedByUserId = interviewer.Id,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            db.Problems.Add(problem);
+            db.SaveChanges();
+            TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id, orderIndex: 1);
+
+            var result = await new InterviewService(db).GetByTokenAsync("blank-difficulty-token");
+
+            Assert.NotNull(result);
+            var p = Assert.Single(result!.Problems);
+            Assert.Equal("Unspecified", p.Difficulty);
+        }
+
+        [Fact]
+        public async Task GetByTokenAsync_ReturnsGeneralTopic_WhenProblemTopicIsBlank()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id, token: "blank-topic-token");
+            var problem = new Problem
+            {
+                Id = Guid.NewGuid(),
+                Title = "Blank Topic",
+                Description = "desc",
+                Difficulty = "Easy",
+                Topic = string.Empty,
+                IsPublic = true,
+                CreatedByUserId = interviewer.Id,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            db.Problems.Add(problem);
+            db.SaveChanges();
+            TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id, orderIndex: 1);
+
+            var result = await new InterviewService(db).GetByTokenAsync("blank-topic-token");
+
+            Assert.NotNull(result);
+            var p = Assert.Single(result!.Problems);
+            Assert.Equal("General", p.Topic);
+        }
+
+        [Fact]
+        public async Task GetByTokenAsync_UsesVisibleTestCaseInput_WhenExampleInputIsBlankButTestCasesExist()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id, token: "testcase-fallback-token");
+            var problem = new Problem
+            {
+                Id = Guid.NewGuid(),
+                Title = "TestCase Fallback",
+                Description = "desc",
+                Difficulty = "Easy",
+                Topic = "Arrays",
+                ExampleInput = string.Empty,
+                ExampleOutput = string.Empty,
+                IsPublic = true,
+                CreatedByUserId = interviewer.Id,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            db.Problems.Add(problem);
+            db.TestCases.Add(new TestCase
+            {
+                Id = Guid.NewGuid(),
+                ProblemId = problem.Id,
+                Input = "testcase-input",
+                ExpectedOutput = "testcase-output",
+                IsHidden = false,
+                OrderIndex = 1
+            });
+            db.SaveChanges();
+            TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id, orderIndex: 1);
+
+            var result = await new InterviewService(db).GetByTokenAsync("testcase-fallback-token");
+
+            Assert.NotNull(result);
+            var p = Assert.Single(result!.Problems);
+            Assert.Equal("testcase-input", p.ExampleInput);
+            Assert.Equal("testcase-output", p.ExampleOutput);
+        }
+
+        // ── GetMineAsync ──────────────────────────────────────────────────────
+
         [Fact]
         public async Task GetMineAsync_ShouldReturnOnlyOwnerInterviews()
         {

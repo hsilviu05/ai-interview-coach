@@ -117,6 +117,22 @@ namespace AIInterviewCoach.Tests.Services
         }
 
         [Fact]
+        public async Task GetProblemByIdAsync_ShouldSucceed_WhenAdminRequestsAnyPrivateProblem()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var owner = TestDataSeeder.CreateInterviewer(db);
+            var admin = TestDataSeeder.CreateAdmin(db);
+            var privateProblem = TestDataSeeder.CreateProblem(db, owner.Id, isPublic: false);
+
+            var service = CreateService(db);
+
+            var result = await service.GetProblemByIdAsync(privateProblem.Id, admin.Id, UserRole.Admin);
+
+            Assert.Equal(privateProblem.Id, result.Id);
+        }
+
+        [Fact]
         public async Task GetTestCasesAsync_ShouldThrow_WhenInterviewerDoesNotOwnProblem()
         {
             using var db = TestDbContextFactory.CreateContext();

@@ -333,6 +333,155 @@ namespace AIInterviewCoach.Tests.Services
                 "Content should not end with whitespace.");
         }
 
+        // ── ExtractResponseText — uncovered branches ─────────────────────────
+
+        [Fact]
+        public async Task GenerateFeedbackAsync_ReturnsLocalFallback_WhenOutputTextPropertyIsNotAString()
+        {
+            // output_text exists but its ValueKind is Number, not String.
+            // The guard `outputText.ValueKind == JsonValueKind.String` is false, so
+            // ExtractResponseText falls through to the output-array path. The array is
+            // absent, so it returns "". The empty-string check then throws
+            // InvalidOperationException, which GenerateFeedbackAsync catches → LocalFallback.
+            var handler = FakeHttpMessageHandler.Returning("""{"output_text": 42}""");
+            var svc = BuildService(handler);
+
+            var result = await svc.GenerateFeedbackAsync(SampleContext());
+
+            Assert.Equal(SubmissionFeedbackSources.LocalFallback, result.Source);
+        }
+
+        [Fact]
+        public async Task GenerateFeedbackAsync_SkipsNonObjectItemsInOutputArray_AndExtractsValidOnes()
+        {
+            // A primitive (42) at output[0] fails the `item.ValueKind != JsonValueKind.Object`
+            // guard and is skipped. The valid object at output[1] is still extracted.
+            var json = """
+                {
+                  "output": [
+                    42,
+                    {
+                      "content": [
+                        { "type": "output_text", "text": "Overall\nGood.\n\nCorrectness\nOK.\n\nCode Quality\nFine.\n\nNext Step\nDone." }
+                      ]
+                    }
+                  ]
+                }
+                """;
+            var handler = FakeHttpMessageHandler.Returning(json);
+            var svc = BuildService(handler);
+
+            var result = await svc.GenerateFeedbackAsync(SampleContext());
+
+            Assert.Equal(SubmissionFeedbackSources.OpenAI, result.Source);
+            Assert.Contains("Overall", result.Content);
+        }
+
+        [Fact]
+        public async Task GenerateFeedbackAsync_ReturnsLocalFallback_WhenOutputItemContentIsNotAnArray()
+        {
+            // item.content is a JSON object (not an array). The guard
+            // `content.ValueKind != JsonValueKind.Array` fires → item skipped.
+            // No text is extracted → empty string → throws → LocalFallback.
+            var json = """
+                {
+                  "output": [
+                    { "content": { "type": "output_text", "text": "Should be ignored" } }
+                  ]
+                }
+                """;
+            var handler = FakeHttpMessageHandler.Returning(json);
+            var svc = BuildService(handler);
+
+            var result = await svc.GenerateFeedbackAsync(SampleContext());
+
+            Assert.Equal(SubmissionFeedbackSources.LocalFallback, result.Source);
+        }
+
+        [Fact]
+        public async Task GenerateFeedbackAsync_SkipsContentItemsMissingTypeOrTextProperty()
+        {
+            // Items that lack "type" or lack "text" hit the inner `continue` guard.
+            // The last item has both and is extracted normally.
+            var json = """
+                {
+                  "output": [{
+                    "content": [
+                      { "type": "output_text" },
+                      { "text": "orphan" },
+                      { "type": "output_text", "text": "Overall\nGood.\n\nCorrectness\nOK.\n\nCode Quality\nFine.\n\nNext Step\nDone." }
+                    ]
+                  }]
+                }
+                """;
+            var handler = FakeHttpMessageHandler.Returning(json);
+            var svc = BuildService(handler);
+
+            var result = await svc.GenerateFeedbackAsync(SampleContext());
+
+            Assert.Equal(SubmissionFeedbackSources.OpenAI, result.Source);
+            Assert.DoesNotContain("orphan", result.Content);
+            Assert.Contains("Overall", result.Content);
+        }
+
+        [Fact]
+        public async Task GenerateFeedbackAsync_SkipsContentItemsWithUnknownType_AndExtractsKnownOnes()
+        {
+            // type == "tool_use" is neither "output_text" nor "text" → not appended.
+            // The following "output_text" item is still extracted.
+            var json = """
+                {
+                  "output": [{
+                    "content": [
+                      { "type": "tool_use", "text": "Should be ignored" },
+                      { "type": "output_text", "text": "Overall\nGood.\n\nCorrectness\nOK.\n\nCode Quality\nFine.\n\nNext Step\nDone." }
+                    ]
+                  }]
+                }
+                """;
+            var handler = FakeHttpMessageHandler.Returning(json);
+            var svc = BuildService(handler);
+
+            var result = await svc.GenerateFeedbackAsync(SampleContext());
+
+            Assert.Equal(SubmissionFeedbackSources.OpenAI, result.Source);
+            Assert.DoesNotContain("Should be ignored", result.Content);
+            Assert.Contains("Overall", result.Content);
+        }
+
+        // ── FormatLanguage — uncovered arms ───────────────────────────────────
+
+        [Theory]
+        [InlineData("cpp",    "C++")]
+        [InlineData("c++",    "C++")]
+        [InlineData("python", "Python")]
+        [InlineData("py",     "Python")]
+        [InlineData("cs",     "C#")]
+        [InlineData("c#",     "C#")]
+        [InlineData("rust",   "rust")]  // default: passthrough unchanged
+        public async Task GenerateFeedbackAsync_FormatsLanguageInPrompt(string inputLanguage, string expectedDisplay)
+        {
+            string? capturedBody = null;
+            var handler = new FakeHttpMessageHandler(async req =>
+            {
+                capturedBody = await req.Content!.ReadAsStringAsync();
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(JsonFor(WellFormedFeedback), Encoding.UTF8, "application/json")
+                };
+            });
+            var context = SampleContext();
+            context.Language = inputLanguage;
+            var svc = BuildService(handler);
+
+            await svc.GenerateFeedbackAsync(context);
+
+            Assert.NotNull(capturedBody);
+            using var doc = JsonDocument.Parse(capturedBody);
+            var inputText = doc.RootElement.GetProperty("input").GetString();
+            Assert.Contains($"Submission language: {expectedDisplay}", inputText);
+        }
+
         // ── HTTP request details ──────────────────────────────────────────────
 
         [Fact]

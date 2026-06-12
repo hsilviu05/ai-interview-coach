@@ -151,6 +151,107 @@ namespace AIInterviewCoach.Tests.Services
             Assert.Null(stored.AiFeedback);
         }
 
+        // ── Feedback context ──────────────────────────────────────────────────
+
+        [Fact]
+        public async Task ProcessAsync_TrimsLeadingAndTrailingWhitespace_FromFeedbackContent()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            var submission = TestDataSeeder.CreateSubmission(
+                db, candidate.Id, problem.Id, null,
+                SubmissionStatus.Accepted, passedTests: 1, totalTests: 1,
+                aiFeedbackStatus: SubmissionFeedbackStatuses.Pending);
+
+            var processor = new SubmissionFeedbackProcessor(
+                db,
+                new FakeSubmissionFeedbackService(_ => new SubmissionFeedbackResultDto
+                {
+                    Content = "  \n  Overall\nLooks good.\n  ",
+                    Source = SubmissionFeedbackSources.OpenAI
+                }),
+                new ApplicationObservabilityService(),
+                NullLogger<SubmissionFeedbackProcessor>.Instance);
+
+            await processor.ProcessAsync(submission.Id);
+
+            var stored = db.Submissions.Single(x => x.Id == submission.Id);
+            Assert.Equal("Overall\nLooks good.", stored.AiFeedback);
+        }
+
+        [Fact]
+        public async Task ProcessAsync_SetsPracticeModeTrue_WhenSubmissionHasNoInterviewSession()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            var submission = TestDataSeeder.CreateSubmission(
+                db, candidate.Id, problem.Id, null,
+                SubmissionStatus.Accepted, passedTests: 1, totalTests: 1,
+                aiFeedbackStatus: SubmissionFeedbackStatuses.Pending);
+
+            SubmissionFeedbackContextDto? capturedContext = null;
+            var processor = new SubmissionFeedbackProcessor(
+                db,
+                new FakeSubmissionFeedbackService(ctx =>
+                {
+                    capturedContext = ctx;
+                    return new SubmissionFeedbackResultDto
+                    {
+                        Content = "Overall\nOK.",
+                        Source = SubmissionFeedbackSources.OpenAI
+                    };
+                }),
+                new ApplicationObservabilityService(),
+                NullLogger<SubmissionFeedbackProcessor>.Instance);
+
+            await processor.ProcessAsync(submission.Id);
+
+            Assert.NotNull(capturedContext);
+            Assert.True(capturedContext.IsPracticeMode);
+        }
+
+        [Fact]
+        public async Task ProcessAsync_SetsPracticeModeFalse_WhenSubmissionBelongsToInterviewSession()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
+            var session = TestDataSeeder.CreateInterviewSession(db, interview.Id, candidate.Id);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            var submission = TestDataSeeder.CreateSubmission(
+                db, candidate.Id, problem.Id, session.Id,
+                SubmissionStatus.Accepted, passedTests: 1, totalTests: 1,
+                aiFeedbackStatus: SubmissionFeedbackStatuses.Pending);
+
+            SubmissionFeedbackContextDto? capturedContext = null;
+            var processor = new SubmissionFeedbackProcessor(
+                db,
+                new FakeSubmissionFeedbackService(ctx =>
+                {
+                    capturedContext = ctx;
+                    return new SubmissionFeedbackResultDto
+                    {
+                        Content = "Overall\nOK.",
+                        Source = SubmissionFeedbackSources.OpenAI
+                    };
+                }),
+                new ApplicationObservabilityService(),
+                NullLogger<SubmissionFeedbackProcessor>.Instance);
+
+            await processor.ProcessAsync(submission.Id);
+
+            Assert.NotNull(capturedContext);
+            Assert.False(capturedContext.IsPracticeMode);
+        }
+
         // ── Submission no longer exists ───────────────────────────────────────
 
         [Fact]

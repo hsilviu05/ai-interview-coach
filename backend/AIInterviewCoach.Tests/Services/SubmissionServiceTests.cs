@@ -416,6 +416,206 @@ namespace AIInterviewCoach.Tests.Services
             Assert.Contains(db.Submissions, s => s.CandidateId == otherCandidate.Id && s.ProblemId == problem.Id);
         }
 
+        // ── GetByInterviewSessionAsync ────────────────────────────────────────
+
+        [Fact]
+        public async Task GetByInterviewSessionAsync_ShouldThrow_WhenSessionNotFound()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                service.GetByInterviewSessionAsync(Guid.NewGuid(), candidate.Id));
+        }
+
+        [Fact]
+        public async Task GetByInterviewSessionAsync_ShouldReturnSessionSubmissions()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id);
+            var session = TestDataSeeder.CreateInterviewSession(
+                db, interview.Id, candidate.Id, InterviewSessionStatus.InProgress);
+
+            TestDataSeeder.CreateSubmission(db, candidate.Id, problem.Id, session.Id, SubmissionStatus.Accepted);
+            TestDataSeeder.CreateSubmission(db, candidate.Id, problem.Id, session.Id, SubmissionStatus.WrongAnswer);
+            TestDataSeeder.CreateSubmission(db, candidate.Id, problem.Id, null, SubmissionStatus.Accepted);
+
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            var result = (await service.GetByInterviewSessionAsync(session.Id, candidate.Id)).ToList();
+
+            Assert.Equal(2, result.Count);
+            Assert.All(result, s => Assert.Equal(session.Id, s.InterviewSessionId));
+        }
+
+        // ── ResetProblemAsync — session-mode branches ─────────────────────────
+
+        [Fact]
+        public async Task ResetProblemAsync_ShouldThrow_WhenInterviewSessionNotFound()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                service.ResetProblemAsync(candidate.Id, problem.Id, Guid.NewGuid()));
+        }
+
+        [Fact]
+        public async Task ResetProblemAsync_ShouldThrow_WhenInterviewSessionIsNotInProgress()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id);
+            var session = TestDataSeeder.CreateInterviewSession(
+                db, interview.Id, candidate.Id, InterviewSessionStatus.Completed);
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.ResetProblemAsync(candidate.Id, problem.Id, session.Id));
+        }
+
+        [Fact]
+        public async Task ResetProblemAsync_ShouldThrow_WhenProblemDoesNotBelongToInterview()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
+            var inInterview = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1, title: "In");
+            var notInInterview = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1, title: "Out");
+            TestDataSeeder.AddProblemToInterview(db, interview.Id, inInterview.Id);
+            var session = TestDataSeeder.CreateInterviewSession(
+                db, interview.Id, candidate.Id, InterviewSessionStatus.InProgress);
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.ResetProblemAsync(candidate.Id, notInInterview.Id, session.Id));
+        }
+
+        [Fact]
+        public async Task ResetProblemAsync_ShouldDeleteSessionSubmissions_WhenInterviewSessionIdProvided()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id);
+            var session = TestDataSeeder.CreateInterviewSession(
+                db, interview.Id, candidate.Id, InterviewSessionStatus.InProgress);
+            TestDataSeeder.CreateSubmission(db, candidate.Id, problem.Id, session.Id, SubmissionStatus.Accepted);
+            TestDataSeeder.CreateSubmission(db, candidate.Id, problem.Id, null, SubmissionStatus.Accepted);
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            await service.ResetProblemAsync(candidate.Id, problem.Id, session.Id);
+
+            Assert.DoesNotContain(db.Submissions, s => s.InterviewSessionId == session.Id);
+            Assert.Contains(db.Submissions, s => s.InterviewSessionId == null);
+        }
+
+        [Fact]
+        public async Task ResetProblemAsync_ShouldReturnEarlyWithoutError_WhenNoSubmissionsExist()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            await service.ResetProblemAsync(candidate.Id, problem.Id, null);
+
+            Assert.Equal(0, db.Submissions.Count());
+        }
+
+        [Fact]
+        public async Task ResetProblemAsync_ShouldThrow_WhenPracticeModeProblemNotFound()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                service.ResetProblemAsync(candidate.Id, Guid.NewGuid(), null));
+        }
+
+        // ── ResetInterviewSessionAsync — error and edge paths ─────────────────
+
+        [Fact]
+        public async Task ResetInterviewSessionAsync_ShouldThrow_WhenSessionNotFound()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                service.ResetInterviewSessionAsync(candidate.Id, Guid.NewGuid()));
+        }
+
+        [Fact]
+        public async Task ResetInterviewSessionAsync_ShouldThrow_WhenSessionIsCompleted()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
+            var session = TestDataSeeder.CreateInterviewSession(
+                db, interview.Id, candidate.Id, InterviewSessionStatus.Completed);
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.ResetInterviewSessionAsync(candidate.Id, session.Id));
+        }
+
+        [Fact]
+        public async Task ResetInterviewSessionAsync_ShouldReturnEarlyWithoutError_WhenNoSubmissionsExist()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
+            var session = TestDataSeeder.CreateInterviewSession(
+                db, interview.Id, candidate.Id, InterviewSessionStatus.InProgress);
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            await service.ResetInterviewSessionAsync(candidate.Id, session.Id);
+
+            Assert.Equal(0, db.Submissions.Count());
+        }
+
         [Fact]
         public async Task ResetInterviewSessionAsync_ShouldDeleteOnlySessionSubmissions()
         {

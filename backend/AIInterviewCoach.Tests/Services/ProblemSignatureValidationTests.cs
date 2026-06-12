@@ -178,6 +178,260 @@ namespace AIInterviewCoach.Tests.Services
             Assert.Contains("? \"true\" : \"false\"", artifacts.CppHarnessCode);
         }
 
+        // ── ValidateAndNormalize — missing validation branches ───────────────
+
+        [Fact]
+        public void ValidateAndNormalize_Throws_WhenSignatureIsNull()
+        {
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                ProblemSignatureValidation.ValidateAndNormalize(null));
+
+            Assert.Contains("structured signature metadata", exception.Message);
+        }
+
+        [Fact]
+        public void ValidateAndNormalize_Throws_WhenRequiredFieldIsBlank()
+        {
+            var signature = BuildJsonObjectSignature();
+            signature.CsharpMethodName = "   ";
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                ProblemSignatureValidation.ValidateAndNormalize(signature));
+
+            Assert.Contains("required blank value", exception.Message);
+        }
+
+        [Fact]
+        public void ValidateAndNormalize_Throws_WhenInputBindingModeIsUnsupported()
+        {
+            var signature = BuildJsonObjectSignature();
+            signature.InputBindingMode = "garbage_mode";
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                ProblemSignatureValidation.ValidateAndNormalize(signature));
+
+            Assert.Contains("Unsupported input binding mode", exception.Message);
+        }
+
+        [Fact]
+        public void ValidateAndNormalize_Throws_WhenReturnTypeIsUnsupported()
+        {
+            var signature = BuildJsonObjectSignature();
+            signature.ReturnType = "float";
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                ProblemSignatureValidation.ValidateAndNormalize(signature));
+
+            Assert.Contains("Unsupported return type", exception.Message);
+        }
+
+        [Fact]
+        public void ValidateAndNormalize_Throws_WhenParameterTypeIsUnsupported()
+        {
+            var signature = BuildJsonObjectSignature();
+            signature.Parameters[0].Type = "float";
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                ProblemSignatureValidation.ValidateAndNormalize(signature));
+
+            Assert.Contains("Unsupported parameter type", exception.Message);
+        }
+
+        [Fact]
+        public void ValidateAndNormalize_Throws_WhenParameterNameIsInvalidIdentifier()
+        {
+            var signature = BuildJsonObjectSignature();
+            signature.Parameters[0].Name = "my-param";
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                ProblemSignatureValidation.ValidateAndNormalize(signature));
+
+            Assert.Contains("parameter name 'my-param' is invalid", exception.Message);
+        }
+
+        [Fact]
+        public void ValidateAndNormalize_Throws_WhenCsharpMethodNameIsInvalidIdentifier()
+        {
+            var signature = BuildJsonObjectSignature();
+            signature.CsharpMethodName = "two-sum";
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                ProblemSignatureValidation.ValidateAndNormalize(signature));
+
+            Assert.Contains("C# method name 'two-sum' is invalid", exception.Message);
+        }
+
+        [Fact]
+        public void ValidateAndNormalize_Throws_WhenCppMethodNameIsInvalidIdentifier()
+        {
+            var signature = BuildJsonObjectSignature();
+            signature.CppMethodName = "two-sum";
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                ProblemSignatureValidation.ValidateAndNormalize(signature));
+
+            Assert.Contains("C++ method name 'two-sum' is invalid", exception.Message);
+        }
+
+        // ── Generate — missing type arms ──────────────────────────────────────
+
+        [Fact]
+        public void Generate_StringReturnType_EmitsCorrectTypeMappingsAcrossAllLanguages()
+        {
+            var signature = new ProblemSignatureDefinitionDto
+            {
+                InputBindingMode = ProblemSignatureInputBindingModes.JsonObject,
+                CsharpMethodName = "Solve",
+                PythonMethodName = "solve",
+                CppMethodName = "solve",
+                ReturnType = ProblemSignatureTypeKeys.String,
+                Parameters =
+                [
+                    new ProblemSignatureParameterDto
+                    {
+                        Name = "s",
+                        Type = ProblemSignatureTypeKeys.String
+                    }
+                ]
+            };
+
+            var artifacts = ProblemSignatureCodeGenerator.Generate(signature);
+
+            // C# starter: MapCsharpType("string") + BuildCsharpDefaultReturnStatement("string")
+            Assert.Contains("string Solve", artifacts.CsharpStarterCode);
+            Assert.Contains("return string.Empty;", artifacts.CsharpStarterCode);
+            // C# harness: BuildCsharpOutputStatement("string") uses the String arm
+            Assert.Contains("result ?? string.Empty", artifacts.CsharpHarnessCode);
+
+            // Python starter: MapPythonType("string") + BuildPythonDefaultReturnStatement("string")
+            Assert.Contains("def solve(self, s: str) -> str", artifacts.PythonStarterCode);
+            Assert.Contains("return \"\"", artifacts.PythonStarterCode);
+            // Python harness: BuildPythonOutputStatement("string") hits the _ arm
+            Assert.Contains("print(result)", artifacts.PythonHarnessCode);
+
+            // C++ starter: MapCppReturnType("string") + MapCppParameterType("string")
+            Assert.Contains("string solve", artifacts.CppStarterCode);
+            Assert.Contains("return \"\";", artifacts.CppStarterCode);
+            // C++ harness: BuildCppOutputStatement("string") + BuildCppInputExtraction for string param
+            Assert.Contains("cout << result", artifacts.CppHarnessCode);
+            Assert.Contains("ExtractStringField", artifacts.CppHarnessCode);
+        }
+
+        [Fact]
+        public void Generate_IntReturnType_EmitsCsharpDefaultOutputStatement()
+        {
+            // BuildCsharpOutputStatement "int" falls to the `_` arm → Console.WriteLine(result);
+            var signature = new ProblemSignatureDefinitionDto
+            {
+                InputBindingMode = ProblemSignatureInputBindingModes.JsonObject,
+                CsharpMethodName = "Solve",
+                PythonMethodName = "solve",
+                CppMethodName = "solve",
+                ReturnType = ProblemSignatureTypeKeys.Int,
+                Parameters = []
+            };
+
+            var artifacts = ProblemSignatureCodeGenerator.Generate(signature);
+
+            Assert.Contains("Console.WriteLine(result);", artifacts.CsharpHarnessCode);
+            Assert.Contains("return 0;", artifacts.CsharpStarterCode);
+        }
+
+        [Fact]
+        public void Generate_StringArrayReturnType_EmitsCorrectTypeMappingsAcrossAllLanguages()
+        {
+            var signature = new ProblemSignatureDefinitionDto
+            {
+                InputBindingMode = ProblemSignatureInputBindingModes.JsonObject,
+                CsharpMethodName = "Solve",
+                PythonMethodName = "solve",
+                CppMethodName = "solve",
+                ReturnType = ProblemSignatureTypeKeys.StringArray,
+                Parameters =
+                [
+                    new ProblemSignatureParameterDto
+                    {
+                        Name = "words",
+                        Type = ProblemSignatureTypeKeys.StringArray
+                    }
+                ]
+            };
+
+            var artifacts = ProblemSignatureCodeGenerator.Generate(signature);
+
+            // C# starter: MapCsharpType("string_array") + BuildCsharpDefaultReturnStatement("string_array")
+            Assert.Contains("string[]", artifacts.CsharpStarterCode);
+            Assert.Contains("return new string[0];", artifacts.CsharpStarterCode);
+            // C# harness payload: MapCsharpPayloadType + BuildCsharpPayloadDefaultValue
+            Assert.Contains("string[]?", artifacts.CsharpHarnessCode);
+            Assert.Contains("Array.Empty<string>()", artifacts.CsharpHarnessCode);
+
+            // Python starter: MapPythonType("string_array")
+            Assert.Contains("List[str]", artifacts.PythonStarterCode);
+            // Python harness: BuildPythonDefaultValueExpression("string_array") + output
+            Assert.Contains("print(json.dumps(result))", artifacts.PythonHarnessCode);
+
+            // C++: MapCppReturnType/ParameterType("string_array")
+            Assert.Contains("vector<string>", artifacts.CppStarterCode);
+            Assert.Contains("const vector<string>&", artifacts.CppStarterCode);
+            Assert.Contains("ExtractStringArrayField", artifacts.CppHarnessCode);
+            Assert.Contains("FormatStringArray", artifacts.CppHarnessCode);
+        }
+
+        [Fact]
+        public void Generate_RawTextWithIntArrayReturn_EmitsFormatIntArrayHelper_InCppHarness()
+        {
+            // BuildCppOutputHelpers("int_array") in RawText mode inlines FormatIntArray helper
+            var signature = new ProblemSignatureDefinitionDto
+            {
+                InputBindingMode = ProblemSignatureInputBindingModes.RawText,
+                CsharpMethodName = "Solve",
+                PythonMethodName = "solve",
+                CppMethodName = "solve",
+                ReturnType = ProblemSignatureTypeKeys.IntArray,
+                Parameters =
+                [
+                    new ProblemSignatureParameterDto
+                    {
+                        Name = "rawInput",
+                        Type = ProblemSignatureTypeKeys.String
+                    }
+                ]
+            };
+
+            var artifacts = ProblemSignatureCodeGenerator.Generate(signature);
+
+            Assert.Contains("FormatIntArray", artifacts.CppHarnessCode);
+            Assert.DoesNotContain("ExtractIntArrayField", artifacts.CppHarnessCode);
+        }
+
+        [Fact]
+        public void Generate_RawTextWithStringArrayReturn_EmitsFormatStringArrayAndEscapeHelper_InCppHarness()
+        {
+            // BuildCppOutputHelpers("string_array") in RawText mode inlines both helpers
+            var signature = new ProblemSignatureDefinitionDto
+            {
+                InputBindingMode = ProblemSignatureInputBindingModes.RawText,
+                CsharpMethodName = "Solve",
+                PythonMethodName = "solve",
+                CppMethodName = "solve",
+                ReturnType = ProblemSignatureTypeKeys.StringArray,
+                Parameters =
+                [
+                    new ProblemSignatureParameterDto
+                    {
+                        Name = "rawInput",
+                        Type = ProblemSignatureTypeKeys.String
+                    }
+                ]
+            };
+
+            var artifacts = ProblemSignatureCodeGenerator.Generate(signature);
+
+            Assert.Contains("FormatStringArray", artifacts.CppHarnessCode);
+            Assert.Contains("EscapeJsonString", artifacts.CppHarnessCode);
+        }
+
         private static ProblemSignatureDefinitionDto BuildJsonObjectSignature() =>
             new()
             {

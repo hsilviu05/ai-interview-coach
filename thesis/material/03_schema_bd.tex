@@ -1,0 +1,281 @@
+% ============================================================
+% SECȚIUNEA 3 — Schema bazei de date
+% Fișiere sursă de referință:
+%   backend/AIInterviewCoach.Domain/Entities/
+%   backend/AIInterviewCoach.Infrastructure/Persistence/Migrations/AppDbContextModelSnapshot.cs
+%   backend/AIInterviewCoach.Infrastructure/Persistence/Migrations/ (9 migrări)
+% ============================================================
+
+\section{Schema bazei de date}
+\label{sec:schema_bd}
+
+\subsection{Tehnologie și configurare}
+
+Baza de date este gestionată prin \textbf{Entity Framework Core 10} cu
+provider-ul \textbf{Npgsql} pentru PostgreSQL (producție) și cu provider-ul
+SQLite pentru testele de integrare. Alegerea provider-ului se face la
+pornire prin cheia de configurare \texttt{DatabaseProvider} din
+\texttt{appsettings.json}; implicit se folosește PostgreSQL.
+% Sursă: ServiceCollectionExtensions.cs, AddApplicationDatabase()
+
+Schema curentă rezultă din \textbf{nouă migrări} EF Core aplicate în ordine,
+de la \texttt{20260313143813\_InitialAuthSetup} (crearea tabelei \texttt{Users})
+până la \texttt{20260419130000\_AddProblemSignatureDefinitionJson}
+(adăugarea coloanei \texttt{SignatureDefinitionJson} în \texttt{Problems}).
+Structura canonică este descrisă în
+\texttt{AppDbContextModelSnapshot.cs}.
+% Sursă: Persistence/Migrations/AppDbContextModelSnapshot.cs
+
+\subsection{Tabelele bazei de date}
+
+\subsubsection{Users}
+% Sursă: Domain/Entities/User.cs ; migrare 20260313143813
+
+\begin{tabular}{llll}
+\hline
+\textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
+\hline
+\texttt{Id}           & \texttt{uuid}                  & PK, NOT NULL         & GUID generat \\
+\texttt{FullName}     & \texttt{varchar(200)}          & NOT NULL             & \\
+\texttt{Email}        & \texttt{varchar(200)}          & NOT NULL, UNIQUE     & index unic \\
+\texttt{PasswordHash} & \texttt{text}                  & NOT NULL             & PBKDF2-SHA256 \\
+\texttt{UserRole}     & \texttt{integer}               & NOT NULL             & enum: 0=Candidate, 1=Interviewer, 2=Admin \\
+\texttt{CreatedAt}    & \texttt{timestamp with time zone} & NOT NULL          & \\
+\texttt{UpdatedAt}    & \texttt{timestamp with time zone} & NOT NULL          & \\
+\hline
+\end{tabular}
+
+\subsubsection{Problems}
+% Sursă: Domain/Entities/Problem.cs ; migrări AddProblemAndTestCase, AddIsPublicToProblem,
+%         SyncModelWithDb, AddProblemSignatureDefinitionJson
+
+\begin{tabular}{llll}
+\hline
+\textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
+\hline
+\texttt{Id}                    & \texttt{uuid}           & PK, NOT NULL   & \\
+\texttt{Title}                 & \texttt{varchar(200)}   & NOT NULL       & \\
+\texttt{Description}           & \texttt{text}           & NOT NULL       & \\
+\texttt{Difficulty}            & \texttt{varchar(50)}    & NOT NULL       & ex. ``Easy'', ``Medium'', ``Hard'' \\
+\texttt{Topic}                 & \texttt{varchar(100)}   & NOT NULL       & ex. ``Arrays'', ``DP'' \\
+\texttt{ConstraintsText}       & \texttt{text}           & NOT NULL       & \\
+\texttt{ExampleInput}          & \texttt{text}           & NOT NULL       & \\
+\texttt{ExampleOutput}         & \texttt{text}           & NOT NULL       & \\
+\texttt{ExecutionMode}         & \texttt{varchar(30)}    & NOT NULL       & ``Stdin'' sau ``JsonObject'' \\
+\texttt{SignatureDefinitionJson} & \texttt{text}         & NULL           & JSON cu semnătura funcției \\
+\texttt{CsharpStarterCode}     & \texttt{text}           & NOT NULL       & \\
+\texttt{PythonStarterCode}     & \texttt{text}           & NOT NULL       & \\
+\texttt{CppStarterCode}        & \texttt{text}           & NOT NULL       & \\
+\texttt{CsharpHarnessTemplate} & \texttt{text}           & NOT NULL       & \\
+\texttt{PythonHarnessTemplate} & \texttt{text}           & NOT NULL       & \\
+\texttt{CppHarnessTemplate}    & \texttt{text}           & NOT NULL       & \\
+\texttt{IsPublic}              & \texttt{boolean}        & NOT NULL       & \\
+\texttt{CreatedByUserId}       & \texttt{uuid}           & FK→Users, NOT NULL & ON DELETE CASCADE \\
+\texttt{CreatedAt}             & \texttt{timestamp with time zone} & NOT NULL & \\
+\texttt{UpdatedAt}             & \texttt{timestamp with time zone} & NOT NULL & \\
+\hline
+\end{tabular}
+
+\medskip
+Index: \texttt{CreatedByUserId}.
+
+\subsubsection{TestCases}
+% Sursă: Domain/Entities/TestCase.cs ; migrare AddProblemAndTestCase
+
+\begin{tabular}{llll}
+\hline
+\textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
+\hline
+\texttt{Id}             & \texttt{uuid}    & PK, NOT NULL                 & \\
+\texttt{ProblemId}      & \texttt{uuid}    & FK→Problems, NOT NULL        & ON DELETE CASCADE \\
+\texttt{Input}          & \texttt{text}    & NOT NULL                     & \\
+\texttt{ExpectedOutput} & \texttt{text}    & NOT NULL                     & \\
+\texttt{IsHidden}       & \texttt{boolean} & NOT NULL                     & \\
+\texttt{OrderIndex}     & \texttt{integer} & NOT NULL                     & \\
+\hline
+\end{tabular}
+
+\medskip
+Index: \texttt{ProblemId}.
+
+\subsubsection{Interviews}
+% Sursă: Domain/Entities/Interview.cs ; migrare AddInterviewModule
+
+\begin{tabular}{llll}
+\hline
+\textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
+\hline
+\texttt{Id}              & \texttt{uuid}           & PK, NOT NULL  & \\
+\texttt{Title}           & \texttt{varchar(200)}   & NOT NULL      & \\
+\texttt{PositionName}    & \texttt{varchar(200)}   & NOT NULL      & \\
+\texttt{Description}     & \texttt{varchar(2000)}  & NOT NULL      & \\
+\texttt{DurationMinutes} & \texttt{integer}        & NOT NULL      & \\
+\texttt{AccessToken}     & \texttt{varchar(100)}   & NOT NULL      & token URL unic \\
+\texttt{IsActive}        & \texttt{boolean}        & NOT NULL      & \\
+\texttt{InterviewerId}   & \texttt{uuid}           & NOT NULL      & nu este FK explicit (denormalizat) \\
+\texttt{CreatedAt}       & \texttt{timestamp with time zone} & NOT NULL & \\
+\texttt{UpdatedAt}       & \texttt{timestamp with time zone} & NOT NULL & \\
+\hline
+\end{tabular}
+
+\subsubsection{InterviewProblems}
+% Sursă: Domain/Entities/InterviewProblem.cs ; migrare AddInterviewModule
+
+Tabelă de joncțiune mulți-la-mulți între \texttt{Interviews} și
+\texttt{Problems}, cu metadate de ordonare și punctaj.
+
+\begin{tabular}{llll}
+\hline
+\textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
+\hline
+\texttt{Id}          & \texttt{uuid}    & PK, NOT NULL                  & \\
+\texttt{InterviewId} & \texttt{uuid}    & FK→Interviews, NOT NULL       & ON DELETE Cascade \\
+\texttt{ProblemId}   & \texttt{uuid}    & FK→Problems, NOT NULL         & ON DELETE Restrict \\
+\texttt{OrderIndex}  & \texttt{integer} & NOT NULL                      & \\
+\texttt{Points}      & \texttt{integer} & NOT NULL                      & \\
+\hline
+\end{tabular}
+
+\medskip
+Indecși: \texttt{InterviewId}, \texttt{ProblemId}.
+
+\subsubsection{InterviewSessions}
+% Sursă: Domain/Entities/InterviewSession.cs ; migrări AddInterviewModule, UpdateInterviewEntities,
+%         AddSubmissionFlowStringStatuses
+
+\begin{tabular}{llll}
+\hline
+\textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
+\hline
+\texttt{Id}          & \texttt{uuid}           & PK, NOT NULL               & \\
+\texttt{InterviewId} & \texttt{uuid}           & FK→Interviews, NOT NULL    & ON DELETE Cascade \\
+\texttt{CandidateId} & \texttt{uuid}           & FK→Users, NOT NULL         & ON DELETE Restrict \\
+\texttt{StartedAt}   & \texttt{timestamp with time zone} & NOT NULL         & \\
+\texttt{SubmittedAt} & \texttt{timestamp with time zone} & NULL             & setat la finalizare \\
+\texttt{Status}      & \texttt{varchar(30)}    & NOT NULL                   & ``InProgress'' sau ``Completed'' \\
+\texttt{TotalScore}  & \texttt{integer}        & NOT NULL                   & \\
+\hline
+\end{tabular}
+
+\medskip
+Indecși: \texttt{CandidateId}, \texttt{InterviewId}.
+
+\subsubsection{Submissions}
+% Sursă: Domain/Entities/Submission.cs ; migrări AddInterviewModule, UpdateInterviewEntities,
+%         AddSubmissionFlowStringStatuses, AddSubmissionAiFeedbackStatus
+
+\begin{tabular}{llll}
+\hline
+\textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
+\hline
+\texttt{Id}                 & \texttt{uuid}        & PK, NOT NULL               & \\
+\texttt{CandidateId}        & \texttt{uuid}        & FK→Users, NOT NULL         & ON DELETE Restrict \\
+\texttt{ProblemId}          & \texttt{uuid}        & FK→Problems, NOT NULL      & ON DELETE Cascade \\
+\texttt{InterviewSessionId} & \texttt{uuid}        & FK→InterviewSessions, NULL & ON DELETE Cascade; NULL → practică \\
+\texttt{Language}           & \texttt{varchar(50)} & NOT NULL                   & ``csharp'', ``python'', ``cpp'' \\
+\texttt{SourceCode}         & \texttt{text}        & NOT NULL                   & \\
+\texttt{Status}             & \texttt{integer}     & NOT NULL                   & enum SubmissionStatus \\
+\texttt{PassedTests}        & \texttt{integer}     & NOT NULL                   & \\
+\texttt{TotalTests}         & \texttt{integer}     & NOT NULL                   & \\
+\texttt{ExecutionTimeMs}    & \texttt{integer}     & NULL                       & \\
+\texttt{MemoryKb}           & \texttt{integer}     & NULL                       & \\
+\texttt{SubmittedAt}        & \texttt{timestamp with time zone} & NOT NULL      & \\
+\texttt{ExecutionOutput}    & \texttt{text}        & NULL                       & \\
+\texttt{AiFeedback}         & \texttt{text}        & NULL                       & completat asincron \\
+\texttt{AiFeedbackStatus}   & \texttt{varchar(20)} & NOT NULL, DEFAULT ``Pending'' & ``Pending'', ``Ready'', ``Failed'' \\
+\hline
+\end{tabular}
+
+\medskip
+Indecși: \texttt{CandidateId}, \texttt{InterviewSessionId}, \texttt{ProblemId}.
+
+\subsubsection{CandidateStatistics}
+% Sursă: Domain/Entities/CandidateStatistic.cs ; migrare SyncModelWithDb
+
+\begin{tabular}{llll}
+\hline
+\textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
+\hline
+\texttt{Id}                     & \texttt{uuid}    & PK, NOT NULL                 & \\
+\texttt{CandidateId}            & \texttt{uuid}    & FK→Users, NOT NULL, UNIQUE   & relație 1-la-1 \\
+\texttt{ProblemsSolved}         & \texttt{integer} & NOT NULL                     & \\
+\texttt{TotalSubmissions}       & \texttt{integer} & NOT NULL                     & \\
+\texttt{AccuracyRate}           & \texttt{numeric} & NOT NULL                     & valoare 0–1 \\
+\texttt{AverageExecutionTimeMs} & \texttt{integer} & NOT NULL                     & \\
+\texttt{UpdatedAt}              & \texttt{timestamp with time zone} & NOT NULL      & \\
+\hline
+\end{tabular}
+
+\subsubsection{AdminAuditLogs}
+% Sursă: Domain/Entities/AdminAuditLog.cs ; migrare AddAdminAuditLogs
+
+\begin{tabular}{llll}
+\hline
+\textbf{Coloană} & \textbf{Tip PostgreSQL} & \textbf{Constrângeri} & \textbf{Observații} \\
+\hline
+\texttt{Id}                & \texttt{uuid}           & PK, NOT NULL              & \\
+\texttt{AdminUserId}       & \texttt{uuid}           & FK→Users, NOT NULL        & ON DELETE Restrict \\
+\texttt{AdminEmail}        & \texttt{varchar(200)}   & NOT NULL                  & denormalizat \\
+\texttt{AdminFullName}     & \texttt{varchar(200)}   & NOT NULL                  & denormalizat \\
+\texttt{ActionType}        & \texttt{varchar(100)}   & NOT NULL                  & \\
+\texttt{TargetType}        & \texttt{varchar(100)}   & NOT NULL                  & \\
+\texttt{TargetId}          & \texttt{uuid}           & NULL                      & \\
+\texttt{TargetDisplayName} & \texttt{varchar(200)}   & NULL                      & \\
+\texttt{Summary}           & \texttt{varchar(500)}   & NOT NULL                  & \\
+\texttt{DetailsJson}       & \texttt{text}           & NULL                      & context suplimentar JSON \\
+\texttt{CreatedAt}         & \texttt{timestamp with time zone} & NOT NULL        & \\
+\hline
+\end{tabular}
+
+\medskip
+Indecși: \texttt{AdminUserId}, \texttt{CreatedAt}.
+
+\subsection{Relațiile dintre tabele}
+
+Figura~\ref{fig:erd} ilustrează relațiile principale. Tabelul de mai jos
+enumeră cheile externe definite în snapshot:
+
+\begin{tabular}{llll}
+\hline
+\textbf{Tabelă sursă} & \textbf{Coloană FK} & \textbf{Tabelă referită} & \textbf{ON DELETE} \\
+\hline
+Problems              & CreatedByUserId       & Users            & Cascade  \\
+TestCases             & ProblemId             & Problems         & Cascade  \\
+InterviewProblems     & InterviewId           & Interviews       & Cascade  \\
+InterviewProblems     & ProblemId             & Problems         & Restrict \\
+InterviewSessions     & InterviewId           & Interviews       & Cascade  \\
+InterviewSessions     & CandidateId           & Users            & Restrict \\
+Submissions           & CandidateId           & Users            & Restrict \\
+Submissions           & ProblemId             & Problems         & Cascade  \\
+Submissions           & InterviewSessionId    & InterviewSessions & Cascade \\
+CandidateStatistics   & CandidateId           & Users            & Cascade  \\
+AdminAuditLogs        & AdminUserId           & Users            & Restrict \\
+\hline
+\end{tabular}
+
+\subsection{Convenții de design}
+
+\paragraph{Chei primare GUID}
+Toate entitățile folosesc \texttt{Guid} ca cheie primară, generat de
+aplicație (nu de baza de date). Aceasta permite pregenerarea ID-ului
+înainte de inserție și facilitează replicarea eventualăfără conflicte
+de secvență.
+
+\paragraph{Timestamp-uri UTC}
+Câmpurile \texttt{CreatedAt} și \texttt{UpdatedAt} sunt stocate cu
+\texttt{timestamp with time zone}, valoarea implicită fiind
+\texttt{DateTime.UtcNow} setat în constructorul entității.
+
+\paragraph{Coloane text nemărginite}
+Câmpurile cu conținut variabil și potențial lung (\texttt{SourceCode},
+\texttt{Description}, \texttt{AiFeedback}, \texttt{CsharpHarnessTemplate}
+etc.) sunt stocate ca \texttt{text} (PostgreSQL), fără limită explicită.
+Câmpurile cu lungime garantat limitată folosesc \texttt{varchar(N)}.
+
+\paragraph{AiFeedbackStatus — valoare implicită în baza de date}
+Coloana \texttt{AiFeedbackStatus} din \texttt{Submissions} are o valoare
+implicită \texttt{``Pending''} definită atât la nivel EF Core (prin
+\texttt{HasDefaultValue(``Pending'')}) cât și în domeniu
+(\texttt{SubmissionFeedbackStatuses.Pending}), asigurând consistența
+indiferent de calea de inserție.
+% Sursă: AppDbContextModelSnapshot.cs, migrare AddSubmissionAiFeedbackStatus
