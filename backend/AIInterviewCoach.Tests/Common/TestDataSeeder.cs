@@ -137,14 +137,15 @@ namespace AIInterviewCoach.Tests.Common
             AppDbContext db,
             Guid interviewId,
             Guid candidateId,
-            InterviewSessionStatus status = InterviewSessionStatus.InProgress)
+            InterviewSessionStatus status = InterviewSessionStatus.InProgress,
+            DateTime? startedAt = null)
         {
             var session = new InterviewSession
             {
                 Id = Guid.NewGuid(),
                 InterviewId = interviewId,
                 CandidateId = candidateId,
-                StartedAt = DateTime.UtcNow,
+                StartedAt = startedAt ?? DateTime.UtcNow,
                 Status = status,
                 TotalScore = 0
             };
