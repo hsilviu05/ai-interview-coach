@@ -100,9 +100,9 @@ este următorul:
         % Sursă: API/Middleware/RequestObservabilityMiddleware.cs
   \item \texttt{ExceptionHandlingMiddleware} înfășoară restul pipeline-ului
         într-un bloc \texttt{try/catch}; excepțiile negestionate sunt
-        mapate la coduri HTTP: \texttt{KeyNotFoundException}→404,
-        \texttt{UnauthorizedAccessException}→403,
-        \texttt{InvalidOperationException}→400, altele→500.
+        mapate la coduri HTTP: \texttt{KeyNotFoundException}$\rightarrow$404,
+        \texttt{UnauthorizedAccessException}$\rightarrow$403,
+        \texttt{InvalidOperationException}$\rightarrow$400, altele$\rightarrow$500.
         % Sursă: API/Middleware/ExceptionHandlingMiddleware.cs
   \item Middleware-ul de autentificare JWT validează cookie-ul \texttt{aic\_auth}
         sau antetul \texttt{Authorization: Bearer} și populează

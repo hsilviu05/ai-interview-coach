@@ -50,7 +50,7 @@ lua trei valori, definite ca constante de șir în
         neașteptată sau problemă lipsă din baza de date).
 \end{itemize}
 
-Tranziția \texttt{Pending}→\texttt{Ready} sau \texttt{Pending}→\texttt{Failed}
+Tranziția \texttt{Pending}$\rightarrow$\texttt{Ready} sau \texttt{Pending}$\rightarrow$\texttt{Failed}
 este atomică: ambele câmpuri (\texttt{AiFeedback} și \texttt{AiFeedbackStatus})
 sunt actualizate într-un singur apel \texttt{SaveChangesAsync()}.
 % Sursă: Application/Services/SubmissionFeedbackProcessor.cs:75–86

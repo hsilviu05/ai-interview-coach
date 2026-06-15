@@ -171,8 +171,9 @@ submisiei până la afișarea feedback-ului în interfața candidatului.
 \draw[msg] (0,-1) -- node[above]{POST /api/submissions} (3,-1);
 % 2. CreateSubmissionAsync
 \draw[msg] (3,-1.6) -- node[above]{CreateSubmissionAsync()} (6.5,-1.6);
-% 3. ExecCode + Persist
-\draw[msg] (6.5,-2.2) -- node[above]{\textit{execută cod, persistă}\\{\tiny AiFeedbackStatus=Pending}} (6.5,-2.2);
+% 3. ExecCode + Persist (notă internă pe lifeline-ul SubmissionService)
+\node[note, anchor=west] at (6.8,-2.2)
+    {\textit{execută cod, persistă;} {\tiny AiFeedbackStatus\,=\,Pending}};
 % 4. QueueAsync
 \draw[msg] (6.5,-2.8) -- node[above]{QueueAsync(submissionId)} (10,-2.8);
 % 5. HTTP 200
