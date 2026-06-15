@@ -15,6 +15,13 @@
           <span>{{ interview.problems.length }} problems</span>
           <span *ngIf="session() as session">{{ session.status }}</span>
         </div>
+
+        <div class="timer-block" *ngIf="!isPracticeMode() && session()">
+          <div class="timer-label">Time Remaining</div>
+          <div class="timer-display" [class.timer-warning]="timerIsWarning()">
+            {{ timerDisplay() }}
+          </div>
+        </div>
       </div>
 
       <div class="problem-list-card">

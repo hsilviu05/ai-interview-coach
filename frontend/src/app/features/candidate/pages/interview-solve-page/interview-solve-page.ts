@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { Navbar } from '../../../../shared/components/navbar/navbar';
 import { CodeEditor } from '../../../../shared/components/code-editor/code-editor';
@@ -15,6 +15,7 @@ import { CandidateWorkspaceFacade } from '../../services/candidate-workspace.fac
 })
 export class InterviewSolvePage implements OnInit {
   private readonly workspace = inject(CandidateWorkspaceFacade);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly form = this.workspace.form;
   readonly loading = this.workspace.loading;
@@ -42,8 +43,51 @@ export class InterviewSolvePage implements OnInit {
   readonly currentProblemHints = this.workspace.currentProblemHints;
   readonly nextHintLevel = this.workspace.nextHintLevel;
 
+  private readonly remainingSeconds = signal<number | null>(null);
+
+  readonly timerDisplay = computed(() => {
+    const s = this.remainingSeconds();
+    if (s === null) return '--:--';
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  });
+
+  readonly timerIsWarning = computed(() => {
+    const s = this.remainingSeconds();
+    return s !== null && s < 300;
+  });
+
   ngOnInit(): void {
     this.workspace.initializeFromRoute();
+    this.startCountdown();
+  }
+
+  private startCountdown(): void {
+    let expired = false;
+
+    const tick = () => {
+      const session = this.session();
+      const interview = this.interview();
+
+      if (!session || !interview || this.isPracticeMode() || session.status === 'Completed') {
+        return;
+      }
+
+      const deadline =
+        new Date(session.startedAt).getTime() + interview.durationMinutes * 60_000;
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      this.remainingSeconds.set(remaining);
+
+      if (remaining === 0 && !expired) {
+        expired = true;
+        clearInterval(intervalId);
+        this.completeInterview();
+      }
+    };
+
+    const intervalId = setInterval(tick, 1000);
+    this.destroyRef.onDestroy(() => clearInterval(intervalId));
   }
 
   selectProblem = this.workspace.selectProblem.bind(this.workspace);
