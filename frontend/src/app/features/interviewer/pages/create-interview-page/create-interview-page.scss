@@ -232,6 +232,38 @@ textarea:focus {
   color: #047857;
 }
 
+.token-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.token-value {
+  word-break: break-all;
+}
+
+.copy-token-btn {
+  flex-shrink: 0;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #ffffff;
+  color: #1d4ed8;
+  white-space: nowrap;
+  transition: transform 0.18s ease, background-color 0.18s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    background-color: #dbeafe;
+  }
+}
+
 .result-actions {
   margin-top: 16px;
   display: flex;
