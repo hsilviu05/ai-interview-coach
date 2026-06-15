@@ -28,6 +28,7 @@ export class CreateInterviewPage implements OnInit {
   loadingProblems = false;
   errorMessage = '';
   successMessage = '';
+  copiedToken = false;
 
   createdInterview: InterviewResponse | null = null;
   availableProblems: InterviewProblemSelectionItem[] = [];
@@ -152,10 +153,21 @@ export class CreateInterviewPage implements OnInit {
     this.router.navigate(['/interviewer', this.createdInterview.id, 'sessions']);
   }
 
+  copyToken(): void {
+    if (!this.createdInterview) return;
+    navigator.clipboard.writeText(this.createdInterview.accessToken).then(() => {
+      this.copiedToken = true;
+      setTimeout(() => {
+        this.copiedToken = false;
+      }, 2000);
+    });
+  }
+
   createAnother(): void {
     this.createdInterview = null;
     this.successMessage = '';
     this.errorMessage = '';
+    this.copiedToken = false;
 
     this.form.reset({
       title: '',

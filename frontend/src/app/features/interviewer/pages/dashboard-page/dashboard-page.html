@@ -19,7 +19,24 @@
       </div>
     </div>
 
-    <div class="info-grid">
+    <div class="state-card" *ngIf="loading()">
+      <div class="badge">Loading</div>
+      <h2>Loading your interviews...</h2>
+      <p>Please wait while your workspace is prepared.</p>
+    </div>
+
+    <div class="state-card empty-state-card" *ngIf="!loading() && !errorMessage() && interviews().length === 0">
+      <div class="badge">Get Started</div>
+      <h2>No interviews yet</h2>
+      <p>Create your first interview to get started.</p>
+      <button type="button" class="primary-btn" (click)="goToCreateInterview()">
+        Create Interview
+      </button>
+    </div>
+
+    <p class="error-message" *ngIf="!loading() && errorMessage()">{{ errorMessage() }}</p>
+
+    <div class="info-grid" *ngIf="!loading() && !errorMessage() && interviews().length > 0">
       <div class="info-card">
         <h2>Create interviews</h2>
         <p>

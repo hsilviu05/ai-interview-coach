@@ -57,7 +57,7 @@ export class InterviewsListPage implements OnInit {
 
       setTimeout(() => {
         this.copiedTokenFor.set(null);
-      }, 1500);
+      }, 2000);
     });
   }
 }

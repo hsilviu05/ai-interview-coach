@@ -6,16 +6,19 @@ using AIInterviewCoach.Domain.Constants;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AIInterviewCoach.Application.Services
 {
     public class InterviewService : IInterviewService
     {
         private readonly IAppDbContext _dbContext;
+        private readonly ILogger<InterviewService> _logger;
 
-        public InterviewService(IAppDbContext dbContext)
+        public InterviewService(IAppDbContext dbContext, ILogger<InterviewService> logger)
         {
             _dbContext = dbContext;
+            _logger = logger;
         }
 
         public async Task<InterviewResponseDto> CreateInterviewAsync(Guid interviewerId, CreateInterviewRequestDto request)
@@ -236,6 +239,18 @@ namespace AIInterviewCoach.Application.Services
 
             if (session.Status != InterviewSessionStatus.InProgress)
                 throw new InvalidOperationException("Only in-progress interview sessions can be completed.");
+
+            var elapsedMinutes = (DateTime.UtcNow - session.StartedAt).TotalMinutes;
+            var graceLimitMinutes = session.Interview.DurationMinutes + 10;
+
+            if (elapsedMinutes > graceLimitMinutes)
+            {
+                _logger.LogWarning(
+                    "Session {SessionId} completed {ElapsedMinutes:F1} minutes after it started, exceeding the grace limit of {GraceLimitMinutes} minutes.",
+                    session.Id,
+                    elapsedMinutes,
+                    graceLimitMinutes);
+            }
 
             var totalScore = 0;
 

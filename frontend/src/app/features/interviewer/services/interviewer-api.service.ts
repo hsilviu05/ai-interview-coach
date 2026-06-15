@@ -104,6 +104,12 @@ export class InterviewerApi {
             .pipe(map(interviews => interviews.map(interview => this.normalizeInterviewListItem(interview))));
     }
 
+    getInterviewById(interviewId: string): Observable<InterviewListItem> {
+        return this.http
+            .get<InterviewResponseDto>(`${this.baseUrl}/${interviewId}`)
+            .pipe(map(interview => this.normalizeInterviewListItem(interview)));
+    }
+
     createProblem(payload: CreateProblemRequest): Observable<ProblemListItem> {
         return this.http
             .post<ProblemResponseDto>(this.problemsBaseUrl, payload)

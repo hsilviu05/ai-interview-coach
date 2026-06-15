@@ -651,6 +651,34 @@ describe('CandidateWorkspaceFacade — initializeFromRoute: interview token', ()
     expect(facade.errorMessage()).toBe('Token expired.');
     expect(facade.loading()).toBe(false);
   });
+
+  it('sets the already-completed message and clears loading when startInterviewSession returns 409', () => {
+    candidateApiMock.startInterviewSession.mockReturnValue(
+      throwError(() => ({ status: 409, error: { message: 'Conflict.' } }))
+    );
+
+    facade.initializeFromRoute();
+
+    expect(facade.errorMessage()).toBe(
+      'This interview session has already been completed. Contact your interviewer if this is unexpected.'
+    );
+    expect(facade.loading()).toBe(false);
+    expect(facade.startingSession()).toBe(false);
+  });
+
+  it('sets the already-completed message when the error message contains "already completed"', () => {
+    candidateApiMock.startInterviewSession.mockReturnValue(
+      throwError(() => ({ status: 400, error: { message: 'Session has already completed.' } }))
+    );
+
+    facade.initializeFromRoute();
+
+    expect(facade.errorMessage()).toBe(
+      'This interview session has already been completed. Contact your interviewer if this is unexpected.'
+    );
+    expect(facade.loading()).toBe(false);
+    expect(facade.startingSession()).toBe(false);
+  });
 });
 
 // ── completeInterview and submitSolution ─────────────────────────────────────
