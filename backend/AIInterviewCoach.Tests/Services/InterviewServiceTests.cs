@@ -2,6 +2,7 @@ using AIInterviewCoach.Application.Services;
 using AIInterviewCoach.Domain.Entities;
 using AIInterviewCoach.Domain.Enums;
 using AIInterviewCoach.Tests.Common;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AIInterviewCoach.Tests.Services
 {
@@ -16,7 +17,7 @@ namespace AIInterviewCoach.Tests.Services
             var candidate = TestDataSeeder.CreateCandidate(db);
             var interview = TestDataSeeder.CreateInterview(db, interviewer.Id, token: "start-token");
 
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             var result = await service.StartSessionAsync("start-token", candidate.Id);
 
@@ -40,7 +41,7 @@ namespace AIInterviewCoach.Tests.Services
                 candidate.Id,
                 InterviewSessionStatus.InProgress);
 
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             var result = await service.StartSessionAsync("existing-token", candidate.Id);
 
@@ -97,7 +98,7 @@ namespace AIInterviewCoach.Tests.Services
                 passedTests: 1,
                 totalTests: 2);
 
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             var result = await service.CompleteSessionAsync(session.Id, candidate.Id);
 
@@ -126,7 +127,7 @@ namespace AIInterviewCoach.Tests.Services
                 candidate.Id,
                 InterviewSessionStatus.Abandoned);
 
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             var action = () => service.CompleteSessionAsync(session.Id, candidate.Id);
 
@@ -142,7 +143,7 @@ namespace AIInterviewCoach.Tests.Services
             var otherInterviewer = TestDataSeeder.CreateInterviewer(db);
             var interview = TestDataSeeder.CreateInterview(db, owner.Id);
 
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
                 service.GetByIdAsync(interview.Id, otherInterviewer.Id, isAdmin: false));
@@ -157,7 +158,7 @@ namespace AIInterviewCoach.Tests.Services
             var candidate = TestDataSeeder.CreateCandidate(db);
             TestDataSeeder.CreateInterview(db, interviewer.Id, token: "inactive-token", isActive: false);
 
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             await Assert.ThrowsAsync<KeyNotFoundException>(() =>
                 service.StartSessionAsync("inactive-token", candidate.Id));
@@ -169,7 +170,7 @@ namespace AIInterviewCoach.Tests.Services
             using var db = TestDbContextFactory.CreateContext();
 
             var candidate = TestDataSeeder.CreateCandidate(db);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             await Assert.ThrowsAsync<KeyNotFoundException>(() =>
                 service.StartSessionAsync("no-such-token", candidate.Id));
@@ -186,7 +187,7 @@ namespace AIInterviewCoach.Tests.Services
             var session = TestDataSeeder.CreateInterviewSession(
                 db, interview.Id, candidate.Id, InterviewSessionStatus.Completed);
 
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             // Calling complete on an already-completed session is idempotent; it returns the
             // existing result rather than throwing, so the frontend can retry safely.
@@ -208,7 +209,7 @@ namespace AIInterviewCoach.Tests.Services
             var session = TestDataSeeder.CreateInterviewSession(
                 db, interview.Id, candidateA.Id, InterviewSessionStatus.InProgress);
 
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             // The session query filters by candidateId; a different candidate gets 404, not 403.
             await Assert.ThrowsAsync<KeyNotFoundException>(() =>
@@ -231,7 +232,7 @@ namespace AIInterviewCoach.Tests.Services
 
             TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id, orderIndex: 1);
 
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             var result = await service.GetByTokenAsync("template-token");
 
@@ -271,7 +272,7 @@ namespace AIInterviewCoach.Tests.Services
             db.SaveChanges();
             TestDataSeeder.AddProblemToInterview(db, interview.Id, sparseProblem.Id, orderIndex: 1);
 
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
             var result = await service.GetByTokenAsync("sparse-token");
 
             Assert.NotNull(result);
@@ -290,7 +291,7 @@ namespace AIInterviewCoach.Tests.Services
             using var db = TestDbContextFactory.CreateContext();
 
             var interviewer = TestDataSeeder.CreateInterviewer(db);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             var result = await service.CreateInterviewAsync(interviewer.Id, new Application.DTOs.Interviews.CreateInterviewRequestDto
             {
@@ -316,7 +317,7 @@ namespace AIInterviewCoach.Tests.Services
 
             var interviewer = TestDataSeeder.CreateInterviewer(db);
             var problem = TestDataSeeder.CreateProblem(db, interviewer.Id);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             var result = await service.AddProblemAsync(
                 Guid.NewGuid(),
@@ -335,7 +336,7 @@ namespace AIInterviewCoach.Tests.Services
             var other = TestDataSeeder.CreateInterviewer(db);
             var interview = TestDataSeeder.CreateInterview(db, owner.Id);
             var problem = TestDataSeeder.CreateProblem(db, owner.Id);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
                 service.AddProblemAsync(
@@ -351,7 +352,7 @@ namespace AIInterviewCoach.Tests.Services
 
             var interviewer = TestDataSeeder.CreateInterviewer(db);
             var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             await Assert.ThrowsAsync<KeyNotFoundException>(() =>
                 service.AddProblemAsync(
@@ -369,7 +370,7 @@ namespace AIInterviewCoach.Tests.Services
             var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
             var problem = TestDataSeeder.CreateProblem(db, interviewer.Id);
             TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 service.AddProblemAsync(
@@ -386,7 +387,7 @@ namespace AIInterviewCoach.Tests.Services
             var interviewer = TestDataSeeder.CreateInterviewer(db);
             var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
             var problem = TestDataSeeder.CreateProblem(db, interviewer.Id);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             var result = await service.AddProblemAsync(
                 interview.Id,
@@ -408,7 +409,7 @@ namespace AIInterviewCoach.Tests.Services
             using var db = TestDbContextFactory.CreateContext();
 
             var interviewer = TestDataSeeder.CreateInterviewer(db);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             var result = await service.GetByIdAsync(Guid.NewGuid(), interviewer.Id, isAdmin: false);
 
@@ -425,7 +426,7 @@ namespace AIInterviewCoach.Tests.Services
             var interview = TestDataSeeder.CreateInterview(db, owner.Id);
             var problem = TestDataSeeder.CreateProblem(db, owner.Id, testCaseCount: 1);
             TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id, points: 50, orderIndex: 1);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             // Admin bypasses the `InterviewerId != interviewerId` ownership check.
             var result = await service.GetByIdAsync(interview.Id, admin.Id, isAdmin: true);
@@ -447,7 +448,7 @@ namespace AIInterviewCoach.Tests.Services
             var interview = TestDataSeeder.CreateInterview(db, interviewer.Id);
             TestDataSeeder.CreateInterviewSession(db, interview.Id, candidate.Id);
             TestDataSeeder.CreateInterviewSession(db, interview.Id, candidate.Id);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             var result = (await service.GetInterviewSessionsAsync(interview.Id, interviewer.Id)).ToList();
 
@@ -461,7 +462,7 @@ namespace AIInterviewCoach.Tests.Services
             using var db = TestDbContextFactory.CreateContext();
 
             var interviewer = TestDataSeeder.CreateInterviewer(db);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             await Assert.ThrowsAsync<KeyNotFoundException>(() =>
                 service.GetInterviewSessionsAsync(Guid.NewGuid(), interviewer.Id));
@@ -475,7 +476,7 @@ namespace AIInterviewCoach.Tests.Services
             var owner = TestDataSeeder.CreateInterviewer(db);
             var other = TestDataSeeder.CreateInterviewer(db);
             var interview = TestDataSeeder.CreateInterview(db, owner.Id);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
                 service.GetInterviewSessionsAsync(interview.Id, other.Id));
@@ -497,7 +498,7 @@ namespace AIInterviewCoach.Tests.Services
                 Domain.Enums.SubmissionStatus.Accepted, aiFeedbackStatus: Domain.Constants.SubmissionFeedbackStatuses.Ready, aiFeedback: "Great work.");
             TestDataSeeder.CreateSubmission(db, candidate.Id, problem.Id, session.Id,
                 Domain.Enums.SubmissionStatus.WrongAnswer, aiFeedbackStatus: Domain.Constants.SubmissionFeedbackStatuses.Pending);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             var result = await service.GetInterviewSessionDetailsAsync(session.Id, interviewer.Id);
 
@@ -513,7 +514,7 @@ namespace AIInterviewCoach.Tests.Services
             using var db = TestDbContextFactory.CreateContext();
 
             var interviewer = TestDataSeeder.CreateInterviewer(db);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             await Assert.ThrowsAsync<KeyNotFoundException>(() =>
                 service.GetInterviewSessionDetailsAsync(Guid.NewGuid(), interviewer.Id));
@@ -529,7 +530,7 @@ namespace AIInterviewCoach.Tests.Services
             var candidate = TestDataSeeder.CreateCandidate(db);
             var interview = TestDataSeeder.CreateInterview(db, owner.Id);
             var session = TestDataSeeder.CreateInterviewSession(db, interview.Id, candidate.Id);
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
                 service.GetInterviewSessionDetailsAsync(session.Id, other.Id));
@@ -562,7 +563,7 @@ namespace AIInterviewCoach.Tests.Services
             db.SaveChanges();
             TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id, orderIndex: 1);
 
-            var result = await new InterviewService(db).GetByTokenAsync("blank-difficulty-token");
+            var result = await new InterviewService(db, NullLogger<InterviewService>.Instance).GetByTokenAsync("blank-difficulty-token");
 
             Assert.NotNull(result);
             var p = Assert.Single(result!.Problems);
@@ -592,7 +593,7 @@ namespace AIInterviewCoach.Tests.Services
             db.SaveChanges();
             TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id, orderIndex: 1);
 
-            var result = await new InterviewService(db).GetByTokenAsync("blank-topic-token");
+            var result = await new InterviewService(db, NullLogger<InterviewService>.Instance).GetByTokenAsync("blank-topic-token");
 
             Assert.NotNull(result);
             var p = Assert.Single(result!.Problems);
@@ -633,7 +634,7 @@ namespace AIInterviewCoach.Tests.Services
             db.SaveChanges();
             TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id, orderIndex: 1);
 
-            var result = await new InterviewService(db).GetByTokenAsync("testcase-fallback-token");
+            var result = await new InterviewService(db, NullLogger<InterviewService>.Instance).GetByTokenAsync("testcase-fallback-token");
 
             Assert.NotNull(result);
             var p = Assert.Single(result!.Problems);
@@ -655,7 +656,7 @@ namespace AIInterviewCoach.Tests.Services
             TestDataSeeder.AddProblemToInterview(db, interviewWithProblem.Id, problem.Id, orderIndex: 1);
             TestDataSeeder.CreateInterview(db, owner.Id, token: "owner-2");
             TestDataSeeder.CreateInterview(db, other.Id, token: "other-1");
-            var service = new InterviewService(db);
+            var service = new InterviewService(db, NullLogger<InterviewService>.Instance);
 
             var result = (await service.GetMineAsync(owner.Id)).ToList();
 

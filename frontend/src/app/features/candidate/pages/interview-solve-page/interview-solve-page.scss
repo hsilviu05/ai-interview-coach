@@ -107,10 +107,8 @@
 .timer-display {
   font-size: 28px;
   font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
   color: #0f172a;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: ui-monospace, monospace;
   transition: color 0.3s ease;
 
   &.timer-warning {
@@ -352,7 +350,7 @@
 }
 
 .feedback-source-chip--pending {
-  animation: pulse-chip 1.2s ease-in-out infinite;
+  animation: pulse-chip 1.2s ease infinite;
 }
 
 .feedback-card pre {
