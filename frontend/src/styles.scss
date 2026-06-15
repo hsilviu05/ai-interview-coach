@@ -1,3 +1,25 @@
+/* ─── Design Tokens ──────────────────────────────────── */
+:root {
+  --color-primary:      #2563eb;
+  --color-primary-deep: #1d4ed8;
+  --color-accent:       #0f766e;
+  --color-ink:          #0f172a;
+  --color-text:         #334155;
+  --color-muted:        #64748b;
+  --color-surface:      #ffffff;
+  --color-bg:           #f8fafc;
+  --color-border:       #dbe4f0;
+
+  --radius-sm:   12px;
+  --radius-md:   16px;
+  --radius-lg:   20px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.10), 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
 html,
 body {
   margin: 0;
@@ -15,4 +37,102 @@ body {
 body {
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #0b1733;
+  line-height: 1.6;
+}
+
+h1 {
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+/* ─── Depth & Surfaces ───────────────────────────────── */
+
+/* Subtly soften the grid-texture overlay on all pages */
+.background-grid {
+  opacity: 0.72;
+}
+
+/* Lift interactive cards on hover */
+.info-card {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.info-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.problem-item {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.problem-item:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* ─── Interactions & Focus ───────────────────────────── */
+
+/* Consistent keyboard focus ring across all interactive elements */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Fallback transition for buttons that don't define one in component CSS */
+button {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* Fallback focus ring for form controls in pages without component-level focus styles */
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* ─── Loading & Empty States ─────────────────────────── */
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skeleton {
+  display: block;
+  height: 14px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    #e2e8f0 25%,
+    #f1f5f9 50%,
+    #e2e8f0 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+.skeleton--wide  { width: 80%; }
+.skeleton--short { width: 50%; height: 12px; }
+.skeleton + .skeleton { margin-top: 10px; }
+
+/* Two shimmer bars appended below loading-card text via a single pseudo-element
+   using a multi-layer background to paint both bars */
+@keyframes skeleton-shimmer-dual {
+  0%   { background-position: -200% 0, -200% 22px; }
+  100% { background-position:  200% 0,  200% 22px; }
+}
+
+.loading-card::after {
+  content: '';
+  display: block;
+  margin-top: 20px;
+  height: 32px;
+  width: 72%;
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, #dde3ed 25%, #eef1f6 50%, #dde3ed 75%) 0 0    / 200% 11px no-repeat,
+    linear-gradient(90deg, #dde3ed 25%, #eef1f6 50%, #dde3ed 75%) 0 22px / 140% 10px no-repeat;
+  animation: skeleton-shimmer-dual 1.6s ease-in-out infinite;
 }
