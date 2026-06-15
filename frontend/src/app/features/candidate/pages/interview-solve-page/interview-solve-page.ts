@@ -82,7 +82,7 @@ export class InterviewSolvePage implements OnInit {
       if (remaining === 0 && !expired) {
         expired = true;
         clearInterval(intervalId);
-        this.completeInterview();
+        this.confirmAndComplete();
       }
     };
 
@@ -90,9 +90,17 @@ export class InterviewSolvePage implements OnInit {
     this.destroyRef.onDestroy(() => clearInterval(intervalId));
   }
 
+  private static readonly COMPLETE_CONFIRM_MESSAGE =
+    'Submit your interview? This cannot be undone and your session will be finalized.';
+
+  confirmAndComplete(): void {
+    if (confirm(InterviewSolvePage.COMPLETE_CONFIRM_MESSAGE)) {
+      this.workspace.completeInterview();
+    }
+  }
+
   selectProblem = this.workspace.selectProblem.bind(this.workspace);
   submitSolution = this.workspace.submitSolution.bind(this.workspace);
-  completeInterview = this.workspace.completeInterview.bind(this.workspace);
   resetCurrentProblem = this.workspace.resetCurrentProblem.bind(this.workspace);
   resetAllProblems = this.workspace.resetAllProblems.bind(this.workspace);
   requestNextHint = this.workspace.requestNextHint.bind(this.workspace);

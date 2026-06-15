@@ -63,7 +63,7 @@
               <div class="feedback-source-chip" *ngIf="submission.aiFeedbackSource && isAiFeedbackReady(submission)">
                 {{ submission.aiFeedbackSource }}
               </div>
-              <div class="feedback-source-chip" *ngIf="isAiFeedbackPending(submission)">
+              <div class="feedback-source-chip feedback-source-chip--pending" *ngIf="isAiFeedbackPending(submission)">
                 Pending
               </div>
               <div class="feedback-source-chip" *ngIf="isAiFeedbackFailed(submission)">

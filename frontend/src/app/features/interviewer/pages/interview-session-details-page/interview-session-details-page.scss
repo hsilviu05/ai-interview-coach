@@ -175,6 +175,11 @@
   margin-bottom: 10px;
 }
 
+@keyframes pulse-chip {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 .feedback-source-chip {
   display: inline-flex;
   padding: 6px 10px;
@@ -183,6 +188,10 @@
   color: #0f766e;
   font-size: 12px;
   font-weight: 700;
+}
+
+.feedback-source-chip--pending {
+  animation: pulse-chip 1.2s ease-in-out infinite;
 }
 
 .feedback-block pre {

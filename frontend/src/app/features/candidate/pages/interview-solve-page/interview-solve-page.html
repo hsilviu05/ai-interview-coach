@@ -13,7 +13,12 @@
           <span *ngIf="!isPracticeMode()">{{ interview.durationMinutes }} min</span>
           <span *ngIf="isPracticeMode()">Self-paced</span>
           <span>{{ interview.problems.length }} problems</span>
-          <span *ngIf="session() as session">{{ session.status }}</span>
+          <span
+            *ngIf="session() as session"
+            [class.status-inprogress]="session.status === 'InProgress'"
+            [class.status-completed]="session.status === 'Completed'">
+            {{ session.status }}
+          </span>
         </div>
 
         <div class="timer-block" *ngIf="!isPracticeMode() && session()">
@@ -68,7 +73,7 @@
               *ngIf="!isPracticeMode()"
               type="button"
               class="complete-btn"
-              (click)="completeInterview()"
+              (click)="confirmAndComplete()"
               [disabled]="completing() || resettingAllProblems()">
               {{ completing() ? 'Completing...' : 'Complete Interview' }}
             </button>
@@ -246,7 +251,7 @@
             *ngIf="!isPracticeMode() && allProblemsCompleted()"
             type="button"
             class="complete-btn"
-            (click)="completeInterview()"
+            (click)="confirmAndComplete()"
             [disabled]="completing() || resettingAllProblems()">
             {{ completing() ? 'Completing...' : 'Complete Interview' }}
           </button>
@@ -265,7 +270,7 @@
                 *ngIf="feedbackSubmission.aiFeedbackSource && isAiFeedbackReady(feedbackSubmission)">
                 {{ feedbackSubmission.aiFeedbackSource }}
               </div>
-              <div class="feedback-source-chip" *ngIf="isAiFeedbackPending(feedbackSubmission)">
+              <div class="feedback-source-chip feedback-source-chip--pending" *ngIf="isAiFeedbackPending(feedbackSubmission)">
                 Pending
               </div>
               <div class="feedback-source-chip" *ngIf="isAiFeedbackFailed(feedbackSubmission)">

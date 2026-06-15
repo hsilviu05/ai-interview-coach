@@ -39,7 +39,11 @@
 
           <div class="session-meta">
             <span class="status-chip">{{ session.status }}</span>
-            <span class="score-chip">{{ session.totalScore }} pts</span>
+            <span
+              class="score-chip"
+              [class.score-inprogress]="session.status === 'InProgress'">
+              {{ session.status === 'InProgress' ? 'In Progress' : formatScore(session) }}
+            </span>
           </div>
         </button>
       </div>

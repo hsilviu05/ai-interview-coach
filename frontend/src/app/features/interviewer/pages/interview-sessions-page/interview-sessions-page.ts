@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { InterviewerApi } from '../../services/interviewer-api.service';
 import { InterviewSessionSummary } from '../../models/interviewer-session.models';
+import { InterviewListItem } from '../../models/interviewer-list.models';
 import { Navbar } from '../../../../shared/components/navbar/navbar';
 
 @Component({
@@ -21,6 +23,11 @@ export class InterviewSessionsPage implements OnInit {
   readonly errorMessage = signal('');
   readonly sessions = signal<InterviewSessionSummary[]>([]);
   readonly interviewId = signal('');
+  readonly interview = signal<InterviewListItem | null>(null);
+
+  readonly totalPoints = computed(() =>
+    this.interview()?.problems.reduce((sum, p) => sum + p.points, 0) ?? 0
+  );
 
   ngOnInit(): void {
     const interviewId = this.route.snapshot.paramMap.get('interviewId');
@@ -32,16 +39,20 @@ export class InterviewSessionsPage implements OnInit {
     }
 
     this.interviewId.set(interviewId);
-    this.loadSessions(interviewId);
+    this.loadData(interviewId);
   }
 
-  private loadSessions(interviewId: string): void {
+  private loadData(interviewId: string): void {
     this.loading.set(true);
     this.errorMessage.set('');
 
-    this.interviewerApi.getInterviewSessions(interviewId).subscribe({
-      next: sessions => {
+    forkJoin({
+      sessions: this.interviewerApi.getInterviewSessions(interviewId),
+      interview: this.interviewerApi.getInterviewById(interviewId),
+    }).subscribe({
+      next: ({ sessions, interview }) => {
         this.sessions.set(sessions);
+        this.interview.set(interview);
       },
       error: err => {
         this.errorMessage.set(err?.error?.message ?? 'Failed to load sessions.');
@@ -51,6 +62,10 @@ export class InterviewSessionsPage implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  formatScore(session: InterviewSessionSummary): string {
+    return `${session.totalScore} / ${this.totalPoints()} pts`;
   }
 
   openSession(sessionId: string): void {

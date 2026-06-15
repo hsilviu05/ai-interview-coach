@@ -706,8 +706,14 @@ int main() {
         this.loadSessionSubmissions(session.id);
       },
       error: err => {
+        const isAlreadyCompleted =
+          err?.status === 409 ||
+          String(err?.error?.message ?? '').toLowerCase().includes('already completed');
+
         this.errorMessage.set(
-          err?.error?.message ?? 'Failed to start session.'
+          isAlreadyCompleted
+            ? 'This interview session has already been completed. Contact your interviewer if this is unexpected.'
+            : (err?.error?.message ?? 'Failed to start session.')
         );
         this.loading.set(false);
         this.startingSession.set(false);
