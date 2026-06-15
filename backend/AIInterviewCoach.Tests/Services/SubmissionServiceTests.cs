@@ -382,6 +382,76 @@ namespace AIInterviewCoach.Tests.Services
             Assert.Equal(1, db.Submissions.Count());
         }
 
+        [Fact]
+        public async Task CreateSubmissionAsync_ShouldThrow_WhenInterviewSessionHasExpired()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id); // DurationMinutes = 60
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id, points: 100, orderIndex: 1);
+
+            var session = TestDataSeeder.CreateInterviewSession(
+                db,
+                interview.Id,
+                candidate.Id,
+                InterviewSessionStatus.InProgress,
+                startedAt: DateTime.UtcNow.AddMinutes(-61));
+
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            var action = () => service.CreateSubmissionAsync(candidate.Id, new CreateSubmissionRequestDto
+            {
+                ProblemId = problem.Id,
+                InterviewSessionId = session.Id,
+                Language = "csharp",
+                SourceCode = "public class Solution { }"
+            });
+
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(action);
+            Assert.Equal("The interview session has expired.", ex.Message);
+        }
+
+        [Fact]
+        public async Task CreateSubmissionAsync_ShouldSucceed_WhenInterviewSessionHasNotExpired()
+        {
+            using var db = TestDbContextFactory.CreateContext();
+
+            var interviewer = TestDataSeeder.CreateInterviewer(db);
+            var candidate = TestDataSeeder.CreateCandidate(db);
+
+            var interview = TestDataSeeder.CreateInterview(db, interviewer.Id); // DurationMinutes = 60
+            var problem = TestDataSeeder.CreateProblem(db, interviewer.Id, testCaseCount: 1);
+            TestDataSeeder.AddProblemToInterview(db, interview.Id, problem.Id, points: 100, orderIndex: 1);
+
+            var session = TestDataSeeder.CreateInterviewSession(
+                db,
+                interview.Id,
+                candidate.Id,
+                InterviewSessionStatus.InProgress,
+                startedAt: DateTime.UtcNow.AddMinutes(-30));
+
+            var service = new SubmissionService(
+                db, new FakeCodeExecutor(), new FakeSubmissionFeedbackQueue(),
+                NullLogger<SubmissionService>.Instance);
+
+            var result = await service.CreateSubmissionAsync(candidate.Id, new CreateSubmissionRequestDto
+            {
+                ProblemId = problem.Id,
+                InterviewSessionId = session.Id,
+                Language = "csharp",
+                SourceCode = "public class Solution { }"
+            });
+
+            Assert.Equal(candidate.Id, result.CandidateId);
+            Assert.Equal(session.Id, result.InterviewSessionId);
+        }
+
         private sealed class ThrowingSubmissionFeedbackQueue : ISubmissionFeedbackQueue
         {
             public ValueTask QueueAsync(Guid submissionId, CancellationToken cancellationToken = default)

@@ -52,6 +52,12 @@ namespace AIInterviewCoach.Application.Services
                 if (interviewSession.Status != InterviewSessionStatus.InProgress)
                     throw new InvalidOperationException("Interview session is not active.");
 
+                var deadline = interviewSession.StartedAt
+                    + TimeSpan.FromMinutes(interviewSession.Interview.DurationMinutes);
+
+                if (DateTime.UtcNow > deadline)
+                    throw new InvalidOperationException("The interview session has expired.");
+
                 var belongsToInterview = await _dbContext.InterviewProblems
                     .AnyAsync(ip =>
                         ip.InterviewId == interviewSession.InterviewId &&
