@@ -86,19 +86,17 @@ namespace AIInterviewCoach.Application.Services.ProblemSignatures
                 return $$$"""
                     using System;
 
-                    {{candidate_code}}
-
                     var rawInput = Console.In.ReadToEnd();
                     var result = new Solution().{{{signature.CsharpMethodName}}}(rawInput);
                     {{{BuildCsharpOutputStatement(signature.ReturnType, "result")}}}
+
+                    {{candidate_code}}
                     """;
             }
 
             return $$$"""
                 using System;
                 using System.Text.Json;
-
-                {{candidate_code}}
 
                 var payload = JsonSerializer.Deserialize<GeneratedInputPayload>(Console.In.ReadToEnd());
 
@@ -114,6 +112,8 @@ namespace AIInterviewCoach.Application.Services.ProblemSignatures
                 {
                 {{{BuildCsharpInputPayloadProperties(signature.Parameters)}}}
                 }
+
+                {{candidate_code}}
                 """;
         }
 
