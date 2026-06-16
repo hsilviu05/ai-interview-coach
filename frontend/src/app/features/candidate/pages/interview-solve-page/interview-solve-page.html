@@ -45,6 +45,12 @@
 
           <span
             class="status-chip"
+            [ngClass]="{
+              'status-accepted': submission.status === 'Accepted',
+              'status-completed': submission.status === 'Completed',
+              'status-inprogress': submission.status === 'InProgress',
+              'status-failed': submission.status === 'Failed'
+            }"
             *ngIf="getLatestSubmissionForProblem(problem.problemId) as submission">
             {{ submission.status }}
           </span>
@@ -281,7 +287,12 @@
             <p>{{ feedbackSubmission.status }} · {{ feedbackSubmission.submittedAt | date:'short' }}</p>
           </div>
 
-          <span class="status-chip">{{ feedbackSubmission.status }}</span>
+          <span class="status-chip" [ngClass]="{
+            'status-accepted': feedbackSubmission.status === 'Accepted',
+            'status-completed': feedbackSubmission.status === 'Completed',
+            'status-inprogress': feedbackSubmission.status === 'InProgress',
+            'status-failed': feedbackSubmission.status === 'Failed'
+          }">{{ feedbackSubmission.status }}</span>
         </div>
 
         <p *ngIf="isAiFeedbackPending(feedbackSubmission)">

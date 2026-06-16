@@ -135,8 +135,13 @@
   margin-bottom: 12px;
 }
 
+.problem-item:hover {
+  background: #f8fafc;
+}
+
 .problem-item.active {
   border-color: #2563eb;
+  border-left: 3px solid #2563eb;
   background: #eff6ff;
 }
 
@@ -155,9 +160,15 @@
   color: #1d4ed8;
 }
 
-.status-completed {
+.status-completed,
+.status-accepted {
   background: #dcfce7;
   color: #166534;
+}
+
+.status-failed {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .workspace {
@@ -295,7 +306,7 @@
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: inherit;
 }
 
 .feedback-header {
@@ -326,8 +337,9 @@
   display: inline-flex;
   padding: 8px 14px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.08);
-  color: #0f172a;
+  background: rgba(37, 99, 235, 0.10);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  color: #1d4ed8;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -364,7 +376,7 @@
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: inherit;
 }
 
 .problem-details {
@@ -420,7 +432,7 @@
   border-radius: 16px;
   background: #ffffff;
   border: 1px solid #dbe4f0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: ui-monospace, monospace;
 }
 
 .example-grid {
