@@ -84,7 +84,7 @@
           </div>
 
           <div class="problem-selection-list" *ngIf="availableProblems.length > 0">
-            <div class="problem-selection-item" *ngFor="let problem of availableProblems">
+            <div class="problem-selection-item" [class.selected]="problem.selected" *ngFor="let problem of availableProblems">
               <div class="selection-left">
                 <label class="checkbox-inline">
                   <input

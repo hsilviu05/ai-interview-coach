@@ -39,7 +39,12 @@
             </div>
 
             <div class="submission-meta">
-              <span class="status-chip">{{ submission.status }}</span>
+              <span class="status-chip" [ngClass]="{
+                'status-accepted': submission.status === 'Accepted',
+                'status-completed': submission.status === 'Completed',
+                'status-inprogress': submission.status === 'InProgress',
+                'status-failed': submission.status === 'Failed'
+              }">{{ submission.status }}</span>
               <span class="score-chip">
                 {{ submission.passedTests }}/{{ submission.totalTests }} tests
               </span>
