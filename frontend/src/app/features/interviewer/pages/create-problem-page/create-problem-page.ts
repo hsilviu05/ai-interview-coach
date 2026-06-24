@@ -333,9 +333,11 @@ export class CreateProblemPage implements OnInit {
       if (!this.isFunctionSignatureMode()) {
         this.signaturePreview = null;
         this.previewErrorMessage = '';
+        this.form.controls.signature.disable();
         return;
       }
 
+      this.form.controls.signature.enable();
       this.refreshSignaturePreview();
     });
 
