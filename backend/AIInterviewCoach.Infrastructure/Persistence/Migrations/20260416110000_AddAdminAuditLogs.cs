@@ -1,4 +1,6 @@
 ﻿using System;
+using AIInterviewCoach.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -6,6 +8,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace AIInterviewCoach.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260416110000_AddAdminAuditLogs")]
     public partial class AddAdminAuditLogs : Migration
     {
         /// <inheritdoc />
