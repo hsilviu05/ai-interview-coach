@@ -54,8 +54,8 @@ export class CreateProblemPage implements OnInit {
   ];
 
   loading = false;
-  loadingProblem = false;
-  loadingTemplates = false;
+  loadingProblem = !!this.route.snapshot.paramMap.get('problemId');
+  loadingTemplates = true;
   loadingPreview = false;
   errorMessage = '';
   successMessage = '';
@@ -65,7 +65,7 @@ export class CreateProblemPage implements OnInit {
   problemTemplates: ProblemTemplateItem[] = [];
   selectedTemplateKey = '';
   signaturePreview: ProblemSignaturePreview | null = null;
-  editingProblemId: string | null = null;
+  editingProblemId: string | null = this.route.snapshot.paramMap.get('problemId');
 
   form = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(200)]],
@@ -403,7 +403,6 @@ export class CreateProblemPage implements OnInit {
   }
 
   private loadProblemTemplates(): void {
-    this.loadingTemplates = true;
     this.templateErrorMessage = '';
 
     this.interviewerApi
@@ -425,18 +424,14 @@ export class CreateProblemPage implements OnInit {
   }
 
   private loadProblemIfEditing(): void {
-    const problemId = this.route.snapshot.paramMap.get('problemId');
-
-    if (!problemId) {
+    if (!this.editingProblemId) {
       return;
     }
 
-    this.editingProblemId = problemId;
-    this.loadingProblem = true;
     this.errorMessage = '';
 
     this.interviewerApi
-      .getProblemById(problemId)
+      .getProblemById(this.editingProblemId)
       .pipe(
         finalize(() => {
           this.loadingProblem = false;
